@@ -1,0 +1,82 @@
+Name:                api-tools
+Version:             0.0.1
+Synopsis:            DSL for generating Aeson/JSON API boilerplate and docs
+Description:         api-tools provides a compact DSL that used Template Haskell
+                     to generate the newtype/data types and Aeson/QuickCheck
+                     instances for converting between JSON and the generated
+                     types and writing QuickCheck unit tests. A QuickCheck
+                     validation suite is needed to 
+Homepage:            http://github.com/aristidb/aws
+License:             BSD3
+License-file:        LICENSE
+Author:              Chris Dornan
+Maintainer:          chrisd@irisconnect.co.uk
+Copyright:           Iris Connect
+Category:            Network, Web, Cloud, Distributed Computing
+Build-type:          Simple
+
+Cabal-version:       >=1.10
+
+Source-repository this
+  type: git
+  location: https://github.com/iconnect/api-tools.git
+  tag: 0.0.1
+
+Source-repository head
+  type: git
+  location: https://github.com/iconnect/api-tools.git
+
+Library
+  Exposed-modules:
+      --Data.API
+        Data.API.Generate
+        Data.API.Types
+        Data.API.Parse
+        Data.API.Scan
+      --Data.API.APIToolsAPI
+      --Data.API.APIToolsAPI.Gen
+      --Data.API.APIToolsAPI.DSL
+  Build-depends:
+        QuickCheck           >= 2.5.1,
+        aeson                >= 0.6.1,
+        array                >= 0.4,
+        attoparsec           >= 0.10.4,
+        attempt              >= 0.3.1.1 && < 0.5,
+        base                 == 4.*,
+        base64-bytestring    == 1.0.*,
+        bytestring           >= 0.9     && < 0.11,
+        case-insensitive     >= 0.2     && < 1.1,
+        containers           >= 0.4,
+        lens                 >= 3.8,
+        parsec               >= 3.1.3,
+        safe                 >= 0.3.3,
+        safecopy             >= 0.8.1,
+        template-haskell     >= 2.7,
+        text                 >= 0.11
+
+  GHC-Options: -Wall
+
+  Default-Language: Haskell2010
+
+Test-Suite api-json
+  type:          detailed-0.9
+  test-module:   Data.API.Test
+  Build-depends:
+        QuickCheck           >= 2.5.1,
+        aeson                >= 0.6.1,
+        attempt              >= 0.3.1.1 && < 0.5,
+        base                 == 4.*,
+        base64-bytestring    == 1.0.*,
+        bytestring           >= 0.9     && < 0.11,
+        case-insensitive     >= 0.2     && < 1.1,
+        containers           >= 0.4,
+        safe                 >= 0.3.3,
+        text                 >= 0.11
+
+  Other-modules:
+        Data.API.Test.DSL
+        Data.API.Test.Gen
+
+  GHC-Options: -Wall
+
+  Default-Language: Haskell2010

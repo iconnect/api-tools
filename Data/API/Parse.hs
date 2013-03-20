@@ -1,10 +1,10 @@
-module Data.API.Parse 
+module Data.API.Parse
     ( parseAPI
     , test_p
     ) where
 
-import           Data.API.Aeson.Spec
-import           Data.API.Parser.Scan
+import           Data.API.Types
+import           Data.API.Scan
 import qualified Data.Set                   as Set
 import qualified Data.Map                   as Map
 import           Text.Parsec
@@ -19,7 +19,7 @@ import           Control.Monad
     
     
 
-parseAPI :: String -> APISpec
+parseAPI :: String -> API
 parseAPI inp =
     case parse api_p "" $ scan inp of
       Left  pe  -> error $ show pe
@@ -43,14 +43,14 @@ test =
 
 type Parse a = Parsec [Token] () a
 
-api_p :: Parse APISpec
+api_p :: Parse API
 api_p = 
- do api <- many speclet_p
+ do api <- many node_p
     eof
     return api
 
-speclet_p :: Parse APISpeclet
-speclet_p =
+node_p :: Parse APINode
+node_p =
      do kw_p Semi
         pre <- prefix_p
         kw_p ColCol
@@ -58,7 +58,7 @@ speclet_p =
         cts <- comments_p
         kw_p Equals
         spc <- spec_p
-        return $ APISpeclet con cts pre spc
+        return $ APINode con cts pre spc
 
 spec_p :: Parse Spec
 spec_p =

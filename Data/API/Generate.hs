@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Data.API.Aeson.Generate
+module Data.API.Generate
     ( api
     , generate
     , generateTools
@@ -32,7 +32,7 @@ module Data.API.Aeson.Generate
     , jsonStrMap_p
     ) where
 
-import           Data.API.Aeson.Spec
+import           Data.API.Types
 import           Data.API.Parse
 import qualified Data.Text
 import qualified Data.Map
@@ -57,11 +57,11 @@ import qualified Test.QuickCheck                as QC
 import qualified Control.Lens                   as L
 
 
-generate :: APISpec -> Q [Dec]
-generate ass = concat <$> mapM gen ass 
+generate :: API -> Q [Dec]
+generate api' = concat <$> mapM gen api'
 
-generateTools :: Version a -> APISpec -> Q [Dec]
-generateTools n ass = concat <$> mapM (gen_tools n) ass
+generateTools :: Version a -> API -> Q [Dec]
+generateTools n api' = concat <$> mapM (gen_tools n) api'
 
 api :: QuasiQuoter
 api =
@@ -77,20 +77,15 @@ instance QC.Arbitrary T.Text where
     arbitrary = T.pack <$> QC.arbitrary
 
 
-{-
-oneof :: [Gen a] -> Gen a
--}
-
-
-gen :: APISpeclet -> Q [Dec]
+gen :: APINode -> Q [Dec]
 gen as =
-    case asSpec as of
+    case anSpec as of
       SpNewtype sn -> gen_sn as sn
       SpRecord  sr -> gen_sr as sr
       SpUnion   su -> gen_su as su
       SpEnum    se -> gen_se as se
 
-gen_tools :: Version a -> APISpeclet -> Q [Dec]
+gen_tools :: Version a -> APINode -> Q [Dec]
 gen_tools n as = fmap concat $ sequence
     [ L.makeLenses           nm
     , deriveSafeCopy n 'base nm
@@ -98,7 +93,7 @@ gen_tools n as = fmap concat $ sequence
   where
     nm = type_nm as
 
-gen_sn :: APISpeclet -> SpecNewtype -> Q [Dec]
+gen_sn :: APINode -> SpecNewtype -> Q [Dec]
 gen_sn as sn = sequence
     [ gen_sn_dt as sn
     , gen_sn_to as sn
@@ -106,7 +101,7 @@ gen_sn as sn = sequence
     , gen_sn_ab as sn
     ]
 
-gen_sr :: APISpeclet -> SpecRecord -> Q [Dec] 
+gen_sr :: APINode -> SpecRecord -> Q [Dec] 
 gen_sr as sr = sequence
     [ gen_sr_dt as sr
     , gen_sr_to as sr
@@ -114,7 +109,7 @@ gen_sr as sr = sequence
     , gen_sr_ab as sr
     ]
 
-gen_su :: APISpeclet -> SpecUnion -> Q [Dec] 
+gen_su :: APINode -> SpecUnion -> Q [Dec] 
 gen_su as su = sequence
     [ gen_su_dt as su
     , gen_su_to as su
@@ -122,7 +117,7 @@ gen_su as su = sequence
     , gen_su_ab as su
     ]
 
-gen_se :: APISpeclet -> SpecEnum -> Q [Dec] 
+gen_se :: APINode -> SpecEnum -> Q [Dec] 
 gen_se as se = sequence
     [ gen_se_dt     as se
     , gen_se_to     as se 
@@ -150,7 +145,7 @@ instance FromJSON JobId where
     parseJSON = withText "JobId" (return . JobId)
 -}
 
-gen_sn_dt, gen_sn_to, gen_sn_fm, gen_sn_ab :: APISpeclet -> SpecNewtype -> Q Dec
+gen_sn_dt, gen_sn_to, gen_sn_fm, gen_sn_ab :: APINode -> SpecNewtype -> Q Dec
 
 gen_sn_dt as sn = return $ NewtypeD [] nm [] c $ derive_nms ++ iss
   where
@@ -182,7 +177,7 @@ gen_sn_fm as sn = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
 
     bdy = NormalB $ AppE 
                 (AppE (VarE wnm) 
-                            (LitE $ StringL $ _TypeName $ asName as)) $
+                            (LitE $ StringL $ _TypeName $ anName as)) $
                     AppE (AppE (VarE dot_nm) (VarE return_nm)) $ ConE tn
 
     tn  = type_nm as
@@ -234,7 +229,7 @@ instance ToJSON JobSpecId where
             ]
 -}
 
-gen_sr_dt, gen_sr_to, gen_sr_fm, gen_sr_ab :: APISpeclet -> SpecRecord -> Q Dec
+gen_sr_dt, gen_sr_to, gen_sr_fm, gen_sr_ab :: APINode -> SpecRecord -> Q Dec
 
 gen_sr_dt as sr = return $ DataD [] nm [] cs [show_nm,eq_nm]
   where
@@ -313,7 +308,7 @@ instance FromJSON Foo where
     parseJSON val = typeMismatch "Foo" val 
 -}
 
-gen_su_dt, gen_su_to, gen_su_fm, gen_su_ab :: APISpeclet -> SpecUnion -> Q Dec
+gen_su_dt, gen_su_to, gen_su_fm, gen_su_ab :: APINode -> SpecUnion -> Q Dec
 
 gen_su_dt as su = return $ DataD [] nm [] cs [show_nm,eq_nm]
   where
@@ -355,7 +350,7 @@ gen_su_fm as su = return $ InstanceD [] typ [FunD parse_json_nm [cl,cl']]
     fns = Map.keys $ suFields su
 
     oops as_ e = AppE (AppE (VarE mismatch_nm)
-                                (LitE $ StringL $ _TypeName $ asName as_)) e
+                                (LitE $ StringL $ _TypeName $ anName as_)) e
 
 gen_su_ab as su = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
   where
@@ -418,7 +413,7 @@ instance FromJSON FrameRate where
 
 gen_se_dt, gen_se_to, gen_se_fm, gen_se_ab,
                 gen_se_tx_sig, gen_se_tx, 
-                gen_se_mp_sig, gen_se_mp :: APISpeclet -> SpecEnum -> Q Dec
+                gen_se_mp_sig, gen_se_mp :: APINode -> SpecEnum -> Q Dec
 
 gen_se_dt as se = return $ DataD [] nm [] cs 
                                 [show_nm,eq_nm,ord_nm,bounded_nm,enum_nm]
@@ -487,28 +482,29 @@ gen_se_ab as se = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
     ks  = map (pref_con_nm as) $ Set.toList $ seAlts se
 
 
-type_nm, txt_nm, map_nm :: APISpeclet -> Name
-type_nm as = mkName $              _TypeName $ asName as
-txt_nm  as = mkName $ "_text_" ++ (_TypeName $ asName as)
-map_nm  as = mkName $ "_map_"  ++ (_TypeName $ asName as)
+type_nm, txt_nm, map_nm :: APINode -> Name
+type_nm as = mkName $              _TypeName $ anName as
+txt_nm  as = mkName $ "_text_" ++ (_TypeName $ anName as)
+map_nm  as = mkName $ "_map_"  ++ (_TypeName $ anName as)
 
-pref_field_nm :: APISpeclet -> FieldName -> Name
+pref_field_nm :: APINode -> FieldName -> Name
 pref_field_nm as fnm = mkName $ map toLower pre ++ _FieldName fnm
   where
-    pre = CI.original $ asPrefix as
+    pre = CI.original $ anPrefix as
 
-newtype_prj_nm :: APISpeclet -> Name
-newtype_prj_nm as = mkName $ "_" ++ (_TypeName $ asName as)
+newtype_prj_nm :: APINode -> Name
+newtype_prj_nm as = mkName $ "_" ++ (_TypeName $ anName as)
 
-pref_con_nm :: APISpeclet -> FieldName -> Name
+pref_con_nm :: APINode -> FieldName -> Name
 pref_con_nm as fnm = mkName $ map toUpper pre ++ _FieldName fnm
   where
-    pre = CI.original $ asPrefix as
+    pre = CI.original $ anPrefix as
 
 mk_type :: APIType -> Type
 mk_type ty =
     case ty of
-      TyList  ty' -> AppT ListT $ mk_type ty'
+      TyList  ty' -> AppT ListT  $ mk_type ty'
+      TyMaybe ty' -> AppT (ConT maybe_nm) $ mk_type ty'
       TyName  nm  -> ConT  $ mkName $ _TypeName nm
       TyBasic bt  -> basic_type bt
 
@@ -524,7 +520,7 @@ derive_nms :: [Name]
 derive_nms = [show_nm,eq_nm,ord_nm,typeable_cl_nm]
 
 
-x_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
+x_nm, maybe_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
     fmap_nm, to_json_nm, parse_json_nm, return_nm, 
     arbitrary_nm, dot_nm,
     map_ty_nm, text_nm, is_string_cl_nm, typeable_cl_nm, 
@@ -536,6 +532,7 @@ x_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
     gen_text_map_id, json_str_map_id :: Name
 
 x_nm            = mkName "x"
+maybe_nm        = mkName "Maybe"
 show_nm         = mkName "Show"
 eq_nm           = mkName "Eq"
 ord_nm          = mkName "Ord"
@@ -576,7 +573,7 @@ gen_text_map_id = Name (mkOccName "genTextMap"  ) $ NameQ gn_mod
 json_str_map_id = Name (mkOccName "jsonStrMap_p") $ NameQ gn_mod
 
 gn_mod :: ModName
-gn_mod = mkModName "Data.API.Aeson.Generate"
+gn_mod = mkModName "Data.API.Generate"
 
 mkInt :: Int -> Value
 mkInt = Number . I . toInteger

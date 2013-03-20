@@ -1,9 +1,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 
-module Data.API.Aeson.Spec
-    ( APISpec
-    , APISpeclet(..)
+module Data.API.Types
+    ( API
+    , APINode(..)
     , TypeName(..)
     , FieldName(..)
     , MDComment
@@ -23,19 +23,19 @@ import qualified Data.CaseInsensitive       as CI
 import           Data.String
 
 
--- | an API Spec is made up of a list of type/element specs, each
---   specifying a Haskell type and a JSON wrapper for it
+-- | an API spec is made up of a list of type/element specs, each
+--   specifying a Haskell type and JSON wrappers
 
-type APISpec = [APISpeclet]
+type API = [APINode]
 
 -- | Specifies an individual element/type of the API 
 
-data APISpeclet
-    = APISpeclet
-        { asName    :: TypeName         -- | name of Haskell type
-        , asComment :: MDComment        -- | comment describing typ ein Markdown 
-        , asPrefix  :: Prefix           -- | distinct short prefix (see below)
-        , asSpec    :: Spec             -- | the type specification
+data APINode
+    = APINode
+        { anName    :: TypeName         -- | name of Haskell type
+        , anComment :: MDComment        -- | comment describing typ ein Markdown 
+        , anPrefix  :: Prefix           -- | distinct short prefix (see below)
+        , anSpec    :: Spec             -- | the type specification
         }
     deriving (Show)
 
@@ -103,10 +103,11 @@ data SpecEnum = SpecEnum
     }
     deriving (Show)
 
--- | Type is either a list, a named element of the API or a basic type
+-- | Type is either a list, Maybe, a named element of the API or a basic type
 
 data APIType
     = TyList  APIType       -- | list elements are types
+    | TyMaybe APIType       -- | Maybe elements are types
     | TyName  TypeName      -- | the referenced type must be defined by the API
     | TyBasic BasicType     -- | a JSON string, int or bool
     deriving (Show)

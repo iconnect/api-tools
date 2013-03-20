@@ -3,10 +3,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 
-module Example.Gen where
+module Data.API.Test.Gen where
 
-import           Example.Spec
-import           Data.API.Aeson.Generate
+import           Data.API.Test.DSL
+import           Data.API.Generate
 
 $(generate        example)
 $(generateTools 0 example)

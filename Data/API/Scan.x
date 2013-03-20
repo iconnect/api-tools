@@ -1,7 +1,7 @@
 {
-{-# OPTIONS_GHC -w   #-}
+{-# OPTIONS_GHC -w #-}
 
-module Data.API.Parser.Scan
+module Data.API.Scan
     ( scan
     , Token(..)
     ) where

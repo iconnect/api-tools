@@ -1,34 +1,34 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE QuasiQuotes                #-}
 
-module Example.Spec where
+module Data.API.Test.DSL where
 
-import           Data.API.Aeson.Spec
-import           Data.API.Aeson.Generate
+import           Data.API.Types
+import           Data.API.Generate
 import qualified Data.Map                   as Map
 import qualified Data.Set                   as Set
 
 
-example :: APISpec
+example :: API
 example =
-    [ APISpeclet "IsoS" "simple String newtype defn" "" $ SpNewtype $ SpecNewtype BTstring
-    , APISpeclet "IsoB" "simple Bool   newtype defn" "" $ SpNewtype $ SpecNewtype BTbool
-    , APISpeclet "IsoI" "simple Int    newtype defn" "" $ SpNewtype $ SpecNewtype BTint
-    , APISpeclet "Foo" "a test defn" "bAr_" $ SpRecord $ SpecRecord $ Map.fromList
+    [ APINode "IsoS" "simple String newtype defn" "" $ SpNewtype $ SpecNewtype BTstring
+    , APINode "IsoB" "simple Bool   newtype defn" "" $ SpNewtype $ SpecNewtype BTbool
+    , APINode "IsoI" "simple Int    newtype defn" "" $ SpNewtype $ SpecNewtype BTint
+    , APINode "Foo" "a test defn" "bAr_" $ SpRecord $ SpecRecord $ Map.fromList
             [ (,) "Baz" (TyBasic BTbool,"just a bool")
             , (,) "Qux" (TyBasic BTint ,"just an int")
             ]
-    , APISpeclet "Wibble" "another test defn" "dro" $ SpUnion $ SpecUnion $ Map.fromList
+    , APINode "Wibble" "another test defn" "dro" $ SpUnion $ SpecUnion $ Map.fromList
             [ (,) "wubble"  (TyList $ TyName $ "Foo","list of Foo")
             , (,) "flubble" (TyBasic BTstring        ,"a string"  )
             ]
-    , APISpeclet "Enumer" "enum test defn" "enm" $ SpEnum $ SpecEnum $ Set.fromList
+    , APINode "Enumer" "enum test defn" "enm" $ SpEnum $ SpecEnum $ Set.fromList
             [ "wubble"
             , "flubble"
             ]
     ]
 
-example2 :: APISpec
+example2 :: API
 example2 = [api|
 poo :: Poo
     // A simple test example

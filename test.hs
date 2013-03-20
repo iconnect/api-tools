@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
-import           Example.Gen
-import           Example.Spec
-import           Data.API.Aeson.Spec
-import           Data.API.Aeson.Markdown
+import           Data.API.Test.Gen
+import           Data.API.Test.DSL
+import           Data.API.Types
+import           Data.API.Markdown
 import           Data.Aeson
 import           Control.Lens
 import           Test.QuickCheck

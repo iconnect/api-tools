@@ -1,9 +1,9 @@
 {-# LANGUAGE CPP #-}
-{-# LINE 1 "Data/API/Parser/Scan.x" #-}
+{-# LINE 1 "Data/API/Scan.x" #-}
 
-{-# OPTIONS_GHC -w   #-}
+{-# OPTIONS_GHC -w #-}
 
-module Data.API.Parser.Scan
+module Data.API.Scan
     ( scan
     , Token(..)
     ) where
@@ -184,7 +184,7 @@ alex_deflt :: Array Int Int
 alex_deflt = listArray (0,93) [-1,-1,6,-1,34,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,20,20,-1,22,22,26,26,31,31,34,34,34,35,35,6,6,6,37,37,34,41,41,46,46,92,92,92,-1,-1,48,48,48,-1,48,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,92,-1]
 
 alex_accept = listArray (0::Int,93) [AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccSkip,AlexAccSkip,AlexAccSkip,AlexAcc (alex_action_3),AlexAcc (alex_action_4),AlexAcc (alex_action_5),AlexAcc (alex_action_6),AlexAcc (alex_action_7),AlexAcc (alex_action_8),AlexAcc (alex_action_9),AlexAcc (alex_action_10),AlexAcc (alex_action_11),AlexAcc (alex_action_12),AlexAcc (alex_action_13),AlexAcc (alex_action_14),AlexAcc (alex_action_15),AlexAcc (alex_action_16),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_17),AlexAcc (alex_action_18),AlexAcc (alex_action_19),AlexAcc (alex_action_20)]
-{-# LINE 42 "Data/API/Parser/Scan.x" #-}
+{-# LINE 42 "Data/API/Scan.x" #-}
 
 
 type PToken = (AlexPosn,Token)
