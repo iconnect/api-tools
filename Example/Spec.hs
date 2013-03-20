@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE QuasiQuotes                #-}
 
 module Example.Spec where
 
 import           Data.API.Aeson.Spec
+import           Data.API.Aeson.Generate
 import qualified Data.Map                   as Map
 import qualified Data.Set                   as Set
 
@@ -25,3 +27,24 @@ example =
             , "flubble"
             ]
     ]
+
+example2 :: APISpec
+example2 = [api|
+poo :: Poo
+    // A simple test example
+    = record
+        x : Poo
+        y : Foo
+
+_c_ :: Coord
+    // A simple test example
+    = record
+        x : Int     // the x coordinate
+        y : Int     // the y coordinate
+
+coord_ :: Coordinate
+    // A simple test example
+    = record
+        x : Int     // the x coordinate
+        y : Int     // the y coordinate
+|]

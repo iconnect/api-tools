@@ -6,6 +6,7 @@ import           Example.Spec
 import           Data.API.Aeson.Spec
 import           Data.API.Aeson.Markdown
 import           Data.Aeson
+import           Control.Lens
 
 
 main :: IO ()

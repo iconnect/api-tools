@@ -2,7 +2,8 @@
 {-# LANGUAGE TemplateHaskell    #-}
 
 module Data.API.Aeson.Generate
-    ( generate
+    ( api
+    , generate
     , generateTools
     , Data.Map.Map
     , Data.Text.Text
@@ -26,16 +27,18 @@ module Data.API.Aeson.Generate
     , jsonStrMap_p
     ) where
 
+import           Data.API.Aeson.Spec
+import           Data.API.Parse
 import           Control.Monad
 import           Control.Applicative
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax
+import           Language.Haskell.TH.Quote
+import           Data.Char
+import           Data.String
 import qualified Data.Text
 import qualified Data.Map
 import qualified Data.Typeable
-import           Data.API.Aeson.Spec
-import           Data.Char
-import           Data.String
 import qualified Data.Text                      as T
 import qualified Data.Map                       as Map
 import qualified Data.Set                       as Set
@@ -52,6 +55,9 @@ generate ass = concat <$> mapM gen ass
 
 generateTools :: Version a -> APISpec -> Q [Dec]
 generateTools n ass = concat <$> mapM (gen_tools n) ass
+
+api :: QuasiQuoter
+api = QuasiQuoter { quoteExp = \s -> [| parseAPI s |] }
 
 
 gen :: APISpeclet -> Q [Dec]

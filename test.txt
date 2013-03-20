@@ -1,0 +1,31 @@
+pre :: BarType
+    // this is a comment
+
+    = record
+        f : boolean            // another comment
+
+pre :: FooType
+    // this is a comment
+
+    = integer
+
+pre :: FooType
+    // this is a comment
+
+    = boolean
+
+pre :: FooType
+    // this is a comment
+
+    = string
+
+pre :: BazType
+    // this is a comment
+
+    = union
+        | f : boolean            // another comment
+
+pre :: QuxType
+    // this is a comment
+
+    = foo|bar|baz|qux
