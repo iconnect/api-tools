@@ -1,5 +1,6 @@
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Data.API.Aeson.Generate
     ( api
@@ -8,6 +9,10 @@ module Data.API.Aeson.Generate
     , Data.Map.Map
     , Data.Text.Text
     , Data.Typeable.Typeable
+    , Test.QuickCheck.Arbitrary
+    , Test.QuickCheck.arbitrary
+    , Test.QuickCheck.oneof
+    , Test.QuickCheck.elements
     , IsString
     , typeMismatch
     , ToJSON(..)
@@ -29,6 +34,10 @@ module Data.API.Aeson.Generate
 
 import           Data.API.Aeson.Spec
 import           Data.API.Parse
+import qualified Data.Text
+import qualified Data.Map
+import qualified Data.Typeable
+import qualified Test.QuickCheck
 import           Control.Monad
 import           Control.Applicative
 import           Language.Haskell.TH
@@ -36,9 +45,6 @@ import           Language.Haskell.TH.Syntax
 import           Language.Haskell.TH.Quote
 import           Data.Char
 import           Data.String
-import qualified Data.Text
-import qualified Data.Map
-import qualified Data.Typeable
 import qualified Data.Text                      as T
 import qualified Data.Map                       as Map
 import qualified Data.Set                       as Set
@@ -46,8 +52,9 @@ import qualified Data.CaseInsensitive           as CI
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Attoparsec.Number
-import qualified Control.Lens                   as L
 import           Data.SafeCopy
+import qualified Test.QuickCheck                as QC
+import qualified Control.Lens                   as L
 
 
 generate :: APISpec -> Q [Dec]
@@ -57,7 +64,22 @@ generateTools :: Version a -> APISpec -> Q [Dec]
 generateTools n ass = concat <$> mapM (gen_tools n) ass
 
 api :: QuasiQuoter
-api = QuasiQuoter { quoteExp = \s -> [| parseAPI s |] }
+api =
+    QuasiQuoter 
+        { quoteExp  = \s -> [| parseAPI s |]
+        , quotePat  = error "api QuasiQuoter used in patten      context"
+        , quoteType = error "api QuasiQuoter used in type        context"
+        , quoteDec  = error "api QuasiQuoter used in declaration context"
+        }
+
+
+instance QC.Arbitrary T.Text where
+    arbitrary = T.pack <$> QC.arbitrary
+
+
+{-
+oneof :: [Gen a] -> Gen a
+-}
 
 
 gen :: APISpeclet -> Q [Dec]
@@ -81,6 +103,7 @@ gen_sn as sn = sequence
     [ gen_sn_dt as sn
     , gen_sn_to as sn
     , gen_sn_fm as sn
+    , gen_sn_ab as sn
     ]
 
 gen_sr :: APISpeclet -> SpecRecord -> Q [Dec] 
@@ -88,6 +111,7 @@ gen_sr as sr = sequence
     [ gen_sr_dt as sr
     , gen_sr_to as sr
     , gen_sr_fm as sr
+    , gen_sr_ab as sr
     ]
 
 gen_su :: APISpeclet -> SpecUnion -> Q [Dec] 
@@ -95,6 +119,7 @@ gen_su as su = sequence
     [ gen_su_dt as su
     , gen_su_to as su
     , gen_su_fm as su
+    , gen_su_ab as su
     ]
 
 gen_se :: APISpeclet -> SpecEnum -> Q [Dec] 
@@ -102,6 +127,7 @@ gen_se as se = sequence
     [ gen_se_dt     as se
     , gen_se_to     as se 
     , gen_se_fm     as se
+    , gen_se_ab     as se
     , gen_se_tx_sig as se
     , gen_se_tx     as se
     , gen_se_mp_sig as se
@@ -124,7 +150,7 @@ instance FromJSON JobId where
     parseJSON = withText "JobId" (return . JobId)
 -}
 
-gen_sn_dt, gen_sn_to, gen_sn_fm :: APISpeclet -> SpecNewtype -> Q Dec
+gen_sn_dt, gen_sn_to, gen_sn_fm, gen_sn_ab :: APISpeclet -> SpecNewtype -> Q Dec
 
 gen_sn_dt as sn = return $ NewtypeD [] nm [] c $ derive_nms ++ iss
   where
@@ -166,7 +192,15 @@ gen_sn_fm as sn = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
             BTbool   -> with_bool_nm
             BTint    -> with_int_nm
 
+gen_sn_ab as _sn = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
+  where
+    typ   = AppT (ConT arbitrary_cl_nm) $ ConT $ type_nm as
 
+    cl    = Clause [] bdy []
+
+    bdy   = NormalB $ ap2 (VarE fmap_nm) (ConE tn) $ VarE arbitrary_fn_nm
+
+    tn    = type_nm as
 
 {-
 -- a sample record type definition, wrapper and test function
@@ -200,7 +234,7 @@ instance ToJSON JobSpecId where
             ]
 -}
 
-gen_sr_dt, gen_sr_to, gen_sr_fm :: APISpeclet -> SpecRecord -> Q Dec
+gen_sr_dt, gen_sr_to, gen_sr_fm, gen_sr_ab :: APISpeclet -> SpecRecord -> Q Dec
 
 gen_sr_dt as sr = return $ DataD [] nm [] cs [show_nm,eq_nm]
   where
@@ -241,21 +275,16 @@ gen_sr_fm as sr = return $ InstanceD [] typ [FunD parse_json_nm [cl,cl']]
                  
     fns = Map.keys $ srFields sr
 
-    -- app fe fe' ke []          => ke
-    -- app fe fe' ke [e1,e2,...,en] =>
-    --      ... ((ke <$> e1) <*> e2) ... <*> en
+gen_sr_ab as sr = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
+  where
+    typ   = AppT (ConT arbitrary_cl_nm) $ ConT tn
 
-    app :: Exp -> Exp -> Exp -> [Exp] -> Exp
-    app fd fs ke es0 =
-        case es0 of
-          []   -> ke
-          e:es -> app' (ke `dl` e) es
-      where
-        app' e []      = e
-        app' e (e':es) = app' (e `st` e') es
+    cl    = Clause [] bdy []
 
-        st e1 e2 = AppE (AppE fs e1) e2 
-        dl e1 e2 = AppE (AppE fd e1) e2 
+    bdy   = NormalB $ app (VarE fmap_nm) (VarE astar_nm) (ConE tn) $
+                replicate (Map.size $ srFields sr) $ VarE arbitrary_fn_nm 
+
+    tn    = type_nm as
 
 
 {-
@@ -284,7 +313,7 @@ instance FromJSON Foo where
     parseJSON val = typeMismatch "Foo" val 
 -}
 
-gen_su_dt, gen_su_to, gen_su_fm :: APISpeclet -> SpecUnion -> Q Dec
+gen_su_dt, gen_su_to, gen_su_fm, gen_su_ab :: APISpeclet -> SpecUnion -> Q Dec
 
 gen_su_dt as su = return $ DataD [] nm [] cs [show_nm,eq_nm]
   where
@@ -328,6 +357,22 @@ gen_su_fm as su = return $ InstanceD [] typ [FunD parse_json_nm [cl,cl']]
     oops as_ e = AppE (AppE (VarE mismatch_nm)
                                 (LitE $ StringL $ _TypeName $ asName as_)) e
 
+gen_su_ab as su = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
+  where
+    typ = AppT (ConT arbitrary_cl_nm) $ ConT tn
+
+    cl  = Clause [] bdy []
+
+    bdy = NormalB $ if null ks then emp else prp
+    
+    emp = ConE tn
+    
+    prp = AppE (VarE oneof_nm) $
+                ListE [ ap2 (VarE fmap_nm) (ConE k) 
+                                            (VarE arbitrary_fn_nm) | k<- ks ]
+
+    tn  = type_nm as
+    ks  = map (pref_con_nm as) $ Map.keys $ suFields su
 
 
 {-
@@ -371,7 +416,7 @@ instance FromJSON FrameRate where
 
 -}
 
-gen_se_dt, gen_se_to, gen_se_fm, 
+gen_se_dt, gen_se_to, gen_se_fm, gen_se_ab,
                 gen_se_tx_sig, gen_se_tx, 
                 gen_se_mp_sig, gen_se_mp :: APISpeclet -> SpecEnum -> Q Dec
 
@@ -425,6 +470,21 @@ gen_se_mp as _se = return $ FunD (map_nm as) [Clause [] bdy []]
   where
     bdy    = NormalB $ AppE (VarE gen_text_map_id) (VarE $ txt_nm as)
 
+gen_se_ab as se = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
+  where
+    typ = AppT (ConT arbitrary_cl_nm) $ ConT tn
+
+    cl  = Clause [] bdy []
+
+    bdy = NormalB $ if null ks then emp else prp
+    
+    emp = ConE tn
+    
+    prp = AppE (VarE elements_nm) $ ListE [ ConE k | k<- ks ]
+
+    tn  = type_nm as
+    
+    ks  = map (pref_con_nm as) $ Set.toList $ seAlts se
 
 
 type_nm, txt_nm, map_nm :: APISpeclet -> Name
@@ -465,12 +525,14 @@ derive_nms = [show_nm,eq_nm,ord_nm,typeable_cl_nm]
 
 
 x_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
-    fmap_nm, to_json_nm, parse_json_nm, return_nm, dot_nm,
+    fmap_nm, to_json_nm, parse_json_nm, return_nm, 
+    arbitrary_nm, dot_nm,
     map_ty_nm, text_nm, is_string_cl_nm, typeable_cl_nm, 
-    to_json_cl_nm, from_json_cl_nm,
+    to_json_cl_nm, from_json_cl_nm, arbitrary_cl_nm,
     object_nm, object_con_nm, string_con_nm, bool_con_nm,
     dot_eq_nm, dot_co_nm, mzero_nm, astar_nm, mismatch_nm, 
     with_text_nm, with_bool_nm, with_int_nm, mk_int_nm, alts_nm,
+    arbitrary_fn_nm, oneof_nm, elements_nm,
     gen_text_map_id, json_str_map_id :: Name
 
 x_nm            = mkName "x"
@@ -483,6 +545,7 @@ fmap_nm         = mkName "fmap"
 to_json_nm      = mkName "toJSON"
 parse_json_nm   = mkName "parseJSON"
 return_nm       = mkName "return"
+arbitrary_nm    = mkName "arbitrary"
 dot_nm          = mkName "."
 
 map_ty_nm       = Name (mkOccName "Map"         ) $ NameQ gn_mod
@@ -491,6 +554,7 @@ is_string_cl_nm = Name (mkOccName "IsString"    ) $ NameQ gn_mod
 typeable_cl_nm  = Name (mkOccName "Typeable"    ) $ NameQ gn_mod
 to_json_cl_nm   = Name (mkOccName "ToJSON"      ) $ NameQ gn_mod
 from_json_cl_nm = Name (mkOccName "FromJSON"    ) $ NameQ gn_mod
+arbitrary_cl_nm = Name (mkOccName "Arbitrary"   ) $ NameQ gn_mod
 object_nm       = Name (mkOccName "object"      ) $ NameQ gn_mod
 object_con_nm   = Name (mkOccName "Object"      ) $ NameQ gn_mod
 string_con_nm   = Name (mkOccName "String"      ) $ NameQ gn_mod
@@ -505,6 +569,9 @@ with_bool_nm    = Name (mkOccName "withBool"    ) $ NameQ gn_mod
 mk_int_nm       = Name (mkOccName "mkInt"       ) $ NameQ gn_mod
 with_int_nm     = Name (mkOccName "withInt"     ) $ NameQ gn_mod
 alts_nm         = Name (mkOccName "alternatives") $ NameQ gn_mod
+arbitrary_fn_nm = Name (mkOccName "arbitrary"   ) $ NameQ gn_mod
+oneof_nm        = Name (mkOccName "oneof"       ) $ NameQ gn_mod
+elements_nm     = Name (mkOccName "elements"    ) $ NameQ gn_mod
 gen_text_map_id = Name (mkOccName "genTextMap"  ) $ NameQ gn_mod
 json_str_map_id = Name (mkOccName "jsonStrMap_p") $ NameQ gn_mod
 
@@ -533,3 +600,25 @@ json_string_p :: Ord a => (T.Text->Maybe a) -> Value -> Parser a
 json_string_p p (String t) | Just val <- p t = return val
                            | otherwise       = mzero
 json_string_p _  _                           = mzero
+
+
+
+-- app <$> <*> ke []          => ke
+-- app <$> <*> ke [e1,e2,...,en] =>
+--      ... ((ke <$> e1) <*> e2) ... <*> en
+
+app :: Exp -> Exp -> Exp -> [Exp] -> Exp
+app fd fs ke es0 =
+    case es0 of
+      []   -> ke
+      e:es -> app' (ke `dl` e) es
+  where
+    app' e []      = e
+    app' e (e':es) = app' (e `st` e') es
+
+    st e1 e2 = AppE (AppE fs e1) e2 
+    dl e1 e2 = AppE (AppE fd e1) e2 
+
+
+ap2 :: Exp -> Exp -> Exp -> Exp
+ap2 f e e' = AppE (AppE f e) e'

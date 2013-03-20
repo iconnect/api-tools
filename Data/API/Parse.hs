@@ -1,5 +1,6 @@
 module Data.API.Parse 
     ( parseAPI
+    , test_p
     ) where
 
 import           Data.API.Aeson.Spec
@@ -23,6 +24,13 @@ parseAPI inp =
     case parse api_p "" $ scan inp of
       Left  pe  -> error $ show pe
       Right api -> api  
+
+test_p :: Parse a -> String -> a
+test_p psr inp =
+    case parse psr "" $ scan inp of
+      Left  pe -> error $ show pe
+      Right y  -> y  
+
 
 {-
 test :: IO () 
@@ -93,13 +101,13 @@ list_p =
  do kw_p Bra
     typ <- type_p
     kw_p Ket
-    return typ
+    return $ TyList typ
 
 basic_p :: Parse BasicType
 basic_p = 
-    const BTstring <$> kw_p Integer       <|>
-    const BTbool   <$> kw_p String        <|>
-    const BTint    <$> kw_p Boolean
+    const BTstring <$> kw_p String        <|>
+    const BTbool   <$> kw_p Boolean       <|>
+    const BTint    <$> kw_p Integer
 
 comments_p :: Parse MDComment
 comments_p = unlines <$> many comment_p

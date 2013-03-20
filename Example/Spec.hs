@@ -39,12 +39,21 @@ poo :: Poo
 _c_ :: Coord
     // A simple test example
     = record
-        x : Int     // the x coordinate
-        y : Int     // the y coordinate
+        x : integer // the x coordinate
+        y : integer // the y coordinate
 
-coord_ :: Coordinate
+twi_ :: Twiddle
     // A simple test example
     = record
-        x : Int     // the x coordinate
-        y : Int     // the y coordinate
+        x : [integer] // the x coordinate
+        y : [integer] // the y coordinate
+
+ssn :: Ssn
+    = integer
+
+ide :: Ide
+    = string
+
+flg :: Flag
+    = boolean
 |]

@@ -7,6 +7,7 @@ import           Data.API.Aeson.Spec
 import           Data.API.Aeson.Markdown
 import           Data.Aeson
 import           Control.Lens
+import           Test.QuickCheck
 
 
 main :: IO ()
@@ -19,6 +20,7 @@ main =
     print $ (decode $ encode test_wibble_2 :: Maybe Wibble)
     print $ (decode $ encode test_enumer   :: Maybe [Enumer])
     putStr $ markdown _TypeName example
+    putStr $ markdown _TypeName example2
 
 test_IsoS :: [IsoS]
 test_IsoS = ["text newtype"]
@@ -40,3 +42,15 @@ test_wibble_2 = DROflubble "try this"
 
 test_enumer :: [Enumer]
 test_enumer = [ENMwubble]
+
+
+
+
+-- kill warinings
+
+set' :: ASetter s t a b -> b -> s -> t
+set' = set
+
+quickCheck' :: Testable prop => prop -> IO ()
+quickCheck' = quickCheck
+ 
