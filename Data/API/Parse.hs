@@ -94,7 +94,13 @@ fields_p is_u = fmap Map.fromList $ many $
         return $ (fnm,(typ,cmt))
 
 type_p :: Parse APIType
-type_p = list_p <|> TyName <$> type_name_p <|> TyBasic <$> basic_p
+type_p = list_p <|> maybe_p <|> TyName <$> type_name_p <|> TyBasic <$> basic_p
+
+maybe_p :: Parse APIType
+maybe_p =
+ do kw_p Query
+    typ <- type_p
+    return $ TyMaybe typ
 
 list_p :: Parse APIType
 list_p = 
@@ -106,6 +112,7 @@ list_p =
 basic_p :: Parse BasicType
 basic_p = 
     const BTstring <$> kw_p String        <|>
+    const BTbinary <$> kw_p Binary        <|>
     const BTbool   <$> kw_p Boolean       <|>
     const BTint    <$> kw_p Integer
 

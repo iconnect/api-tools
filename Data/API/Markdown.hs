@@ -85,6 +85,7 @@ basic_type_md :: BasicType -> MDComment
 basic_type_md bt =
     case bt of
       BTstring -> "string" 
+      BTbinary -> "binary" 
       BTbool   -> "boolean"
       BTint    -> "integral number"
 

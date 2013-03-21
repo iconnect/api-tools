@@ -27,9 +27,11 @@ tokens :-
     "::"                                { simple    ColCol          }
     ":"                                 { simple    Colon           }
     "="                                 { simple    Equals          }
+    "?"                                 { simple    Query           }
     integer                             { simple    Integer         }
     boolean                             { simple    Boolean         }
     string                              { simple    String          }
+    binary                              { simple    Binary          }
     record                              { simple    Record          }
     union                               { simple    Union           }
       $upper [$lower $upper $digit]*    { mk        TypeIden        }
@@ -46,6 +48,7 @@ type PToken = (AlexPosn,Token)
 data Token
     = Semi
     | Bar
+    | Binary
     | Bra
     | Ket
     | ColCol
@@ -53,6 +56,7 @@ data Token
     | Equals
     | Boolean
     | Integer
+    | Query
     | Record
     | String
     | Union

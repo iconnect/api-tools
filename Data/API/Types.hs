@@ -116,6 +116,7 @@ data APIType
 
 data BasicType
     = BTstring              -- | a JSON UTF-8 string
+    | BTbinary              -- | a base-64-encoded byte string
     | BTbool                -- | a JSON bool
     | BTint                 -- | a JSON integral number
     deriving (Show)

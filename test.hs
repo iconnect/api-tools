@@ -5,7 +5,9 @@ import           Data.API.Test.Gen
 import           Data.API.Test.DSL
 import           Data.API.Types
 import           Data.API.Markdown
+import           Data.API.Generate
 import           Data.Aeson
+import qualified Data.ByteString.Char8      as B
 import           Control.Lens
 import           Test.QuickCheck
 
@@ -48,9 +50,17 @@ test_enumer = [ENMwubble]
 
 -- kill warinings
 
+type R a = Data.Aeson.Result a
+
 set' :: ASetter s t a b -> b -> s -> t
 set' = set
 
 quickCheck' :: Testable prop => prop -> IO ()
 quickCheck' = quickCheck
- 
+
+type Binary_ = Binary
+
+type BS = B.ByteString
+
+bs :: String -> B.ByteString
+bs = B.pack

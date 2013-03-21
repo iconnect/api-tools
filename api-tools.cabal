@@ -57,26 +57,3 @@ Library
   GHC-Options: -Wall
 
   Default-Language: Haskell2010
-
-Test-Suite api-json
-  type:          detailed-0.9
-  test-module:   Data.API.Test
-  Build-depends:
-        QuickCheck           >= 2.5.1,
-        aeson                >= 0.6.1,
-        attempt              >= 0.3.1.1 && < 0.5,
-        base                 == 4.*,
-        base64-bytestring    == 1.0.*,
-        bytestring           >= 0.9     && < 0.11,
-        case-insensitive     >= 0.2     && < 1.1,
-        containers           >= 0.4,
-        safe                 >= 0.3.3,
-        text                 >= 0.11
-
-  Other-modules:
-        Data.API.Test.DSL
-        Data.API.Test.Gen
-
-  GHC-Options: -Wall
-
-  Default-Language: Haskell2010

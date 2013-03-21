@@ -6,6 +6,7 @@ module Data.API.Generate
     ( api
     , generate
     , generateTools
+    , Binary(..)
     , Data.Map.Map
     , Data.Text.Text
     , Data.Typeable.Typeable
@@ -30,6 +31,9 @@ module Data.API.Generate
     , alternatives
     , genTextMap
     , jsonStrMap_p
+    , mkBinary
+    , withBinary
+    , binary
     ) where
 
 import           Data.API.Types
@@ -52,6 +56,8 @@ import qualified Data.CaseInsensitive           as CI
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Attoparsec.Number
+import qualified Data.ByteString.Char8          as B
+import qualified Data.ByteString.Base64         as B64
 import           Data.SafeCopy
 import qualified Test.QuickCheck                as QC
 import qualified Control.Lens                   as L
@@ -73,9 +79,20 @@ api =
         }
 
 
+instance ToJSON Binary where
+    toJSON = mkBinary  
+    
+instance FromJSON Binary where
+    parseJSON = withBinary "Binary" return
+
 instance QC.Arbitrary T.Text where
     arbitrary = T.pack <$> QC.arbitrary
 
+instance QC.Arbitrary Binary where
+    arbitrary = Binary <$> B.pack <$> QC.arbitrary
+
+newtype Binary = Binary { _Binary :: B.ByteString }
+    deriving (Show,Eq,Ord)
 
 gen :: APINode -> Q [Dec]
 gen as =
@@ -155,6 +172,7 @@ gen_sn_dt as sn = return $ NewtypeD [] nm [] c $ derive_nms ++ iss
 
     iss = case snType sn of
             BTstring -> [is_string_cl_nm]
+            BTbinary -> []
             BTbool   -> []
             BTint    -> []
 
@@ -162,10 +180,11 @@ gen_sn_to as sn = return $ InstanceD [] typ [FunD to_json_nm [Clause [] bdy []]]
   where
     typ = AppT (ConT to_json_cl_nm) $ ConT $ type_nm as
 
-    bdy = NormalB $ AppE (AppE (VarE dot_nm) ine) $ VarE $ newtype_prj_nm as
+    bdy = NormalB $ ap2 (VarE dot_nm) ine $ VarE $ newtype_prj_nm as
 
     ine = case snType sn of
             BTstring -> ConE string_con_nm
+            BTbinary -> VarE mk_binary_nm
             BTbool   -> ConE bool_con_nm
             BTint    -> VarE mk_int_nm
 
@@ -184,18 +203,19 @@ gen_sn_fm as sn = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
     
     wnm = case snType sn of
             BTstring -> with_text_nm
+            BTbinary -> with_binary_nm
             BTbool   -> with_bool_nm
             BTint    -> with_int_nm
 
 gen_sn_ab as _sn = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
   where
-    typ   = AppT (ConT arbitrary_cl_nm) $ ConT $ type_nm as
+    typ = AppT (ConT arbitrary_cl_nm) $ ConT $ type_nm as
 
-    cl    = Clause [] bdy []
+    cl  = Clause [] bdy []
 
-    bdy   = NormalB $ ap2 (VarE fmap_nm) (ConE tn) $ VarE arbitrary_fn_nm
+    bdy = NormalB $ ap2 (VarE fmap_nm) (ConE tn) $ VarE arbitrary_fn_nm
 
-    tn    = type_nm as
+    tn  = type_nm as
 
 {-
 -- a sample record type definition, wrapper and test function
@@ -286,12 +306,6 @@ gen_sr_ab as sr = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
 
 -- a sample union type definition, wrapper and test function
 -- we are trying to generate something like this
-
-test :: IO ()
-test = 
- do print $ (decode $ encode $ Bar 42   :: Maybe Foo)
-    print $ (decode $ encode $ Baz True :: Maybe Foo)
-
 
 data Foo = Bar Int | Baz Bool
     deriving (Show,Typeable)
@@ -512,6 +526,7 @@ basic_type :: BasicType -> Type
 basic_type bt =
     case bt of
       BTstring -> ConT   text_nm
+      BTbinary -> ConT $ binary_nm
       BTbool   -> ConT $ mkName "Bool"
       BTint    -> ConT $ mkName "Int"
 
@@ -529,7 +544,8 @@ x_nm, maybe_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
     dot_eq_nm, dot_co_nm, mzero_nm, astar_nm, mismatch_nm, 
     with_text_nm, with_bool_nm, with_int_nm, mk_int_nm, alts_nm,
     arbitrary_fn_nm, oneof_nm, elements_nm,
-    gen_text_map_id, json_str_map_id :: Name
+    gen_text_map_id, json_str_map_id,
+    binary_nm, mk_binary_nm, with_binary_nm :: Name
 
 x_nm            = mkName "x"
 maybe_nm        = mkName "Maybe"
@@ -571,6 +587,9 @@ oneof_nm        = Name (mkOccName "oneof"       ) $ NameQ gn_mod
 elements_nm     = Name (mkOccName "elements"    ) $ NameQ gn_mod
 gen_text_map_id = Name (mkOccName "genTextMap"  ) $ NameQ gn_mod
 json_str_map_id = Name (mkOccName "jsonStrMap_p") $ NameQ gn_mod
+mk_binary_nm    = Name (mkOccName "mkBinary"    ) $ NameQ gn_mod
+with_binary_nm  = Name (mkOccName "withBinary"  ) $ NameQ gn_mod
+binary_nm       = Name (mkOccName "Binary"      ) $ NameQ gn_mod
 
 gn_mod :: ModName
 gn_mod = mkModName "Data.API.Generate"
@@ -582,7 +601,7 @@ withInt :: String -> (Int->Parser a) -> Value -> Parser a
 withInt lab f = withNumber lab g
   where
     g (I i) = f $ fromInteger i
-    g val     = typeMismatch lab $ Number val
+    g val   = typeMismatch lab $ Number val
 
 alternatives :: [Parser a] -> Parser a
 alternatives = foldr (<|>) empty 
@@ -599,6 +618,25 @@ json_string_p p (String t) | Just val <- p t = return val
 json_string_p _  _                           = mzero
 
 
+-- Inject and project binary Values from Text values using the base64 codec
+
+mkBinary :: Binary -> Value
+mkBinary = String . b2t . B64.encode . _Binary
+
+withBinary :: String -> (Binary->Parser a) -> Value -> Parser a
+withBinary lab f = withText lab g
+  where
+    g t =
+        case B64.decode $ t2b t of
+          Left  _  -> typeMismatch lab (String t)
+          Right bs -> f $ Binary bs
+
+b2t :: B.ByteString -> T.Text
+b2t = T.pack . B.unpack
+
+t2b :: T.Text -> B.ByteString
+t2b = B.pack . T.unpack
+ 
 
 -- app <$> <*> ke []          => ke
 -- app <$> <*> ke [e1,e2,...,en] =>
@@ -619,3 +657,6 @@ app fd fs ke es0 =
 
 ap2 :: Exp -> Exp -> Exp -> Exp
 ap2 f e e' = AppE (AppE f e) e'
+
+$(L.makeLenses           ''Binary)
+$(deriveSafeCopy 0 'base ''Binary)

@@ -45,8 +45,8 @@ _c_ :: Coord
 twi_ :: Twiddle
     // A simple test example
     = record
-        x : [integer] // the x coordinate
-        y : [integer] // the y coordinate
+        x : [integer]   // a field
+        y : ? [binary]  // another field
 
 ssn :: Ssn
     = integer
@@ -56,4 +56,7 @@ ide :: Ide
 
 flg :: Flag
     = boolean
+
+crt :: Cert
+    = binary
 |]

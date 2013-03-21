@@ -17,6 +17,8 @@ api-tools: .prep
 	cabal configure --enable-tests
 	touch .prep
 
+alex: Data/API/Scan.hs
+
 Data/API/Scan.hs: Data/API/Scan.x
 	alex $<
 
