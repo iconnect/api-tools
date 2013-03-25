@@ -58,7 +58,10 @@ node_p =
         cts <- comments_p
         kw_p Equals
         spc <- spec_p
-        return $ APINode con cts pre spc
+        cnv <- with_p
+        vrn <- version_p
+        vlg <- comments_p
+        return $ APINode con cts pre spc cnv vrn vlg
 
 spec_p :: Parse Spec
 spec_p =
@@ -92,6 +95,19 @@ fields_p is_u = fmap Map.fromList $ many $
         typ <- type_p
         cmt <- comments_p
         return $ (fnm,(typ,cmt))
+
+with_p :: Parse Conversion
+with_p = optionMaybe $
+ do kw_p With
+    inj <- field_name_p
+    kw_p Comma
+    prj <- field_name_p
+    return (inj,prj)
+
+version_p :: Parse Vrn
+version_p = p <|> return 1
+  where
+    p = kw_p Version >> Vrn <$> integer_p
 
 type_p :: Parse APIType
 type_p = list_p <|> maybe_p <|> TyName <$> type_name_p <|> TyBasic <$> basic_p
@@ -142,6 +158,12 @@ field_name_p = tok_p p
   where
     p (VarIden var) = Just $ FieldName var
     p _             = Nothing
+
+integer_p :: Parse Int
+integer_p = tok_p p
+  where
+    p (Intg i) = Just i
+    p _        = Nothing
 
 kw_p :: Token -> Parse () 
 kw_p tk = tok_p p

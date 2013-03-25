@@ -4,9 +4,10 @@
 
 module Data.API.Generate
     ( api
+    , Binary(..)
     , generate
     , generateTools
-    , Binary(..)
+    , Parser
     , Data.Map.Map
     , Data.Text.Text
     , Data.Typeable.Typeable
@@ -66,8 +67,8 @@ import qualified Control.Lens                   as L
 generate :: API -> Q [Dec]
 generate api' = concat <$> mapM gen api'
 
-generateTools :: Version a -> API -> Q [Dec]
-generateTools n api' = concat <$> mapM (gen_tools n) api'
+generateTools :: API -> Q [Dec]
+generateTools api' = concat <$> mapM gen_tools api'
 
 api :: QuasiQuoter
 api =
@@ -78,6 +79,10 @@ api =
         , quoteDec  = error "api QuasiQuoter used in declaration context"
         }
 
+
+
+newtype Binary = Binary { _Binary :: B.ByteString }
+    deriving (Show,Eq,Ord)
 
 instance ToJSON Binary where
     toJSON = mkBinary  
@@ -91,59 +96,83 @@ instance QC.Arbitrary T.Text where
 instance QC.Arbitrary Binary where
     arbitrary = Binary <$> B.pack <$> QC.arbitrary
 
-newtype Binary = Binary { _Binary :: B.ByteString }
-    deriving (Show,Eq,Ord)
+
 
 gen :: APINode -> Q [Dec]
-gen as =
-    case anSpec as of
-      SpNewtype sn -> gen_sn as sn
-      SpRecord  sr -> gen_sr as sr
-      SpUnion   su -> gen_su as su
-      SpEnum    se -> gen_se as se
+gen an =
+    case anSpec an of
+      SpNewtype sn -> gen_sn an sn
+      SpRecord  sr -> gen_sr an sr
+      SpUnion   su -> gen_su an su
+      SpEnum    se -> gen_se an se
 
-gen_tools :: Version a -> APINode -> Q [Dec]
-gen_tools n as = fmap concat $ sequence
-    [ L.makeLenses           nm
-    , deriveSafeCopy n 'base nm
+gen_tools :: APINode -> Q [Dec]
+gen_tools an = fmap concat $ sequence
+    [ L.makeLenses        nm
+    , deriveSafeCopy n be nm
     ]
   where
-    nm = type_nm as
+    (n,be) =
+        case anVersion an of
+          Vrn i | i==1      -> (fromIntegral i,'base     )
+                | otherwise -> (fromIntegral i,'extension)
+
+    nm = rep_type_nm an
 
 gen_sn :: APINode -> SpecNewtype -> Q [Dec]
-gen_sn as sn = sequence
+gen_sn as sn = sequence $
     [ gen_sn_dt as sn
     , gen_sn_to as sn
     , gen_sn_fm as sn
-    , gen_sn_ab as sn
+    ] ++
+    [ gen_in ij as    | Just (ij,_) <- [anConvert as]
+    ] ++
+    [ gen_pr pj as    | Just (_,pj) <- [anConvert as]
+    ] ++
+    [ gen_sn_ab as sn
     ]
 
 gen_sr :: APINode -> SpecRecord -> Q [Dec] 
-gen_sr as sr = sequence
+gen_sr as sr = sequence $
     [ gen_sr_dt as sr
     , gen_sr_to as sr
     , gen_sr_fm as sr
-    , gen_sr_ab as sr
+    ] ++
+    [ gen_in ij as    | Just (ij,_) <- [anConvert as]
+    ] ++
+    [ gen_pr pj as    | Just (_,pj) <- [anConvert as]
+    ] ++
+    [ gen_sr_ab as sr
     ]
 
 gen_su :: APINode -> SpecUnion -> Q [Dec] 
-gen_su as su = sequence
+gen_su as su = sequence $
     [ gen_su_dt as su
     , gen_su_to as su
     , gen_su_fm as su
-    , gen_su_ab as su
+    ] ++
+    [ gen_in ij as    | Just (ij,_) <- [anConvert as]
+    ] ++
+    [ gen_pr pj as    | Just (_,pj) <- [anConvert as]
+    ] ++
+    [ gen_su_ab as su
     ]
 
 gen_se :: APINode -> SpecEnum -> Q [Dec] 
-gen_se as se = sequence
+gen_se as se = sequence $
     [ gen_se_dt     as se
     , gen_se_to     as se 
     , gen_se_fm     as se
-    , gen_se_ab     as se
     , gen_se_tx_sig as se
     , gen_se_tx     as se
     , gen_se_mp_sig as se
     , gen_se_mp     as se
+    ] ++
+    [ gen_in ij as    | Just (ij,_) <- [anConvert as]
+    ] ++
+    [ gen_pr pj as    | Just (_,pj) <- [anConvert as]
+    ] ++
+    [ gen_se_ab as se
     ]
 
 
@@ -168,7 +197,7 @@ gen_sn_dt as sn = return $ NewtypeD [] nm [] c $ derive_nms ++ iss
   where
     c   = RecC nm [(newtype_prj_nm as,NotStrict,mk_type $ TyBasic $ snType sn)]
     
-    nm  = type_nm as
+    nm  = rep_type_nm as
 
     iss = case snType sn of
             BTstring -> [is_string_cl_nm]
@@ -178,7 +207,7 @@ gen_sn_dt as sn = return $ NewtypeD [] nm [] c $ derive_nms ++ iss
 
 gen_sn_to as sn = return $ InstanceD [] typ [FunD to_json_nm [Clause [] bdy []]]
   where
-    typ = AppT (ConT to_json_cl_nm) $ ConT $ type_nm as
+    typ = AppT (ConT to_json_cl_nm) $ ConT $ rep_type_nm as
 
     bdy = NormalB $ ap2 (VarE dot_nm) ine $ VarE $ newtype_prj_nm as
 
@@ -190,7 +219,7 @@ gen_sn_to as sn = return $ InstanceD [] typ [FunD to_json_nm [Clause [] bdy []]]
 
 gen_sn_fm as sn = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
   where
-    typ = AppT (ConT from_json_cl_nm) $ ConT $ type_nm as
+    typ = AppT (ConT from_json_cl_nm) $ ConT $ rep_type_nm as
 
     cl  = Clause [] bdy []
 
@@ -199,7 +228,7 @@ gen_sn_fm as sn = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
                             (LitE $ StringL $ _TypeName $ anName as)) $
                     AppE (AppE (VarE dot_nm) (VarE return_nm)) $ ConE tn
 
-    tn  = type_nm as
+    tn  = rep_type_nm as
     
     wnm = case snType sn of
             BTstring -> with_text_nm
@@ -209,13 +238,13 @@ gen_sn_fm as sn = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
 
 gen_sn_ab as _sn = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
   where
-    typ = AppT (ConT arbitrary_cl_nm) $ ConT $ type_nm as
+    typ = AppT (ConT arbitrary_cl_nm) $ ConT $ rep_type_nm as
 
     cl  = Clause [] bdy []
 
     bdy = NormalB $ ap2 (VarE fmap_nm) (ConE tn) $ VarE arbitrary_fn_nm
 
-    tn  = type_nm as
+    tn  = rep_type_nm as
 
 {-
 -- a sample record type definition, wrapper and test function
@@ -256,11 +285,11 @@ gen_sr_dt as sr = return $ DataD [] nm [] cs [show_nm,eq_nm]
     cs = [RecC nm [(pref_field_nm as fnm,NotStrict,mk_type ty) | 
                                     (fnm,(ty,_))<-Map.toList $ srFields sr]]
 
-    nm = type_nm as 
+    nm = rep_type_nm as
 
 gen_sr_to as sr = return $ InstanceD [] typ [fd]
   where
-    typ = AppT (ConT to_json_cl_nm) $ ConT $ type_nm as
+    typ = AppT (ConT to_json_cl_nm) $ ConT $ rep_type_nm as
 
     fd  = FunD to_json_nm [cl]
 
@@ -277,14 +306,14 @@ gen_sr_to as sr = return $ InstanceD [] typ [fd]
 
 gen_sr_fm as sr = return $ InstanceD [] typ [FunD parse_json_nm [cl,cl']]
   where
-    typ = AppT (ConT from_json_cl_nm) $ ConT $ type_nm as
+    typ = AppT (ConT from_json_cl_nm) $ ConT $ rep_type_nm as
 
     cl  = Clause [ConP object_con_nm [VarP x_nm]] bdy []
 
     cl' = Clause [WildP] (NormalB $ VarE mzero_nm) []
 
-    bdy = NormalB $ 
-            app (VarE fmap_nm) (VarE astar_nm) (ConE $ type_nm as)
+    bdy = NormalB $
+            app (VarE fmap_nm) (VarE astar_nm) (ConE $ rep_type_nm as)
                 [ AppE (AppE (VarE dot_co_nm) (VarE x_nm)) 
                         (LitE $ StringL $ _FieldName fn) | fn<-fns ]
                  
@@ -299,7 +328,7 @@ gen_sr_ab as sr = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
     bdy   = NormalB $ app (VarE fmap_nm) (VarE astar_nm) (ConE tn) $
                 replicate (Map.size $ srFields sr) $ VarE arbitrary_fn_nm 
 
-    tn    = type_nm as
+    tn    = rep_type_nm as
 
 
 {-
@@ -329,11 +358,11 @@ gen_su_dt as su = return $ DataD [] nm [] cs [show_nm,eq_nm]
     cs = [NormalC (pref_con_nm as fnm) [(NotStrict,mk_type ty)] | 
                                         (fnm,(ty,_))<-Map.toList $ suFields su]
     
-    nm = type_nm as
+    nm = rep_type_nm as
 
 gen_su_to as su = return $ InstanceD [] typ [fd]
   where
-    typ    = AppT (ConT to_json_cl_nm) $ ConT $ type_nm as
+    typ    = AppT (ConT to_json_cl_nm) $ ConT $ rep_type_nm as
 
     fd     = FunD to_json_nm $ map cl fns
 
@@ -349,13 +378,13 @@ gen_su_to as su = return $ InstanceD [] typ [fd]
 
 gen_su_fm as su = return $ InstanceD [] typ [FunD parse_json_nm [cl,cl']]
   where
-    typ = AppT (ConT from_json_cl_nm) $ ConT $ type_nm as
+    typ = AppT (ConT from_json_cl_nm) $ ConT $ rep_type_nm as
 
     cl  = Clause [ConP object_con_nm [VarP x_nm]] bdy []
 
     cl' = Clause [VarP x_nm] (NormalB $ oops as $ VarE x_nm) []
 
-    bdy = NormalB $ 
+    bdy = NormalB $
             AppE (VarE alts_nm) $ ListE
                 [ AppE (AppE (VarE fmap_nm) (ConE $ pref_con_nm as fn)) $
                         AppE (AppE (VarE dot_co_nm) (VarE x_nm)) $
@@ -380,7 +409,7 @@ gen_su_ab as su = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
                 ListE [ ap2 (VarE fmap_nm) (ConE k) 
                                             (VarE arbitrary_fn_nm) | k<- ks ]
 
-    tn  = type_nm as
+    tn  = rep_type_nm as
     ks  = map (pref_con_nm as) $ Map.keys $ suFields su
 
 
@@ -434,11 +463,11 @@ gen_se_dt as se = return $ DataD [] nm [] cs
   where
     cs = [NormalC (pref_con_nm as fnm) [] | fnm <- Set.toList $ seAlts se ]
     
-    nm = type_nm as
+    nm = rep_type_nm as
 
 gen_se_to as _se = return $ InstanceD [] typ [FunD to_json_nm [cl]]
   where
-    typ = AppT (ConT to_json_cl_nm) $ ConT $ type_nm as
+    typ = AppT (ConT to_json_cl_nm) $ ConT $ rep_type_nm as
 
     cl  = Clause [] bdy []
 
@@ -447,7 +476,7 @@ gen_se_to as _se = return $ InstanceD [] typ [FunD to_json_nm [cl]]
 
 gen_se_fm as _se = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
   where
-    typ = AppT (ConT from_json_cl_nm) $ ConT $ type_nm as
+    typ = AppT (ConT from_json_cl_nm) $ ConT $ rep_type_nm as
 
     cl  = Clause [] bdy []
 
@@ -456,7 +485,7 @@ gen_se_fm as _se = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
 gen_se_tx_sig as _se = return $
         SigD (txt_nm as) $ AppT (AppT ArrowT $ ConT tnm) $ ConT text_nm
   where
-    tnm = type_nm as
+    tnm = rep_type_nm as
 
 gen_se_tx as se = return $ FunD (txt_nm as) [Clause [VarP x_nm] bdy []]
   where
@@ -473,7 +502,7 @@ gen_se_mp_sig as _se = return $
         SigD (map_nm as) $ 
             AppT (AppT (ConT map_ty_nm) $ ConT text_nm) $ ConT tnm
   where
-    tnm = type_nm as
+    tnm = rep_type_nm as
 
 gen_se_mp as _se = return $ FunD (map_nm as) [Clause [] bdy []]
   where
@@ -491,28 +520,63 @@ gen_se_ab as se = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
     
     prp = AppE (VarE elements_nm) $ ListE [ ConE k | k<- ks ]
 
-    tn  = type_nm as
+    tn  = rep_type_nm as
     
     ks  = map (pref_con_nm as) $ Set.toList $ seAlts se
 
 
-type_nm, txt_nm, map_nm :: APINode -> Name
-type_nm as = mkName $              _TypeName $ anName as
-txt_nm  as = mkName $ "_text_" ++ (_TypeName $ anName as)
-map_nm  as = mkName $ "_map_"  ++ (_TypeName $ anName as)
+gen_in, gen_pr :: FieldName -> APINode -> Q Dec
+
+gen_in inj_fn an = return $ InstanceD [] typ [fd]
+  where
+    typ    = AppT (ConT from_json_cl_nm) $ ConT $ type_nm an
+
+    fd     = FunD parse_json_nm [cl]
+
+    cl     = Clause [VarP x_nm] bdy []
+
+    bdy    = NormalB $ ap2 (VarE then_nm) 
+                           (AppE (VarE parse_json_fn_nm) (VarE x_nm))
+                           (VarE inj_nm)
+
+    inj_nm = mkName $ _FieldName inj_fn
+
+gen_pr prj_fn an = return $ InstanceD [] typ [fd]
+  where
+    typ    = AppT (ConT to_json_cl_nm) $ ConT $ type_nm an
+
+    fd     = FunD to_json_nm [cl]
+
+    cl     = Clause [] bdy []
+
+    bdy    = NormalB $ ap2 (VarE dot_nm) (VarE to_json_fn_nm) (VarE prj_nm)
+
+
+    prj_nm = mkName $ _FieldName prj_fn
+
+
+type_nm, txt_nm, map_nm, rep_type_nm, newtype_prj_nm :: APINode -> Name
+type_nm        an = mkName $              _TypeName $ anName an
+txt_nm         an = mkName $ "_text_" ++ (_TypeName $ anName an)
+map_nm         an = mkName $ "_map_"  ++ (_TypeName $ anName an)
+rep_type_nm    an = mkName $        rep_type_s an
+newtype_prj_nm an = mkName $ "_" ++ rep_type_s an
+
 
 pref_field_nm :: APINode -> FieldName -> Name
-pref_field_nm as fnm = mkName $ map toLower pre ++ _FieldName fnm
+pref_field_nm as fnm = mkName $ pre ++ _FieldName fnm
   where
-    pre = CI.original $ anPrefix as
+    pre = "_" ++ map toLower (CI.original $ anPrefix as) ++ "_"
 
-newtype_prj_nm :: APINode -> Name
-newtype_prj_nm as = mkName $ "_" ++ (_TypeName $ anName as)
+rep_type_s :: APINode -> String
+rep_type_s an = f $ _TypeName $ anName an
+  where
+    f s = maybe s (const ("REP__"++s)) $ anConvert an
 
 pref_con_nm :: APINode -> FieldName -> Name
-pref_con_nm as fnm = mkName $ map toUpper pre ++ _FieldName fnm
+pref_con_nm as fnm = mkName $ pre ++ _FieldName fnm
   where
-    pre = CI.original $ anPrefix as
+    pre = map toUpper (CI.original $ anPrefix as) ++ "_"
 
 mk_type :: APIType -> Type
 mk_type ty =
@@ -537,9 +601,10 @@ derive_nms = [show_nm,eq_nm,ord_nm,typeable_cl_nm]
 
 x_nm, maybe_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
     fmap_nm, to_json_nm, parse_json_nm, return_nm, 
-    arbitrary_nm, dot_nm,
+    arbitrary_nm, dot_nm, then_nm,
     map_ty_nm, text_nm, is_string_cl_nm, typeable_cl_nm, 
-    to_json_cl_nm, from_json_cl_nm, arbitrary_cl_nm,
+    to_json_cl_nm, from_json_cl_nm, to_json_fn_nm, parse_json_fn_nm,
+    arbitrary_cl_nm,
     object_nm, object_con_nm, string_con_nm, bool_con_nm,
     dot_eq_nm, dot_co_nm, mzero_nm, astar_nm, mismatch_nm, 
     with_text_nm, with_bool_nm, with_int_nm, mk_int_nm, alts_nm,
@@ -547,49 +612,52 @@ x_nm, maybe_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
     gen_text_map_id, json_str_map_id,
     binary_nm, mk_binary_nm, with_binary_nm :: Name
 
-x_nm            = mkName "x"
-maybe_nm        = mkName "Maybe"
-show_nm         = mkName "Show"
-eq_nm           = mkName "Eq"
-ord_nm          = mkName "Ord"
-bounded_nm      = mkName "Bounded"
-enum_nm         = mkName "Enum"
-fmap_nm         = mkName "fmap"
-to_json_nm      = mkName "toJSON"
-parse_json_nm   = mkName "parseJSON"
-return_nm       = mkName "return"
-arbitrary_nm    = mkName "arbitrary"
-dot_nm          = mkName "."
+x_nm                = mkName "x"
+maybe_nm            = mkName "Maybe"
+show_nm             = mkName "Show"
+eq_nm               = mkName "Eq"
+ord_nm              = mkName "Ord"
+bounded_nm          = mkName "Bounded"
+enum_nm             = mkName "Enum"
+fmap_nm             = mkName "fmap"
+to_json_nm          = mkName "toJSON"
+parse_json_nm       = mkName "parseJSON"
+return_nm           = mkName "return"
+arbitrary_nm        = mkName "arbitrary"
+dot_nm              = mkName "."
+then_nm             = mkName ">>="
 
-map_ty_nm       = Name (mkOccName "Map"         ) $ NameQ gn_mod
-text_nm         = Name (mkOccName "Text"        ) $ NameQ gn_mod
-is_string_cl_nm = Name (mkOccName "IsString"    ) $ NameQ gn_mod
-typeable_cl_nm  = Name (mkOccName "Typeable"    ) $ NameQ gn_mod
-to_json_cl_nm   = Name (mkOccName "ToJSON"      ) $ NameQ gn_mod
-from_json_cl_nm = Name (mkOccName "FromJSON"    ) $ NameQ gn_mod
-arbitrary_cl_nm = Name (mkOccName "Arbitrary"   ) $ NameQ gn_mod
-object_nm       = Name (mkOccName "object"      ) $ NameQ gn_mod
-object_con_nm   = Name (mkOccName "Object"      ) $ NameQ gn_mod
-string_con_nm   = Name (mkOccName "String"      ) $ NameQ gn_mod
-bool_con_nm     = Name (mkOccName "Bool"        ) $ NameQ gn_mod
-dot_eq_nm       = Name (mkOccName ".="          ) $ NameQ gn_mod
-dot_co_nm       = Name (mkOccName ".:"          ) $ NameQ gn_mod
-mzero_nm        = Name (mkOccName "mzero"       ) $ NameQ gn_mod
-astar_nm        = Name (mkOccName "<*>"         ) $ NameQ gn_mod
-mismatch_nm     = Name (mkOccName "typeMismatch") $ NameQ gn_mod
-with_text_nm    = Name (mkOccName "withText"    ) $ NameQ gn_mod
-with_bool_nm    = Name (mkOccName "withBool"    ) $ NameQ gn_mod
-mk_int_nm       = Name (mkOccName "mkInt"       ) $ NameQ gn_mod
-with_int_nm     = Name (mkOccName "withInt"     ) $ NameQ gn_mod
-alts_nm         = Name (mkOccName "alternatives") $ NameQ gn_mod
-arbitrary_fn_nm = Name (mkOccName "arbitrary"   ) $ NameQ gn_mod
-oneof_nm        = Name (mkOccName "oneof"       ) $ NameQ gn_mod
-elements_nm     = Name (mkOccName "elements"    ) $ NameQ gn_mod
-gen_text_map_id = Name (mkOccName "genTextMap"  ) $ NameQ gn_mod
-json_str_map_id = Name (mkOccName "jsonStrMap_p") $ NameQ gn_mod
-mk_binary_nm    = Name (mkOccName "mkBinary"    ) $ NameQ gn_mod
-with_binary_nm  = Name (mkOccName "withBinary"  ) $ NameQ gn_mod
-binary_nm       = Name (mkOccName "Binary"      ) $ NameQ gn_mod
+map_ty_nm           = Name (mkOccName "Map"         ) $ NameQ gn_mod
+text_nm             = Name (mkOccName "Text"        ) $ NameQ gn_mod
+is_string_cl_nm     = Name (mkOccName "IsString"    ) $ NameQ gn_mod
+typeable_cl_nm      = Name (mkOccName "Typeable"    ) $ NameQ gn_mod
+to_json_cl_nm       = Name (mkOccName "ToJSON"      ) $ NameQ gn_mod
+from_json_cl_nm     = Name (mkOccName "FromJSON"    ) $ NameQ gn_mod
+to_json_fn_nm       = Name (mkOccName "toJSON"      ) $ NameQ gn_mod
+parse_json_fn_nm    = Name (mkOccName "parseJSON"   ) $ NameQ gn_mod
+arbitrary_cl_nm     = Name (mkOccName "Arbitrary"   ) $ NameQ gn_mod
+object_nm           = Name (mkOccName "object"      ) $ NameQ gn_mod
+object_con_nm       = Name (mkOccName "Object"      ) $ NameQ gn_mod
+string_con_nm       = Name (mkOccName "String"      ) $ NameQ gn_mod
+bool_con_nm         = Name (mkOccName "Bool"        ) $ NameQ gn_mod
+dot_eq_nm           = Name (mkOccName ".="          ) $ NameQ gn_mod
+dot_co_nm           = Name (mkOccName ".:"          ) $ NameQ gn_mod
+mzero_nm            = Name (mkOccName "mzero"       ) $ NameQ gn_mod
+astar_nm            = Name (mkOccName "<*>"         ) $ NameQ gn_mod
+mismatch_nm         = Name (mkOccName "typeMismatch") $ NameQ gn_mod
+with_text_nm        = Name (mkOccName "withText"    ) $ NameQ gn_mod
+with_bool_nm        = Name (mkOccName "withBool"    ) $ NameQ gn_mod
+mk_int_nm           = Name (mkOccName "mkInt"       ) $ NameQ gn_mod
+with_int_nm         = Name (mkOccName "withInt"     ) $ NameQ gn_mod
+alts_nm             = Name (mkOccName "alternatives") $ NameQ gn_mod
+arbitrary_fn_nm     = Name (mkOccName "arbitrary"   ) $ NameQ gn_mod
+oneof_nm            = Name (mkOccName "oneof"       ) $ NameQ gn_mod
+elements_nm         = Name (mkOccName "elements"    ) $ NameQ gn_mod
+gen_text_map_id     = Name (mkOccName "genTextMap"  ) $ NameQ gn_mod
+json_str_map_id     = Name (mkOccName "jsonStrMap_p") $ NameQ gn_mod
+mk_binary_nm        = Name (mkOccName "mkBinary"    ) $ NameQ gn_mod
+with_binary_nm      = Name (mkOccName "withBinary"  ) $ NameQ gn_mod
+binary_nm           = Name (mkOccName "Binary"      ) $ NameQ gn_mod
 
 gn_mod :: ModName
 gn_mod = mkModName "Data.API.Generate"
@@ -636,7 +704,7 @@ b2t = T.pack . B.unpack
 
 t2b :: T.Text -> B.ByteString
 t2b = B.pack . T.unpack
- 
+
 
 -- app <$> <*> ke []          => ke
 -- app <$> <*> ke [e1,e2,...,en] =>

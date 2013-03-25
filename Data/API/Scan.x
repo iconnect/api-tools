@@ -28,6 +28,9 @@ tokens :-
     ":"                                 { simple    Colon           }
     "="                                 { simple    Equals          }
     "?"                                 { simple    Query           }
+    ","                                 { simple    Comma           }
+    version                             { simple    Version         }
+    with                                { simple    With            }    
     integer                             { simple    Integer         }
     boolean                             { simple    Boolean         }
     string                              { simple    String          }
@@ -38,8 +41,9 @@ tokens :-
     \"$upper [$lower $upper $digit]*\"  { strip_qs  TypeIden        }
       $lower [$lower $upper $digit]*    { mk        VarIden         }
     \"$lower [$lower $upper $digit]*\"  { strip_qs  VarIden         }
+    $digit+                             { intg                      }
     "//".*                              { line_comment              }
-    "/*"(\n|[^\*]|\*[^\/])*"*/"         { block_comment             }
+    "(*"(\n|[^\*]|\*[^\)])*"*)"         { block_comment             }
 
 {
 
@@ -53,6 +57,7 @@ data Token
     | Ket
     | ColCol
     | Colon
+    | Comma
     | Equals
     | Boolean
     | Integer
@@ -60,9 +65,12 @@ data Token
     | Record
     | String
     | Union
+    | Version
+    | With
     | Comment  String
     | TypeIden String
     | VarIden  String
+    | Intg     Int
     deriving (Eq,Show)
 
 line_comment :: AlexPosn -> String -> PToken
@@ -77,7 +85,7 @@ block_comment _ _ = error "Scan.line_comment"
 
 strip_qs :: (String->Token) -> AlexPosn -> String -> PToken
 strip_qs f p (_:s) = (p,f $ initNote "Scan.strip_qs" s)
-strip_qs f _ _     = error "Scan.strip_qs"
+strip_qs _ _ _     = error "Scan.strip_qs"
 
 munch_ws :: String -> String
 munch_ws = dropWhile isSpace
@@ -87,6 +95,9 @@ simple tk = mk $ const tk
 
 mk :: (String->Token) -> AlexPosn -> String -> PToken
 mk f p s = (p,f s)
+
+intg :: AlexPosn -> String -> PToken
+intg p s = (p,Intg $ readNote "Data.API.Scan.intg" s)
 
 scan :: String -> [Token]
 scan = map snd . pp . alexScanTokens

@@ -13,6 +13,8 @@ module Data.API.Types
     , SpecRecord(..)
     , SpecUnion(..)
     , SpecEnum(..)
+    , Conversion
+    , Vrn(..)
     , APIType(..)
     , BasicType(..)
     ) where
@@ -36,6 +38,9 @@ data APINode
         , anComment :: MDComment        -- | comment describing typ ein Markdown 
         , anPrefix  :: Prefix           -- | distinct short prefix (see below)
         , anSpec    :: Spec             -- | the type specification
+        , anConvert :: Conversion       -- | optional conversion functions
+        , anVersion :: Vrn              -- | version number of the data
+        , anLog     :: MDComment        -- | conversion log
         }
     deriving (Show)
 
@@ -102,6 +107,15 @@ data SpecEnum = SpecEnum
     { seAlts :: Set.Set FieldName
     }
     deriving (Show)
+
+-- Conversion possibly converts to an internal representation
+
+type Conversion = Maybe (FieldName,FieldName)
+
+-- Vrn records the (safe-copy) version of a data type
+
+newtype Vrn = Vrn { _Vrn :: Int }
+    deriving (Eq,Show,Num)
 
 -- | Type is either a list, Maybe, a named element of the API or a basic type
 
