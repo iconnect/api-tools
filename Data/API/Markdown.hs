@@ -33,10 +33,11 @@ header as tl_md = printf "#%s\n\n%s\n\n%s" nm_md cm_md tl_md
 body :: (TypeName->URL) -> APINode -> MDComment  -> MDComment
 body mkl as tl_md =
     case anSpec as of
-      SpNewtype sn -> block tl_md $ ntype  mkl as sn
-      SpRecord  sr -> block tl_md $ record mkl as sr
-      SpUnion   su -> block tl_md $ union_ mkl as su
-      SpEnum    se -> block tl_md $ enum   mkl as se
+      SpNewtype sn -> block tl_md $ ntype   mkl as sn
+      SpRecord  sr -> block tl_md $ record  mkl as sr
+      SpUnion   su -> block tl_md $ union_  mkl as su
+      SpEnum    se -> block tl_md $ enum    mkl as se
+      SpSynonym ty -> block tl_md $ synonym mkl as ty
 
 ntype :: (TypeName->URL) -> APINode -> SpecNewtype -> [MDComment]
 ntype _ as sn = summary_lines as (basic_type_md $ snType sn)
@@ -59,6 +60,9 @@ enum :: (TypeName->URL) -> APINode -> SpecEnum -> [MDComment]
 enum _ as se = summary_lines as (printf "string (%s)" en_s)
   where
     en_s = concat $ intersperse "|" $ map _FieldName $ Set.toList $ seAlts se
+
+synonym :: (TypeName->URL) -> APINode -> APIType -> [MDComment]
+synonym mkl an ty = summary_lines an $ type_md mkl ty
 
 field :: Bool -> (TypeName->URL) -> FieldName -> APIType -> MDComment -> [MDComment]
 field isu mkl fnm ty cmt = printf "  %c %-20s : %-20s %s" c fn_s ty_s cm0 : cms

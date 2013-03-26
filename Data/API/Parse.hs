@@ -66,9 +66,10 @@ node_p =
 spec_p :: Parse Spec
 spec_p =
     SpNewtype . SpecNewtype <$> basic_p 
-        <|> SpRecord <$> record_p 
-        <|> SpUnion  <$> union_p
-        <|> SpEnum   <$> enum_p
+        <|> SpRecord  <$> record_p 
+        <|> SpUnion   <$> union_p
+        <|> SpEnum    <$> enum_p
+        <|> SpSynonym <$> type_p
 
 record_p :: Parse SpecRecord
 record_p =

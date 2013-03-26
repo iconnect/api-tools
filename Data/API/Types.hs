@@ -78,6 +78,7 @@ data Spec
     | SpRecord  SpecRecord
     | SpUnion   SpecUnion
     | SpEnum    SpecEnum
+    | SpSynonym APIType
     deriving (Show)
 
 -- | SpecNewtype elements are isomorphisms of string inetgers or booleans

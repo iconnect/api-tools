@@ -105,19 +105,29 @@ gen an =
       SpRecord  sr -> gen_sr an sr
       SpUnion   su -> gen_su an su
       SpEnum    se -> gen_se an se
+      SpSynonym ty -> gen_sy an ty
 
 gen_tools :: APINode -> Q [Dec]
-gen_tools an = fmap concat $ sequence
-    [ L.makeLenses        nm
-    , deriveSafeCopy n be nm
-    ]
+gen_tools an | is_dt     = fmap concat $ sequence
+                                [ L.makeLenses        nm
+                                , deriveSafeCopy n be nm
+                                ]
+             | otherwise = return []
   where
     (n,be) =
         case anVersion an of
           Vrn i | i==1      -> (fromIntegral i,'base     )
                 | otherwise -> (fromIntegral i,'extension)
 
-    nm = rep_type_nm an
+    is_dt  =
+        case anSpec an of 
+          SpNewtype _ -> True
+          SpRecord  _ -> True
+          SpUnion   _ -> True
+          SpEnum    _ -> True
+          SpSynonym _ -> False
+
+    nm     = rep_type_nm an
 
 gen_sn :: APINode -> SpecNewtype -> Q [Dec]
 gen_sn as sn = sequence $
@@ -175,7 +185,10 @@ gen_se as se = sequence $
     [ gen_se_ab as se
     ]
 
-
+gen_sy :: APINode -> APIType -> Q [Dec]
+gen_sy as ty = return [TySynD nm [] $ mk_type ty]
+  where
+    nm = type_nm as
 
 {-
 -- a sample newtype definition, wrapper and test function
