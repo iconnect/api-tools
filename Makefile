@@ -3,17 +3,19 @@ ID = /usr/hs/bin
 HC = mkdir -p $(OD); ghc -XHaskell2010 --make -O1 -outputdir build -Wall
 
 
-all: api-tools
+all: api-tools docs
 
 
 api-tools: .prep
 	cabal build
 
+docs:
+	runghc gen_docs.hs
+
 .prep: Data/API/Scan.hs
 	hub load    api-tools <api-tools.har
 	hub comment api-tools "api-tools build"
 	hub set     api-tools
-#	ghc-pkg hide monads-tf
 	cabal configure --enable-tests
 	touch .prep
 

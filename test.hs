@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
+import           Data.API.API
+import           Data.API.API.Gen
+import           Data.API.API.DSL
 import           Data.API.Test.Gen
 import           Data.API.Test.DSL
 import           Data.API.Types
@@ -8,8 +11,10 @@ import           Data.API.Markdown
 import           Data.API.Generate
 import           Data.API.Test.SimpleTest
 import           Data.Aeson
+import           Data.Aeson.Encode.Pretty
 import qualified Data.ByteString.Char8      as B
 import qualified Data.Text                  as T
+import qualified Data.ByteString.Lazy.Char8 as BL
 import           Control.Lens
 import           Test.QuickCheck
 
@@ -28,6 +33,9 @@ main =
     writeFile "example.md"  $ markdown _TypeName example
     writeFile "example2.md" $ markdown _TypeName example2
     testAllWrappers
+    
+dump :: IO ()
+dump = BL.putStrLn $ encodePretty $ extractAPI apiAPI
 
 test_IsoS :: [IsoS]
 test_IsoS = ["text newtype"]
@@ -57,6 +65,8 @@ testAllWrappers =
     mkTestAll exampleSimpleTests
     putStrLn "example2:"
     mkTestAll example2SimpleTests
+    putStrLn "apiAPI:"
+    mkTestAll apiAPISimpleTests
 
 
 -- kill warnings
