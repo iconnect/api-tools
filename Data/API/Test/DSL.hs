@@ -6,8 +6,6 @@ module Data.API.Test.DSL where
 
 import           Data.API.Types
 import           Data.API.Generate
-import qualified Data.Map                   as Map
-import qualified Data.Set                   as Set
 
 
 example :: API
@@ -15,15 +13,15 @@ example =
     [ APINode "IsoS" "simple String newtype defn" "" (SpNewtype $ SpecNewtype BTstring) Nothing 1 ""
     , APINode "IsoB" "simple Bool   newtype defn" "" (SpNewtype $ SpecNewtype BTbool  ) Nothing 1 ""
     , APINode "IsoI" "simple Int    newtype defn" "" (SpNewtype $ SpecNewtype BTint   ) Nothing 1 ""
-    , APINode "Foo" "a test defn" "bAr_" (SpRecord $ SpecRecord $ Map.fromList
+    , APINode "Foo" "a test defn" "bAr_" (SpRecord $ SpecRecord
             [ (,) "Baz" (TyBasic BTbool,"just a bool")
             , (,) "Qux" (TyBasic BTint ,"just an int")
             ]) Nothing 1 ""
-    , APINode "Wibble" "another test defn" "dro" (SpUnion $ SpecUnion $ Map.fromList
+    , APINode "Wibble" "another test defn" "dro" (SpUnion $ SpecUnion
             [ (,) "wubble"  (TyList $ TyName $ "Foo","list of Foo")
             , (,) "flubble" (TyBasic BTstring       ,"a string"   )
             ]) Nothing 1 ""
-    , APINode "Enumer" "enum test defn" "enm" (SpEnum $ SpecEnum $ Set.fromList
+    , APINode "Enumer" "enum test defn" "enm" (SpEnum $ SpecEnum
             [ "wubble"
             , "flubble"
             ]) Nothing 1 ""

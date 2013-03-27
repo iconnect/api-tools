@@ -5,8 +5,6 @@ module Data.API.Parse
 
 import           Data.API.Types
 import           Data.API.Scan
-import qualified Data.Set                   as Set
-import qualified Data.Map                   as Map
 import           Text.Parsec
 import           Text.Parsec.Pos
 import qualified Data.CaseInsensitive       as CI
@@ -85,10 +83,10 @@ enum_p :: Parse SpecEnum
 enum_p = 
  do fn  <- field_name_p
     fns <- many $ kw_p Bar >> field_name_p
-    return $ SpecEnum $ Set.fromList $ fn:fns
+    return $ SpecEnum $ fn:fns
 
-fields_p :: Bool -> Parse (Map.Map FieldName (APIType,MDComment))
-fields_p is_u = fmap Map.fromList $ many $
+fields_p :: Bool -> Parse ([(FieldName,(APIType,MDComment))])
+fields_p is_u = many $
      do when is_u $
             kw_p Bar
         fnm <- field_name_p

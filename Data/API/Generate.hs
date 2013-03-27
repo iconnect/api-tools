@@ -52,7 +52,6 @@ import           Data.Char
 import           Data.String
 import qualified Data.Text                      as T
 import qualified Data.Map                       as Map
-import qualified Data.Set                       as Set
 import qualified Data.CaseInsensitive           as CI
 import           Data.Aeson
 import           Data.Aeson.Types
@@ -296,7 +295,7 @@ gen_sr_dt, gen_sr_to, gen_sr_fm, gen_sr_ab :: APINode -> SpecRecord -> Q Dec
 gen_sr_dt as sr = return $ DataD [] nm [] cs [show_nm,eq_nm]
   where
     cs = [RecC nm [(pref_field_nm as fnm,NotStrict,mk_type ty) | 
-                                    (fnm,(ty,_))<-Map.toList $ srFields sr]]
+                                    (fnm,(ty,_))<-srFields sr]]
 
     nm = rep_type_nm as
 
@@ -315,7 +314,7 @@ gen_sr_to as sr = return $ InstanceD [] typ [fd]
   
     pre = pref_field_nm as
   
-    fns = Map.keys $ srFields sr
+    fns = map fst $ srFields sr
 
 gen_sr_fm as sr = return $ InstanceD [] typ [FunD parse_json_nm [cl,cl']]
   where
@@ -330,7 +329,7 @@ gen_sr_fm as sr = return $ InstanceD [] typ [FunD parse_json_nm [cl,cl']]
                 [ AppE (AppE (VarE dot_co_nm) (VarE x_nm)) 
                         (LitE $ StringL $ _FieldName fn) | fn<-fns ]
                  
-    fns = Map.keys $ srFields sr
+    fns = map fst $ srFields sr
 
 gen_sr_ab as sr = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
   where
@@ -339,7 +338,7 @@ gen_sr_ab as sr = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
     cl    = Clause [] bdy []
 
     bdy   = NormalB $ app (VarE fmap_nm) (VarE astar_nm) (ConE tn) $
-                replicate (Map.size $ srFields sr) $ VarE arbitrary_fn_nm 
+                replicate (length $ srFields sr) $ VarE arbitrary_fn_nm 
 
     tn    = rep_type_nm as
 
@@ -369,7 +368,7 @@ gen_su_dt, gen_su_to, gen_su_fm, gen_su_ab :: APINode -> SpecUnion -> Q Dec
 gen_su_dt as su = return $ DataD [] nm [] cs [show_nm,eq_nm]
   where
     cs = [NormalC (pref_con_nm as fnm) [(NotStrict,mk_type ty)] | 
-                                        (fnm,(ty,_))<-Map.toList $ suFields su]
+                                            (fnm,(ty,_))<-suFields su]
     
     nm = rep_type_nm as
 
@@ -387,7 +386,7 @@ gen_su_to as su = return $ InstanceD [] typ [fd]
 
     pre    = pref_con_nm as
   
-    fns    = Map.keys $ suFields su
+    fns    = map fst $ suFields su
 
 gen_su_fm as su = return $ InstanceD [] typ [FunD parse_json_nm [cl,cl']]
   where
@@ -403,7 +402,7 @@ gen_su_fm as su = return $ InstanceD [] typ [FunD parse_json_nm [cl,cl']]
                         AppE (AppE (VarE dot_co_nm) (VarE x_nm)) $
                              LitE $ StringL $ _FieldName fn | fn<-fns ]
                  
-    fns = Map.keys $ suFields su
+    fns = map fst $ suFields su
 
     oops as_ e = AppE (AppE (VarE mismatch_nm)
                                 (LitE $ StringL $ _TypeName $ anName as_)) e
@@ -423,7 +422,7 @@ gen_su_ab as su = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
                                             (VarE arbitrary_fn_nm) | k<- ks ]
 
     tn  = rep_type_nm as
-    ks  = map (pref_con_nm as) $ Map.keys $ suFields su
+    ks  = map (pref_con_nm as) $ map fst $ suFields su
 
 
 {-
@@ -474,7 +473,7 @@ gen_se_dt, gen_se_to, gen_se_fm, gen_se_ab,
 gen_se_dt as se = return $ DataD [] nm [] cs 
                                 [show_nm,eq_nm,ord_nm,bounded_nm,enum_nm]
   where
-    cs = [NormalC (pref_con_nm as fnm) [] | fnm <- Set.toList $ seAlts se ]
+    cs = [NormalC (pref_con_nm as fnm) [] | fnm <- seAlts se ]
     
     nm = rep_type_nm as
 
@@ -505,7 +504,7 @@ gen_se_tx as se = return $ FunD (txt_nm as) [Clause [VarP x_nm] bdy []]
     bdy    = NormalB $ 
                 CaseE (VarE x_nm) [ Match (pt fnm) (bd fnm) [] | fnm<-fnms ]  
 
-    fnms   = Set.toList $ seAlts se
+    fnms   = seAlts se
 
     pt fnm = ConP (pref_con_nm as fnm) []
 
@@ -535,7 +534,7 @@ gen_se_ab as se = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
 
     tn  = rep_type_nm as
     
-    ks  = map (pref_con_nm as) $ Set.toList $ seAlts se
+    ks  = map (pref_con_nm as) $ seAlts se
 
 
 gen_in, gen_pr :: FieldName -> APINode -> Q Dec

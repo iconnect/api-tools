@@ -35,8 +35,8 @@ another test defn
 
     prefix    : dro
     JSON Type : object (union)
-        flubble              : string               // a string
         wubble               : [Foo]                // list of Foo
+        flubble              : string               // a string
 
 
 #Enumer
@@ -44,6 +44,6 @@ another test defn
 enum test defn
 
     prefix    : enm
-    JSON Type : string (flubble|wubble)
+    JSON Type : string (wubble|flubble)
 
 

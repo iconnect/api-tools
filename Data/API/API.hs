@@ -11,8 +11,6 @@ import           Data.API.Types
 import           Data.Aeson
 import qualified Data.CaseInsensitive           as CI
 import qualified Data.Text                      as T
-import qualified Data.Map                       as Map
-import qualified Data.Set                       as Set
 
 
 -- | Take and API spec and generate the JSON
@@ -48,8 +46,8 @@ convert_conversion (i,p) =
             , D._cv_projection = T.pack $ _FieldName i
             }
 
-convert_fields :: Map.Map FieldName (APIType,MDComment) -> [D.Field]
-convert_fields mp = map f $ Map.toList mp
+convert_fields :: [(FieldName,(APIType,MDComment))] -> [D.Field]
+convert_fields al = map f al
   where
     f (fn,(ty,co)) =
         D.Field
@@ -58,8 +56,8 @@ convert_fields mp = map f $ Map.toList mp
             , D._fd_comment = T.pack co
             }
 
-convert_alts :: Set.Set FieldName -> [T.Text] 
-convert_alts st = map (T.pack . _FieldName) $ Set.toList st
+convert_alts :: [FieldName] -> [T.Text] 
+convert_alts fns = map (T.pack . _FieldName) fns
 
 convert_type :: APIType -> D.APIType
 convert_type ty0 =

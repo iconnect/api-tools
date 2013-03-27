@@ -4,13 +4,13 @@
 
     prefix    : an
     JSON Type : object (record)
-        comment              : string               
-        convert              : ? Conversion         
-        log                  : string               
         name                 : string               
+        comment              : string               
         prefix               : string               
         spec                 : Spec                 
+        convert              : ? Conversion         
         version              : integer              
+        log                  : string               
 
 
 #Spec
@@ -19,11 +19,11 @@
 
     prefix    : sp
     JSON Type : object (union)
-        enum                 : [string]             
         newtype              : BasicType            
         record               : [Field]              
-        synonym              : APIType              
         union                : [Field]              
+        enum                 : [string]             
+        synonym              : APIType              
 
 
 #Conversion
@@ -42,9 +42,9 @@
 
     prefix    : fd
     JSON Type : object (record)
-        comment              : string               
         name                 : string               
         type                 : APIType              
+        comment              : string               
 
 
 #APIType
@@ -53,10 +53,10 @@
 
     prefix    : ty
     JSON Type : object (union)
-        basic                : BasicType            
         list                 : APIType              
         maybe                : APIType              
         name                 : string               
+        basic                : BasicType            
 
 
 #BasicType
@@ -64,6 +64,6 @@
 
 
     prefix    : bt
-    JSON Type : string (binary|boolean|integer|string|union)
+    JSON Type : string (union|string|binary|boolean|integer)
 
 

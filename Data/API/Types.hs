@@ -19,8 +19,6 @@ module Data.API.Types
     , BasicType(..)
     ) where
 
-import qualified Data.Map                   as Map
-import qualified Data.Set                   as Set
 import qualified Data.CaseInsensitive       as CI
 import           Data.String
 
@@ -91,21 +89,21 @@ data SpecNewtype = SpecNewtype
 -- | SpecRecord is your classsic product type
 
 data SpecRecord = SpecRecord
-    { srFields :: Map.Map FieldName (APIType,MDComment)
+    { srFields :: [(FieldName,(APIType,MDComment))]
     }
     deriving (Show)
 
 -- | SpecUnion is your classsic union type
 
 data SpecUnion = SpecUnion
-    { suFields :: Map.Map FieldName (APIType,MDComment)
+    { suFields :: [(FieldName,(APIType,MDComment))]
     }
     deriving (Show)
 
 -- | SpecEnum is your classic enumerated type
 
 data SpecEnum = SpecEnum
-    { seAlts :: Set.Set FieldName
+    { seAlts :: [FieldName]
     }
     deriving (Show)
 

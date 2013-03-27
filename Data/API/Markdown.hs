@@ -7,8 +7,6 @@ module Data.API.Markdown
 
 import           Data.API.Types
 import qualified Data.CaseInsensitive       as CI
-import qualified Data.Map                   as Map
-import qualified Data.Set                   as Set
 import           Data.List
 import           Text.Printf
 
@@ -44,22 +42,20 @@ ntype _ as sn = summary_lines as (basic_type_md $ snType sn)
 
 record :: (TypeName->URL) -> APINode -> SpecRecord -> [MDComment]
 record mkl as sr =
-    summary_lines as "object (record)" ++ 
-                            concat (map fmt (Map.toList $ srFields sr))
+    summary_lines as "object (record)" ++ concat (map fmt (srFields sr))
   where
     fmt (fnm,(ty,cmt)) = field False mkl fnm ty cmt
 
 union_ :: (TypeName->URL) -> APINode -> SpecUnion -> [MDComment]
 union_ mkl as su =
-    summary_lines as "object (union)" ++ 
-                            concat (map fmt (Map.toList $ suFields su))
+    summary_lines as "object (union)" ++ concat (map fmt (suFields su))
   where
     fmt (fnm,(ty,cmt)) = field False mkl fnm ty cmt
 
 enum :: (TypeName->URL) -> APINode -> SpecEnum -> [MDComment]
 enum _ as se = summary_lines as (printf "string (%s)" en_s)
   where
-    en_s = concat $ intersperse "|" $ map _FieldName $ Set.toList $ seAlts se
+    en_s = concat $ intersperse "|" $ map _FieldName $ seAlts se
 
 synonym :: (TypeName->URL) -> APINode -> APIType -> [MDComment]
 synonym mkl an ty = summary_lines an $ type_md mkl ty
