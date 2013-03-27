@@ -21,7 +21,7 @@ markdown mkl ths = foldr (thing mkl) "" ths
 thing :: (TypeName->URL) -> Thing -> MDComment  -> MDComment
 thing mkl th tl_md =
     case th of
-      ThComment md -> "\n" ++ md ++ "\n" ++ tl_md 
+      ThComment md -> md ++ tl_md 
       ThNode    an -> node mkl an tl_md
 
 node :: (TypeName->URL) -> APINode -> MDComment -> MDComment
@@ -29,7 +29,7 @@ node mkl an tl_md =
         header an $ body mkl an $ version an $ vlog an $ "\n\n" ++ tl_md 
 
 header :: APINode -> MDComment -> MDComment
-header as tl_md = printf "##%s\n\n%s\n\n%s" nm_md cm_md tl_md 
+header as tl_md = printf "###%s\n\n%s\n\n%s" nm_md cm_md tl_md 
   where
     nm_md = type_name_md as
     cm_md = comment_md   as
