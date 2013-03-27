@@ -2,7 +2,8 @@
 
 module Data.API.Markdown
     ( markdown
-    , markdown1
+    , thing
+    , node
     ) where
 
 import           Data.API.Types
@@ -15,15 +16,20 @@ type URL = String
 
 
 markdown :: (TypeName->URL) -> API -> MDComment
-markdown mkl ths = foldr (markdown1 mkl) "" [ an | ThNode an<-ths ]
+markdown mkl ths = foldr (thing mkl) "" ths
 
-markdown1 :: (TypeName->URL) -> APINode -> MDComment -> MDComment
-markdown1 mkl as tl_md = 
-        header as $ body mkl as $ version as $ vlog as $ "\n\n" ++ tl_md 
+thing :: (TypeName->URL) -> Thing -> MDComment  -> MDComment
+thing mkl th tl_md =
+    case th of
+      ThComment md -> "\n" ++ md ++ "\n" ++ tl_md 
+      ThNode    an -> node mkl an tl_md
 
+node :: (TypeName->URL) -> APINode -> MDComment -> MDComment
+node mkl an tl_md = 
+        header an $ body mkl an $ version an $ vlog an $ "\n\n" ++ tl_md 
 
 header :: APINode -> MDComment -> MDComment
-header as tl_md = printf "#%s\n\n%s\n\n%s" nm_md cm_md tl_md 
+header as tl_md = printf "##%s\n\n%s\n\n%s" nm_md cm_md tl_md 
   where
     nm_md = type_name_md as
     cm_md = comment_md   as
