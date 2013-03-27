@@ -9,7 +9,7 @@ import           Data.API.Generate
 
 
 example :: API
-example =
+example = map ThNode 
     [ APINode "IsoS" "simple String newtype defn" "" (SpNewtype $ SpecNewtype BTstring) Nothing 1 ""
     , APINode "IsoB" "simple Bool   newtype defn" "" (SpNewtype $ SpecNewtype BTbool  ) Nothing 1 ""
     , APINode "IsoI" "simple Int    newtype defn" "" (SpNewtype $ SpecNewtype BTint   ) Nothing 1 ""

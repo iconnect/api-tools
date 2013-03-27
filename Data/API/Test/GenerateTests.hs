@@ -35,7 +35,7 @@ gen_sig nm = SigD nm $ AppT ListT $ ConT ''SimpleTest
 gen_suite :: Name -> API -> Dec
 gen_suite nm api = FunD nm [Clause [] (NormalB e) []]
   where
-    e = ListE $ map gen_test api
+    e = ListE $ map gen_test [ an | ThNode an <- api ]
 
 -- generate a single component of the test suite 
 

@@ -64,10 +64,10 @@ import qualified Control.Lens                   as L
 
 
 generate :: API -> Q [Dec]
-generate api' = concat <$> mapM gen api'
+generate api' = concat <$> mapM gen [an | ThNode an <- api']
 
 generateTools :: API -> Q [Dec]
-generateTools api' = concat <$> mapM gen_tools api'
+generateTools api' = concat <$> mapM gen_tools [an | ThNode an <- api']
 
 api :: QuasiQuoter
 api =

@@ -15,7 +15,7 @@ type URL = String
 
 
 markdown :: (TypeName->URL) -> API -> MDComment
-markdown mkl ass = foldr (markdown1 mkl) "" ass
+markdown mkl ths = foldr (markdown1 mkl) "" [ an | ThNode an<-ths ]
 
 markdown1 :: (TypeName->URL) -> APINode -> MDComment -> MDComment
 markdown1 mkl as tl_md = 

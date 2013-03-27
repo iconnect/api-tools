@@ -1,8 +1,11 @@
+// hello
+
 pre :: BarType
     // this is a comment
 
     = record
         f : boolean            // another comment
+// there
 
 pre :: FooType
     // this is a comment

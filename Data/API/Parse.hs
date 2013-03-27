@@ -30,12 +30,11 @@ test_p psr inp =
       Right y  -> y  
 
 
-{-
 test :: IO () 
 test =
  do cts <- readFile "test.txt"
-    print $ parse_ cts
--}
+    print $ scan cts
+    print $ parseAPI cts
 
 
 
@@ -43,23 +42,21 @@ type Parse a = Parsec [PToken] () a
 
 api_p :: Parse API
 api_p = 
- do api <- many node_p
-    eof
-    return api
+    many $ kw_p Semi >> 
+        (ThNode <$> node_p <|> ThComment <$> comments_p)
 
 node_p :: Parse APINode
 node_p =
-     do kw_p Semi
-        pre <- prefix_p
-        kw_p ColCol
-        con <- type_name_p
-        cts <- comments_p
-        kw_p Equals
-        spc <- spec_p
-        cnv <- with_p
-        vrn <- version_p
-        vlg <- comments_p
-        return $ APINode con cts pre spc cnv vrn vlg
+ do pre <- prefix_p
+    kw_p ColCol
+    con <- type_name_p
+    cts <- comments_p
+    kw_p Equals
+    spc <- spec_p
+    cnv <- with_p
+    vrn <- version_p
+    vlg <- comments_p
+    return $ APINode con cts pre spc cnv vrn vlg
 
 spec_p :: Parse Spec
 spec_p =

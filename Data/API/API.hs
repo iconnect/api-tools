@@ -16,7 +16,7 @@ import qualified Data.Text                      as T
 -- | Take and API spec and generate the JSON
 
 extractAPI :: API -> Value
-extractAPI = toJSON . map convert  
+extractAPI api = toJSON $ map convert [ an | ThNode an <- api ]  
 
 convert :: APINode -> D.APINode
 convert (APINode{..}) =

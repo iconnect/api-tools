@@ -3,6 +3,7 @@
 
 module Data.API.Types
     ( API
+    , Thing(..)
     , APINode(..)
     , TypeName(..)
     , FieldName(..)
@@ -26,7 +27,12 @@ import           Data.String
 -- | an API spec is made up of a list of type/element specs, each
 --   specifying a Haskell type and JSON wrappers
 
-type API = [APINode]
+type API = [Thing]
+
+data Thing
+    = ThComment MDComment
+    | ThNode    APINode
+    deriving (Show)
 
 -- | Specifies an individual element/type of the API 
 
