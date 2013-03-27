@@ -5,6 +5,8 @@
 
 module Data.API.Scan
     ( scan
+    , PToken
+    , AlexPosn(..)
     , Token(..)
     ) where
 
@@ -184,7 +186,7 @@ alex_deflt :: Array Int Int
 alex_deflt = listArray (0,113) [-1,-1,6,-1,35,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,20,20,-1,22,22,27,27,32,32,35,-1,35,35,36,36,6,6,6,38,38,35,42,42,47,47,112,112,112,-1,-1,49,49,49,-1,49,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,112,-1]
 
 alex_accept = listArray (0::Int,113) [AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccSkip,AlexAccSkip,AlexAccSkip,AlexAcc (alex_action_3),AlexAcc (alex_action_4),AlexAcc (alex_action_5),AlexAcc (alex_action_6),AlexAcc (alex_action_7),AlexAcc (alex_action_8),AlexAcc (alex_action_9),AlexAcc (alex_action_10),AlexAcc (alex_action_11),AlexAcc (alex_action_12),AlexAcc (alex_action_13),AlexAcc (alex_action_14),AlexAcc (alex_action_15),AlexAcc (alex_action_16),AlexAcc (alex_action_17),AlexAcc (alex_action_18),AlexAcc (alex_action_19),AlexAcc (alex_action_20),AlexAcc (alex_action_21),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_22),AlexAcc (alex_action_23),AlexAcc (alex_action_24),AlexAcc (alex_action_25),AlexAcc (alex_action_26)]
-{-# LINE 48 "Data/API/Scan.x" #-}
+{-# LINE 50 "Data/API/Scan.x" #-}
 
 
 type PToken = (AlexPosn,Token)
@@ -239,8 +241,8 @@ mk f p s = (p,f s)
 intg :: AlexPosn -> String -> PToken
 intg p s = (p,Intg $ readNote "Data.API.Scan.intg" s)
 
-scan :: String -> [Token]
-scan = map snd . pp . alexScanTokens
+scan :: String -> [PToken]
+scan = pp . alexScanTokens
 
 pp :: [PToken] -> [PToken]
 pp [] = []

@@ -3,6 +3,8 @@
 
 module Data.API.Scan
     ( scan
+    , PToken
+    , AlexPosn(..)
     , Token(..)
     ) where
 
@@ -99,8 +101,8 @@ mk f p s = (p,f s)
 intg :: AlexPosn -> String -> PToken
 intg p s = (p,Intg $ readNote "Data.API.Scan.intg" s)
 
-scan :: String -> [Token]
-scan = map snd . pp . alexScanTokens
+scan :: String -> [PToken]
+scan = pp . alexScanTokens
 
 pp :: [PToken] -> [PToken]
 pp [] = []

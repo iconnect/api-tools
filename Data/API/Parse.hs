@@ -41,7 +41,7 @@ test =
 
 
 
-type Parse a = Parsec [Token] () a
+type Parse a = Parsec [PToken] () a
 
 api_p :: Parse API
 api_p = 
@@ -169,18 +169,19 @@ integer_p = tok_p p
 kw_p :: Token -> Parse () 
 kw_p tk = tok_p p
   where
-    p tk' = case tk==tk' of
-              True  -> Just ()
-              False -> Nothing  
+    p tk' =
+        case tk==tk' of
+          True  -> Just ()
+          False -> Nothing  
 
 tok_p :: (Token->Maybe a) -> Parse a
-tok_p = token pretty position
+tok_p f = token pretty position $ f . snd
 
-pretty :: Token -> String
+pretty :: PToken -> String
 pretty = show
 
-position :: Token -> SourcePos
-position = const pos
+position :: PToken -> SourcePos
+position (AlexPn _ ln cl,_) = setSourceLine (setSourceColumn pos cl) ln
 
 is_prefix :: String -> Maybe Prefix
 is_prefix var = Just $ CI.mk var
