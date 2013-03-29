@@ -5,7 +5,6 @@ module Data.API.Parse
 
 import           Data.API.Types
 import           Data.API.Scan
-import           Data.List
 import           Text.Parsec
 import           Text.Parsec.Pos
 import qualified Data.CaseInsensitive       as CI
@@ -128,7 +127,7 @@ basic_p =
     const BTint    <$> kw_p Integer
 
 comments_p :: Parse MDComment
-comments_p = concat <$> intersperse "\n" <$> many comment_p
+comments_p = unlines <$> many comment_p
 
 comment_p :: Parse MDComment
 comment_p = tok_p p

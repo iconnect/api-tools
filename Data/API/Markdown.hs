@@ -9,6 +9,7 @@ module Data.API.Markdown
 import           Data.API.Types
 import qualified Data.CaseInsensitive       as CI
 import           Data.List
+import           Data.Char
 import           Text.Printf
 import           Control.Lens
 
@@ -92,14 +93,16 @@ mk_md_table mkl is_u fds = map f $ hdr : dhs : rws
     
     rws = map fmt fds
 
-    fmt (fn0,(ty,ct)) = (fn',type_md mkl ty,pp mkl "" $ map tr ct)
+    fmt (fn0,(ty,ct)) = (fn',type_md mkl ty,pp mkl "" $ cln ct)
       where
         fn' = if is_u then "_" ++ fn ++ "_" else fn
 
         fn  = _FieldName fn0
 
-    tr '\n' = ' '
-    tr c    = c
+    cln ct = reverse $ dropWhile isSpace $ reverse $ map tr ct
+      where
+        tr '\n' = ' '
+        tr c    = c
 
 summary_lines :: APINode -> String -> [MDComment]
 summary_lines an smy =
