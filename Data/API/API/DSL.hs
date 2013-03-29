@@ -18,7 +18,7 @@ apiAPI = [api|
 // #The api-tools API
 //
 // Here we make the DSP specs available in JSON so that clients
-// working in non-Haskell frameworks can integrate these API
+// working in non-Haskell frameworks can integrate API
 // specs into their own environments.
 
 ans :: APISpec
