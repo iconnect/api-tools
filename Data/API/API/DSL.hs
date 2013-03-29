@@ -38,9 +38,10 @@ an :: APINode
                                     // and conform to Haskell rules for type
                                     // identifiers
         comment    : string         // natural language description of the node
-        prefix     : string         // this prefix used to structure the Haskell
-                                    // name space, uncomfortably flat where
-                                    // record field names are concerned;
+        prefix     : string         // (Haskell side only) this prefix used to
+                                    // structure the Haskell name space
+                                    // (which is uncomfortably flat where
+                                    // record field names are concerned);
                                     // it has no effect on the JSON representation
         spec       : Spec           // here we specify the JSON representation
         convert    : ? Conversion   // (Haskell side only) sometimes we may
@@ -54,8 +55,8 @@ an :: APINode
                                     // in the comments) and reject a request
                                     // with a 400 error; has no effect on the
                                     // JSON representation
-        "version"  : integer        // the version number for handling server
-                                    // migrations
+        "version"  : integer        // (Haskell side mostly) the version number
+                                    // for handling server migrations
         log        : string         // a log explaining the changes that have
                                     // been made through the migrations
 
