@@ -115,7 +115,7 @@ gen_tools an | is_dt     = fmap concat $ sequence
   where
     (n,be) =
         case anVersion an of
-          Vrn i | i==1      -> (fromIntegral i,'base     )
+          Vrn i | i==0      -> (fromIntegral i,'base     )
                 | otherwise -> (fromIntegral i,'extension)
 
     is_dt  =

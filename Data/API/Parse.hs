@@ -99,7 +99,7 @@ with_p = optionMaybe $
     return (inj,prj)
 
 version_p :: Parse Vrn
-version_p = p <|> return 1
+version_p = p <|> return 0
   where
     p = kw_p Version >> Vrn <$> integer_p
 
