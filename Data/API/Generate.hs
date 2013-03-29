@@ -292,7 +292,7 @@ instance ToJSON JobSpecId where
 
 gen_sr_dt, gen_sr_to, gen_sr_fm, gen_sr_ab :: APINode -> SpecRecord -> Q Dec
 
-gen_sr_dt as sr = return $ DataD [] nm [] cs [show_nm,eq_nm]
+gen_sr_dt as sr = return $ DataD [] nm [] cs derive_nms -- [show_nm,eq_nm]
   where
     cs = [RecC nm [(pref_field_nm as fnm,NotStrict,mk_type ty) | 
                                     (fnm,(ty,_))<-srFields sr]]
@@ -365,7 +365,7 @@ instance FromJSON Foo where
 
 gen_su_dt, gen_su_to, gen_su_fm, gen_su_ab :: APINode -> SpecUnion -> Q Dec
 
-gen_su_dt as su = return $ DataD [] nm [] cs [show_nm,eq_nm]
+gen_su_dt as su = return $ DataD [] nm [] cs derive_nms -- [show_nm,eq_nm]
   where
     cs = [NormalC (pref_con_nm as fnm) [(NotStrict,mk_type ty)] | 
                                             (fnm,(ty,_))<-suFields su]
@@ -470,8 +470,8 @@ gen_se_dt, gen_se_to, gen_se_fm, gen_se_ab,
                 gen_se_tx_sig, gen_se_tx, 
                 gen_se_mp_sig, gen_se_mp :: APINode -> SpecEnum -> Q Dec
 
-gen_se_dt as se = return $ DataD [] nm [] cs 
-                                [show_nm,eq_nm,ord_nm,bounded_nm,enum_nm]
+gen_se_dt as se = return $ DataD [] nm [] cs $
+                                derive_nms ++ [bounded_nm,enum_nm] -- [show_nm,eq_nm,ord_nm,bounded_nm,enum_nm]
   where
     cs = [NormalC (pref_con_nm as fnm) [] | fnm <- seAlts se ]
     

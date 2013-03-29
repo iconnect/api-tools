@@ -10,87 +10,104 @@ import           Data.API.Types
 import qualified Data.CaseInsensitive       as CI
 import           Data.List
 import           Text.Printf
+import           Control.Lens
 
 
-type URL = String
+{-      
+ ###Foo
+
+a test defn
+
+JSON Type : **union object** (Haskell prefix is 'foo')
+
+|Alternative | Type    | Comment
+|----------- | ------- | -------
+|_`Baz`_     | boolean | just a bool
+|_`Qux`_     | integer | just an int
+-}
 
 
-markdown :: (TypeName->URL) -> API -> MDComment
+markdown :: (TypeName->MDComment) -> API -> MDComment
 markdown mkl ths = foldr (thing mkl) "" ths
 
-thing :: (TypeName->URL) -> Thing -> MDComment  -> MDComment
+thing :: (TypeName->MDComment) -> Thing -> MDComment  -> MDComment
 thing mkl th tl_md =
     case th of
-      ThComment md -> md ++ tl_md 
+      ThComment md -> pp mkl md tl_md 
       ThNode    an -> node mkl an tl_md
 
-node :: (TypeName->URL) -> APINode -> MDComment -> MDComment
+node :: (TypeName->MDComment) -> APINode -> MDComment -> MDComment
 node mkl an tl_md = 
-        header an $ body mkl an $ version an $ vlog an $ "\n\n" ++ tl_md 
+        header mkl an $ body mkl an $ version an $ vlog an $ "\n\n" ++ tl_md 
 
-header :: APINode -> MDComment -> MDComment
-header as tl_md = printf "###%s\n\n%s\n\n%s" nm_md cm_md tl_md 
+header :: (TypeName->MDComment) -> APINode -> MDComment -> MDComment
+header mkl as tl_md = printf "###%s\n\n%s\n\n%s" nm_md (pp mkl cm_md "") tl_md 
   where
     nm_md = type_name_md as
     cm_md = comment_md   as
 
-body :: (TypeName->URL) -> APINode -> MDComment  -> MDComment
+body :: (TypeName->MDComment) -> APINode -> MDComment  -> MDComment
 body mkl as tl_md =
     case anSpec as of
       SpNewtype sn -> block tl_md $ ntype   mkl as sn
       SpRecord  sr -> block tl_md $ record  mkl as sr
       SpUnion   su -> block tl_md $ union_  mkl as su
-      SpEnum    se -> block tl_md $ enum    mkl as se
+      SpEnum    se -> block tl_md $ enum_   mkl as se
       SpSynonym ty -> block tl_md $ synonym mkl as ty
 
-ntype :: (TypeName->URL) -> APINode -> SpecNewtype -> [MDComment]
+ntype :: (TypeName->MDComment) -> APINode -> SpecNewtype -> [MDComment]
 ntype _ as sn = summary_lines as (basic_type_md $ snType sn)
 
-record :: (TypeName->URL) -> APINode -> SpecRecord -> [MDComment]
+record :: (TypeName->MDComment) -> APINode -> SpecRecord -> [MDComment]
 record mkl as sr =
-    summary_lines as "object (record)" ++ concat (map fmt (srFields sr))
-  where
-    fmt (fnm,(ty,cmt)) = field False mkl fnm ty cmt
+    summary_lines as "record object" ++ mk_md_table mkl False (srFields sr)
 
-union_ :: (TypeName->URL) -> APINode -> SpecUnion -> [MDComment]
+union_ :: (TypeName->MDComment) -> APINode -> SpecUnion -> [MDComment]
 union_ mkl as su =
-    summary_lines as "object (union)" ++ concat (map fmt (suFields su))
-  where
-    fmt (fnm,(ty,cmt)) = field False mkl fnm ty cmt
+    summary_lines as "union object" ++ mk_md_table mkl True (suFields su)
 
-enum :: (TypeName->URL) -> APINode -> SpecEnum -> [MDComment]
-enum _ as se = summary_lines as (printf "string (%s)" en_s)
+enum_ :: (TypeName->MDComment) -> APINode -> SpecEnum -> [MDComment]
+enum_ _ as se = summary_lines as (printf "string (%s)" en_s)
   where
     en_s = concat $ intersperse "|" $ map _FieldName $ seAlts se
 
-synonym :: (TypeName->URL) -> APINode -> APIType -> [MDComment]
+synonym :: (TypeName->MDComment) -> APINode -> APIType -> [MDComment]
 synonym mkl an ty = summary_lines an $ type_md mkl ty
 
-field :: Bool -> (TypeName->URL) -> FieldName -> APIType -> MDComment -> [MDComment]
-field isu mkl fnm ty cmt = printf "  %c %-20s : %-20s %s" c fn_s ty_s cm0 : cms
-      where
-        c         = if isu then '|' else ' '
-        fn_s      = _FieldName fnm
-        ty_s      = type_md mkl ty
-        
-        (cm0,cms) = comment 48 cmt
-
-comment :: Int -> MDComment -> (MDComment,[MDComment])
-comment col cmt = 
-    case lines cmt of
-      []       -> (""      ,[]                              )
-      (cm:cms) -> (mk "" cm,map (mk $ replicate col ' ') cms)
+mk_md_table :: (TypeName->MDComment) -> Bool -> 
+                            [(FieldName,(APIType,MDComment))] -> [MDComment]
+mk_md_table mkl is_u fds = map f $ hdr : dhs : rws
   where
-    mk pre cm = pre ++ "// " ++ cm
+    f          = if all (null . view _3) rws then f2 else f3
+
+    f2 (x,y,_) = ljust lnx x ++ " | " ++           y
+    f3 (x,y,z) = ljust lnx x ++ " | " ++ ljust lny y ++ " | " ++ z
+
+    dhs = (replicate lnx '-',replicate lny '-',replicate 7 '-')
+
+    lnx = maximum $ map (length . view _1) $ hdr : rws
+    lny = maximum $ map (length . view _2) $ hdr : rws
+
+    hdr = (if is_u then "Alternative" else "Field","Type","Comment")
+    
+    rws = map fmt fds
+
+    fmt (fn0,(ty,ct)) = (fn',type_md mkl ty,pp mkl "" $ map tr ct)
+      where
+        fn' = if is_u then "_" ++ fn ++ "_" else fn
+
+        fn  = _FieldName fn0
+
+    tr '\n' = ' '
+    tr c    = c
 
 summary_lines :: APINode -> String -> [MDComment]
-summary_lines an smy = prl ++ [printf "JSON Type : %s" smy]
-  where
-    prl = case prefix_md an of
-            "" -> []
-            pf -> [            printf "prefix    : %s" pf]
+summary_lines an smy =
+    [ printf "JSON Type : **%s** [Haskell prefix is `%s`]" smy $ prefix_md an
+    , ""
+    ]
 
-type_md :: (TypeName->URL) -> APIType -> MDComment
+type_md :: (TypeName->MDComment) -> APIType -> MDComment
 type_md mkl ty =
     case ty of
       TyList  ty' -> "[" ++ type_md mkl ty' ++ "]"
@@ -112,9 +129,7 @@ prefix_md    = CI.original . anPrefix
 comment_md   =               anComment
 
 block :: MDComment -> [MDComment] -> MDComment
-block tl_md cmts = foldr lyo tl_md cmts
-  where
-    lyo cmt tl = "    " ++ cmt ++ '\n' : tl
+block tl_md cmts = unlines cmts ++ tl_md
 
 version :: APINode -> MDComment -> MDComment 
 version an tl_md =
@@ -127,3 +142,20 @@ vlog an tl_md =
     case anLog an of
       "" -> tl_md
       lg -> printf "\n###Log\n\n%s\n%s" lg tl_md
+
+ljust :: Int -> String -> String
+ljust fw s = s ++ replicate p ' '
+  where
+    p = max 0 $ fw - length s 
+
+pp :: (TypeName->MDComment) -> MDComment -> MDComment -> MDComment
+pp mkl s0 tl_md = pp0 s0
+  where
+    pp0 []    = tl_md
+    pp0 (c:t) = 
+        case c of
+          '{' -> pp1 $ break ('}' ==) t
+          _   -> c : pp0 t
+
+    pp1 (nm,[] ) = '{' : nm ++ tl_md
+    pp1 (nm,_:t) = mkl (TypeName nm) ++ pp0 t 

@@ -5,14 +5,12 @@ module Data.API.Parse
 
 import           Data.API.Types
 import           Data.API.Scan
+import           Data.List
 import           Text.Parsec
 import           Text.Parsec.Pos
 import qualified Data.CaseInsensitive       as CI
 import           Control.Applicative((<$>))
 import           Control.Monad
-
---import           Text.Parsec.String
---import           Data.Attempt
 
     
     
@@ -30,12 +28,13 @@ test_p psr inp =
       Right y  -> y  
 
 
+{-
 test :: IO () 
 test =
  do cts <- readFile "test.txt"
     print $ scan cts
     print $ parseAPI cts
-
+-}
 
 
 type Parse a = Parsec [PToken] () a
@@ -129,7 +128,7 @@ basic_p =
     const BTint    <$> kw_p Integer
 
 comments_p :: Parse MDComment
-comments_p = unlines <$> many comment_p
+comments_p = concat <$> intersperse "\n" <$> many comment_p
 
 comment_p :: Parse MDComment
 comment_p = tok_p p

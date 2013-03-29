@@ -21,12 +21,12 @@ import           Test.QuickCheck
 
 main :: IO ()
 main = 
- do print $ (decode $ encode test_IsoS     :: Maybe [IsoS])
-    print $ (decode $ encode test_IsoB     :: Maybe [IsoB])
-    print $ (decode $ encode test_IsoI     :: Maybe [IsoI])
-    print $ (decode $ encode test_foo      :: Maybe Foo   )
-    print $ (decode $ encode test_wibble_1 :: Maybe Wibble)
-    print $ (decode $ encode test_wibble_2 :: Maybe Wibble)
+ do print $ (decode $ encode test_IsoS     :: Maybe [IsoS]  )
+    print $ (decode $ encode test_IsoB     :: Maybe [IsoB]  )
+    print $ (decode $ encode test_IsoI     :: Maybe [IsoI]  )
+    print $ (decode $ encode test_foo      :: Maybe Foo     )
+    print $ (decode $ encode test_wibble_1 :: Maybe Wibble  )
+    print $ (decode $ encode test_wibble_2 :: Maybe Wibble  )
     print $ (decode $ encode test_enumer   :: Maybe [Enumer])
     putStr $ markdown _TypeName example
     putStr $ markdown _TypeName example2
@@ -69,7 +69,8 @@ testAllWrappers =
     mkTestAll apiAPISimpleTests
 
 
--- kill warnings
+-- kill warnings about unnecessary module imports (used for ghci
+-- tests and experiments)
 
 type R a = Data.Aeson.Result a
 
