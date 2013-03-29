@@ -1,49 +1,62 @@
-#IsoS
+###IsoS
 
 simple String newtype defn
 
-    JSON Type : string
+JSON Type : **string** [Haskell prefix is ``]
+
+version: 0
 
 
-#IsoB
+###IsoB
 
 simple Bool   newtype defn
 
-    JSON Type : boolean
+JSON Type : **boolean** [Haskell prefix is ``]
+
+version: 0
 
 
-#IsoI
+###IsoI
 
 simple Int    newtype defn
 
-    JSON Type : integer
+JSON Type : **integer** [Haskell prefix is ``]
+
+version: 0
 
 
-#Foo
+###Foo
 
 a test defn
 
-    prefix    : bAr_
-    JSON Type : object (record)
-        Baz                  : boolean              // just a bool
-        Qux                  : integer              // just an int
+JSON Type : **record object** [Haskell prefix is `bAr_`]
+
+Field | Type    | Comment
+----- | ------- | -------
+Baz   | boolean | just a bool
+Qux   | integer | just an int
+version: 0
 
 
-#Wibble
+###Wibble
 
 another test defn
 
-    prefix    : dro
-    JSON Type : object (union)
-        wubble               : [Foo]                // list of Foo
-        flubble              : string               // a string
+JSON Type : **union object** [Haskell prefix is `dro`]
+
+Alternative | Type   | Comment
+----------- | ------ | -------
+_wubble_    | [Foo]  | list of Foo
+_flubble_   | string | a string
+version: 0
 
 
-#Enumer
+###Enumer
 
 enum test defn
 
-    prefix    : enm
-    JSON Type : string (wubble|flubble)
+JSON Type : **string (wubble|flubble)** [Haskell prefix is `enm`]
+
+version: 0
 
 

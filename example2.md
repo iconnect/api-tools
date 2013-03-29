@@ -1,19 +1,21 @@
-#Ssn
+###Ssn
 
 
 
-    prefix    : ssn
-    JSON Type : integer
+JSON Type : **integer** [Haskell prefix is `ssn`]
+
+version: 0
 
 
-#Ide
+###Ide
 
 here is a block comment
 and a simple comment
 
 
-    prefix    : ide
-    JSON Type : string
+JSON Type : **string** [Haskell prefix is `ide`]
+
+version: 0
 
 ###Log
 
@@ -22,73 +24,85 @@ before we can bump the version
 
 
 
-#Flag
+###Flag
 
 
 
-    prefix    : flg
-    JSON Type : boolean
+JSON Type : **boolean** [Haskell prefix is `flg`]
+
+version: 0
 
 
-#Cert
+###Cert
 
 
 
-    prefix    : crt
-    JSON Type : base64 string
+JSON Type : **base64 string** [Haskell prefix is `crt`]
+
+version: 0
 
 
-#Poo
-
-A simple test example
-
-
-    prefix    : poo
-    JSON Type : object (record)
-        x                    : integer              
-        y                    : Foo                  
-
-
-#Coord
+###Poo
 
 A simple test example
 
 
-    prefix    : c
-    JSON Type : object (record)
-        x                    : integer              // the x coordinate
-                                                    // with a multi-line comment
-        y                    : integer              // and here we have a multi-line
-                                                    //                        block comment 
-                                                    //                        and this
+JSON Type : **record object** [Haskell prefix is `poo`]
+
+Field | Type
+----- | -------
+x     | integer
+y     | Foo
+version: 0
 
 
-#Twiddle
+###Coord
 
 A simple test example
 
 
-    prefix    : twi
-    JSON Type : object (record)
-        x                    : [integer]            // a field
-        y                    : ? [base64 string]    // another field
+JSON Type : **record object** [Haskell prefix is `c`]
+
+Field | Type    | Comment
+----- | ------- | -------
+x     | integer | the x coordinate with a multi-line comment
+y     | integer | and here we have a multi-line                        block comment                         and this
+version: 0
 
 
-#CHOICE
+###Twiddle
+
+A simple test example
+
+
+JSON Type : **record object** [Haskell prefix is `twi`]
+
+Field | Type              | Comment
+----- | ----------------- | -------
+x     | [integer]         | a field
+y     | ? [base64 string] | another field
+version: 0
+
+
+###CHOICE
 
 
 
-    prefix    : chc
-    JSON Type : object (union)
-        a                    : integer              
-        b                    : string               
+JSON Type : **union object** [Haskell prefix is `chc`]
+
+Alternative | Type
+----------- | -------
+_a_         | integer
+_b_         | string
+version: 0
 
 
-#ENUM
+###ENUM
 
 
 
-    prefix    : enm
-    JSON Type : string (e1|e2)
+JSON Type : **string (e1|e2)** [Haskell prefix is `enm`]
+
+version: 0
 
 

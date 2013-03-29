@@ -10,21 +10,21 @@ import           Data.API.Generate
 
 example :: API
 example = map ThNode 
-    [ APINode "IsoS" "simple String newtype defn" "" (SpNewtype $ SpecNewtype BTstring) Nothing 1 ""
-    , APINode "IsoB" "simple Bool   newtype defn" "" (SpNewtype $ SpecNewtype BTbool  ) Nothing 1 ""
-    , APINode "IsoI" "simple Int    newtype defn" "" (SpNewtype $ SpecNewtype BTint   ) Nothing 1 ""
+    [ APINode "IsoS" "simple String newtype defn" "" (SpNewtype $ SpecNewtype BTstring) Nothing 0 ""
+    , APINode "IsoB" "simple Bool   newtype defn" "" (SpNewtype $ SpecNewtype BTbool  ) Nothing 0 ""
+    , APINode "IsoI" "simple Int    newtype defn" "" (SpNewtype $ SpecNewtype BTint   ) Nothing 0 ""
     , APINode "Foo" "a test defn" "bAr_" (SpRecord $ SpecRecord
             [ (,) "Baz" (TyBasic BTbool,"just a bool")
             , (,) "Qux" (TyBasic BTint ,"just an int")
-            ]) Nothing 1 ""
+            ]) Nothing 0 ""
     , APINode "Wibble" "another test defn" "dro" (SpUnion $ SpecUnion
             [ (,) "wubble"  (TyList $ TyName $ "Foo","list of Foo")
             , (,) "flubble" (TyBasic BTstring       ,"a string"   )
-            ]) Nothing 1 ""
+            ]) Nothing 0 ""
     , APINode "Enumer" "enum test defn" "enm" (SpEnum $ SpecEnum
             [ "wubble"
             , "flubble"
-            ]) Nothing 1 ""
+            ]) Nothing 0 ""
     ]
 
 example2 :: API
@@ -38,7 +38,7 @@ ide :: Ide
     (* here is a block comment *)
     // and a simple comment
     = string
-    version 1
+    version 0
     // need to add Migrate instances 
     // before we can bump the version 
 
