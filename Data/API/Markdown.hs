@@ -4,6 +4,7 @@ module Data.API.Markdown
     ( markdown
     , thing
     , node
+    , pp
     ) where
 
 import           Data.API.Types
