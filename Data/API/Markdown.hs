@@ -28,17 +28,18 @@ JSON Type : **union object** (Haskell prefix is 'foo')
 |_`Qux`_     | integer | just an int
 -}
 
+type TypeHeading = (String,String)
 
-markdown :: String -> (TypeName->MDComment) -> API -> MDComment
+markdown :: TypeHeading -> (TypeName->MDComment) -> API -> MDComment
 markdown thd mkl ths = foldr (thing thd mkl) "" ths
 
-thing :: String -> (TypeName->MDComment) -> Thing -> MDComment  -> MDComment
+thing :: TypeHeading -> (TypeName->MDComment) -> Thing -> MDComment  -> MDComment
 thing thd mkl th tl_md =
     case th of
       ThComment md -> pp mkl md tl_md 
       ThNode    an -> node thd mkl an tl_md
 
-node :: String -> (TypeName->MDComment) -> APINode -> MDComment -> MDComment
+node :: TypeHeading -> (TypeName->MDComment) -> APINode -> MDComment -> MDComment
 node thd mkl an tl_md = 
         header mkl an $ body thd mkl an $ version an $ vlog an $ "\n\n" ++ tl_md 
 
@@ -48,7 +49,7 @@ header mkl as tl_md = printf "###%s\n\n%s\n\n%s" nm_md (pp mkl cm_md "") tl_md
     nm_md = type_name_md as
     cm_md = comment_md   as
 
-body :: String -> (TypeName->MDComment) -> APINode -> MDComment  -> MDComment
+body :: TypeHeading -> (TypeName->MDComment) -> APINode -> MDComment  -> MDComment
 body thd mkl as tl_md =
     case anSpec as of
       SpNewtype sn -> block tl_md $ ntype       mkl as sn
@@ -60,11 +61,11 @@ body thd mkl as tl_md =
 ntype :: (TypeName->MDComment) -> APINode -> SpecNewtype -> [MDComment]
 ntype _ as sn = summary_lines as (basic_type_md $ snType sn)
 
-record :: String -> (TypeName->MDComment) -> APINode -> SpecRecord -> [MDComment]
+record :: TypeHeading -> (TypeName->MDComment) -> APINode -> SpecRecord -> [MDComment]
 record thd mkl as sr =
     summary_lines as "record object" ++ mk_md_table thd mkl False (srFields sr)
 
-union_ :: String -> (TypeName->MDComment) -> APINode -> SpecUnion -> [MDComment]
+union_ :: TypeHeading -> (TypeName->MDComment) -> APINode -> SpecUnion -> [MDComment]
 union_ thd mkl as su =
     summary_lines as "union object" ++ mk_md_table thd mkl True (suFields su)
 
@@ -76,23 +77,25 @@ enum_ _ as se = summary_lines as (printf "string (%s)" en_s)
 synonym :: (TypeName->MDComment) -> APINode -> APIType -> [MDComment]
 synonym mkl an ty = summary_lines an $ type_md mkl ty
 
-mk_md_table :: String -> (TypeName->MDComment) -> Bool -> 
+mk_md_table :: TypeHeading -> (TypeName->MDComment) -> Bool -> 
                             [(FieldName,(APIType,MDComment))] -> [MDComment]
-mk_md_table thd mkl is_u fds = map f $ hdr : dhs : rws
+mk_md_table (tlb,tds) mkl is_u fds = map f $ hdr : dhs : rws
   where
     f          = if all (null . view _3) rws then f2 else f3
 
     f2 (x,y,_) = ljust lnx x ++ " | " ++           y
     f3 (x,y,z) = ljust lnx x ++ " | " ++ ljust lny y ++ " | " ++ z
 
-    dhs = (replicate lnx '-',replicate lny '-',replicate 7 '-')
+    dhs  = (replicate lnx '-',tds++replicate lny' '-',replicate 7 '-')
 
-    lnx = maximum $ map (length . view _1) $ hdr : rws
-    lny = maximum $ map (length . view _2) $ hdr : rws
+    lny' = max 0 lny-length tds
 
-    hdr = (if is_u then "Alternative" else "Field",thd,"Comment")
+    lnx  = maximum $ map (length . view _1) $ hdr : rws
+    lny  = maximum $ map (length . view _2) $ hdr : rws
+
+    hdr  = (if is_u then "Alternative" else "Field",tlb,"Comment")
     
-    rws = map fmt fds
+    rws  = map fmt fds
 
     fmt (fn0,(ty,ct)) = (fn',type_md mkl ty,pp mkl "" $ cln ct)
       where
