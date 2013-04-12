@@ -2,7 +2,7 @@
 #The api-tools API
 
 Here we make the DSP specs available in JSON so that clients
-working in non-Haskell frameworks can integrate these API
+working in non-Haskell frameworks can integrate API
 specs into their own environments.
 ###APISpec
 
@@ -31,10 +31,10 @@ Field   | Type         | Comment
 ------- | ------------ | -------
 name    | string       | the name must start with a big letter  and conform to Haskell rules for type identifiers
 comment | string       | natural language description of the node
-prefix  | string       | this prefix used to structure the Haskell name space, uncomfortably flat where record field names are concerned; it has no effect on the JSON representation
+prefix  | string       | (Haskell side only) this prefix used to structure the Haskell name space (which is uncomfortably flat where record field names are concerned); it has no effect on the JSON representation
 spec    | Spec         | here we specify the JSON representation
 convert | ? Conversion | (Haskell side only) sometimes we may choose to not use the default internal representation for the JSON but instead supply a couple of functions for injecting the default representation into the actual type we will use and the and project it back again; here we can check some properties (which must be explained in the comments) and reject a request with a 400 error; has no effect on the JSON representation
-version | integer      | the version number for handling server migrations
+version | integer      | (Haskell side mostly) the version number for handling server migrations
 log     | string       | a log explaining the changes that have been made through the migrations
 version: 0
 

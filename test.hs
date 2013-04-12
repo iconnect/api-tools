@@ -28,10 +28,10 @@ main =
     print $ (decode $ encode test_wibble_1 :: Maybe Wibble  )
     print $ (decode $ encode test_wibble_2 :: Maybe Wibble  )
     print $ (decode $ encode test_enumer   :: Maybe [Enumer])
-    putStr $ markdown _TypeName example
-    putStr $ markdown _TypeName example2
-    writeFile "example.md"  $ markdown _TypeName example
-    writeFile "example2.md" $ markdown _TypeName example2
+    putStr $ markdown "Type" _TypeName example
+    putStr $ markdown "Type" _TypeName example2
+    writeFile "example.md"  $ markdown "Type" _TypeName example
+    writeFile "example2.md" $ markdown "Type" _TypeName example2
     testAllWrappers
     
 dump :: IO ()
