@@ -7,10 +7,12 @@ module Data.API.Generate
     , Binary(..)
     , generate
     , generateTools
+    , generateSamples
     , Parser
     , Data.Map.Map
     , Data.Text.Text
     , Data.Typeable.Typeable
+    , Test.QuickCheck.Gen
     , Test.QuickCheck.Arbitrary
     , Test.QuickCheck.arbitrary
     , Test.QuickCheck.oneof
@@ -68,6 +70,30 @@ generate api' = concat <$> mapM gen [an | ThNode an <- api']
 
 generateTools :: API -> Q [Dec]
 generateTools api' = concat <$> mapM gen_tools [an | ThNode an <- api']
+
+generateSamples :: API -> String -> Q [Dec]
+generateSamples api' nm_s = return 
+    [ SigD nm $ AppT ListT $ AppT (AppT (TupleT 2) (ConT string_nm))
+                                        (AppT (ConT gen_nm) (ConT value_nm))  
+    , FunD nm $ [
+        Clause 
+            [] 
+            (NormalB $ ListE [ gen_sample nd | ThNode nd <- api' ])
+            []
+        ]
+    ]
+  where
+    nm = mkName nm_s
+    
+    gen_sample :: APINode -> Exp
+    gen_sample an =
+        TupE [ LitE (StringL tnm_s)
+             , ap2 (VarE fmap_nm) (VarE to_json_nm) $
+                    SigE (VarE arbitrary_fn_nm) (AppT (ConT gen_nm) (ConT tnm))
+             ]
+      where
+        tnm   = mkName tnm_s
+        tnm_s = _TypeName $ anName an
 
 api :: QuasiQuoter
 api =
@@ -611,11 +637,12 @@ derive_nms :: [Name]
 derive_nms = [show_nm,eq_nm,ord_nm,typeable_cl_nm]
 
 
-x_nm, maybe_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
+x_nm, string_nm, maybe_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
     fmap_nm, to_json_nm, parse_json_nm, return_nm, 
     arbitrary_nm, dot_nm, then_nm,
     map_ty_nm, text_nm, is_string_cl_nm, typeable_cl_nm, 
     to_json_cl_nm, from_json_cl_nm, to_json_fn_nm, parse_json_fn_nm,
+    value_nm, gen_nm,
     arbitrary_cl_nm,
     object_nm, object_con_nm, string_con_nm, bool_con_nm,
     dot_eq_nm, dot_co_nm, mzero_nm, astar_nm, mismatch_nm, 
@@ -625,6 +652,7 @@ x_nm, maybe_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
     binary_nm, mk_binary_nm, with_binary_nm :: Name
 
 x_nm                = mkName "x"
+string_nm           = mkName "String"
 maybe_nm            = mkName "Maybe"
 show_nm             = mkName "Show"
 eq_nm               = mkName "Eq"
@@ -647,6 +675,8 @@ to_json_cl_nm       = Name (mkOccName "ToJSON"      ) $ NameQ gn_mod
 from_json_cl_nm     = Name (mkOccName "FromJSON"    ) $ NameQ gn_mod
 to_json_fn_nm       = Name (mkOccName "toJSON"      ) $ NameQ gn_mod
 parse_json_fn_nm    = Name (mkOccName "parseJSON"   ) $ NameQ gn_mod
+value_nm            = Name (mkOccName "Value"       ) $ NameQ gn_mod
+gen_nm              = Name (mkOccName "Gen"         ) $ NameQ gn_mod
 arbitrary_cl_nm     = Name (mkOccName "Arbitrary"   ) $ NameQ gn_mod
 object_nm           = Name (mkOccName "object"      ) $ NameQ gn_mod
 object_con_nm       = Name (mkOccName "Object"      ) $ NameQ gn_mod
