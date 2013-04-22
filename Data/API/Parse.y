@@ -50,7 +50,7 @@ API : RAPI                              { reverse $1                        }
 
 RAPI :: { [Thing] }
 RAPI 
-    : RAPI ';' Thing                    { $1 ++ [$3]                        }
+    : RAPI ';' Thing                    { $3 : $1                           }
     |                                   { []                                }
 
 Thing :: { Thing }
