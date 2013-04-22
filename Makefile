@@ -12,17 +12,21 @@ api-tools: .prep
 docs:
 	runghc gen_docs.hs
 
-.prep: Data/API/Scan.hs
+.prep: Data/API/Scan.hs Data/API/Parse.hs
 	hub load    api-tools <api-tools.har
 	hub comment api-tools "api-tools build"
 	hub set     api-tools
 	cabal configure --enable-tests
 	touch .prep
 
-alex: Data/API/Scan.hs
+alex:  Data/API/Scan.hs
+happy: Data/API/Parse.hs
 
 Data/API/Scan.hs: Data/API/Scan.x
 	alex $<
+
+Data/API/Parse.hs: Data/API/Parse.y
+	happy --ghc --info=Data/API/Parse.i $<
 
 save-hub:
 	hub save api-tools >api-tools.har
