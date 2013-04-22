@@ -2,6 +2,8 @@
 
 module Data.API.Markdown
     ( markdown
+    , MarkdownMethods(..)
+    , markdownMethods
     , thing
     , node
     , pp
@@ -28,76 +30,84 @@ JSON Type : **union object** (Haskell prefix is 'foo')
 |_`Qux`_     | integer | just an int
 -}
 
-type TypeHeading = (String,String)
+data MarkdownMethods
+    = MDM
+        { mdmSummaryPostfix :: TypeName -> MDComment
+        , mdmLink           :: TypeName -> MDComment
+        }
 
-markdown :: TypeHeading -> (TypeName->MDComment) -> API -> MDComment
-markdown thd mkl ths = foldr (thing thd mkl) "" ths
+markdownMethods :: MarkdownMethods
+markdownMethods =
+    MDM { mdmSummaryPostfix = const ""
+        , mdmLink           = _TypeName
+        }
 
-thing :: TypeHeading -> (TypeName->MDComment) -> Thing -> MDComment  -> MDComment
-thing thd mkl th tl_md =
+markdown :: MarkdownMethods -> API -> MDComment
+markdown mdm ths = foldr (thing mdm) "" ths
+
+thing :: MarkdownMethods -> Thing -> MDComment  -> MDComment
+thing mdm th tl_md =
     case th of
-      ThComment md -> pp mkl md tl_md 
-      ThNode    an -> node thd mkl an tl_md
+      ThComment md -> pp   mdm md tl_md 
+      ThNode    an -> node mdm an tl_md
 
-node :: TypeHeading -> (TypeName->MDComment) -> APINode -> MDComment -> MDComment
-node thd mkl an tl_md = 
-        header mkl an $ body thd mkl an $ version an $ vlog an $ "\n\n" ++ tl_md 
+node :: MarkdownMethods -> APINode -> MDComment -> MDComment
+node mdm an tl_md = 
+        header mdm an $ body mdm an $ version an $ vlog an $ "\n\n" ++ tl_md 
 
-header :: (TypeName->MDComment) -> APINode -> MDComment -> MDComment
-header mkl as tl_md = printf "###%s\n\n%s\n\n%s" nm_md (pp mkl cm_md "") tl_md 
+header :: MarkdownMethods -> APINode -> MDComment -> MDComment
+header mdm an tl_md = printf "###%s\n\n%s\n\n%s" nm_md (pp mdm cm_md "") tl_md 
   where
-    nm_md = type_name_md as
-    cm_md = comment_md   as
+    nm_md = type_name_md an
+    cm_md = comment_md   an
 
-body :: TypeHeading -> (TypeName->MDComment) -> APINode -> MDComment  -> MDComment
-body thd mkl as tl_md =
-    case anSpec as of
-      SpNewtype sn -> block tl_md $ ntype       mkl as sn
-      SpRecord  sr -> block tl_md $ record  thd mkl as sr
-      SpUnion   su -> block tl_md $ union_  thd mkl as su
-      SpEnum    se -> block tl_md $ enum_       mkl as se
-      SpSynonym ty -> block tl_md $ synonym     mkl as ty
+body :: MarkdownMethods -> APINode -> MDComment  -> MDComment
+body mdm an tl_md =
+    case anSpec an of
+      SpNewtype sn -> block tl_md $ ntype   mdm an sn
+      SpRecord  sr -> block tl_md $ record  mdm an sr
+      SpUnion   su -> block tl_md $ union_  mdm an su
+      SpEnum    se -> block tl_md $ enum_   mdm an se
+      SpSynonym ty -> block tl_md $ synonym mdm an ty
 
-ntype :: (TypeName->MDComment) -> APINode -> SpecNewtype -> [MDComment]
-ntype _ as sn = summary_lines as (basic_type_md $ snType sn)
+ntype :: MarkdownMethods -> APINode -> SpecNewtype -> [MDComment]
+ntype mdm an sn = summary_lines mdm an (basic_type_md $ snType sn)
 
-record :: TypeHeading -> (TypeName->MDComment) -> APINode -> SpecRecord -> [MDComment]
-record thd mkl as sr =
-    summary_lines as "record object" ++ mk_md_table thd mkl False (srFields sr)
+record :: MarkdownMethods -> APINode -> SpecRecord -> [MDComment]
+record mdm an sr =
+    summary_lines mdm an "record object" ++ mk_md_table mdm False (srFields sr)
 
-union_ :: TypeHeading -> (TypeName->MDComment) -> APINode -> SpecUnion -> [MDComment]
-union_ thd mkl as su =
-    summary_lines as "union object" ++ mk_md_table thd mkl True (suFields su)
+union_ :: MarkdownMethods -> APINode -> SpecUnion -> [MDComment]
+union_ mdm an su =
+    summary_lines mdm an "union object" ++ mk_md_table mdm True (suFields su)
 
-enum_ :: (TypeName->MDComment) -> APINode -> SpecEnum -> [MDComment]
-enum_ _ as se = summary_lines as (printf "string (%s)" en_s)
+enum_ :: MarkdownMethods -> APINode -> SpecEnum -> [MDComment]
+enum_ mdm an se = summary_lines mdm an (printf "string (%s)" en_s)
   where
     en_s = concat $ intersperse "|" $ map _FieldName $ seAlts se
 
-synonym :: (TypeName->MDComment) -> APINode -> APIType -> [MDComment]
-synonym mkl an ty = summary_lines an $ type_md mkl ty
+synonym :: MarkdownMethods -> APINode -> APIType -> [MDComment]
+synonym mdm an ty = summary_lines mdm an $ type_md mdm ty
 
-mk_md_table :: TypeHeading -> (TypeName->MDComment) -> Bool -> 
+mk_md_table :: MarkdownMethods -> Bool -> 
                             [(FieldName,(APIType,MDComment))] -> [MDComment]
-mk_md_table (tlb,tds) mkl is_u fds = map f $ hdr : dhs : rws
+mk_md_table mdm is_u fds = map f $ hdr : dhs : rws
   where
     f          = if all (null . view _3) rws then f2 else f3
 
     f2 (x,y,_) = ljust lnx x ++ " | " ++           y
     f3 (x,y,z) = ljust lnx x ++ " | " ++ ljust lny y ++ " | " ++ z
 
-    dhs  = (replicate lnx '-',tds++replicate lny' '-',replicate 7 '-')
-
-    lny' = max 0 lny-length tds
+    dhs  = (replicate lnx '-',replicate lny '-',replicate 7 '-')
 
     lnx  = maximum $ map (length . view _1) $ hdr : rws
     lny  = maximum $ map (length . view _2) $ hdr : rws
 
-    hdr  = (if is_u then "Alternative" else "Field",tlb,"Comment")
+    hdr  = (if is_u then "Alternative" else "Field","Type","Comment")
     
     rws  = map fmt fds
 
-    fmt (fn0,(ty,ct)) = (fn',type_md mkl ty,pp mkl "" $ cln ct)
+    fmt (fn0,(ty,ct)) = (fn',type_md mdm ty,pp mdm "" $ cln ct)
       where
         fn' = if is_u then "_" ++ fn ++ "_" else fn
 
@@ -108,18 +118,21 @@ mk_md_table (tlb,tds) mkl is_u fds = map f $ hdr : dhs : rws
         tr '\n' = ' '
         tr c    = c
 
-summary_lines :: APINode -> String -> [MDComment]
-summary_lines an smy =
-    [ printf "JSON Type : **%s** [Haskell prefix is `%s`]" smy $ prefix_md an
+summary_lines :: MarkdownMethods -> APINode -> String -> [MDComment]
+summary_lines mdm an smy =
+    [ printf "JSON Type : **%s** [Haskell prefix is `%s`] %s" smy pfx pst
     , ""
     ]
+  where
+    pfx = prefix_md         an
+    pst = mdmSummaryPostfix mdm $ anName an
 
-type_md :: (TypeName->MDComment) -> APIType -> MDComment
-type_md mkl ty =
+type_md :: MarkdownMethods -> APIType -> MDComment
+type_md mdm ty =
     case ty of
-      TyList  ty' -> "[" ++ type_md mkl ty' ++ "]"
-      TyMaybe ty' -> "? " ++ type_md mkl ty'
-      TyName  nm  -> mkl nm
+      TyList  ty' -> "[" ++ type_md mdm ty' ++ "]"
+      TyMaybe ty' -> "? " ++ type_md mdm ty'
+      TyName  nm  -> mdmLink mdm nm
       TyBasic bt  -> basic_type_md bt
 
 basic_type_md :: BasicType -> MDComment
@@ -155,8 +168,8 @@ ljust fw s = s ++ replicate p ' '
   where
     p = max 0 $ fw - length s 
 
-pp :: (TypeName->MDComment) -> MDComment -> MDComment -> MDComment
-pp mkl s0 tl_md = pp0 s0
+pp :: MarkdownMethods -> MDComment -> MDComment -> MDComment
+pp mdm s0 tl_md = pp0 s0
   where
     pp0 []    = tl_md
     pp0 (c:t) = 
@@ -165,4 +178,4 @@ pp mkl s0 tl_md = pp0 s0
           _   -> c : pp0 t
 
     pp1 (nm,[] ) = '{' : nm ++ tl_md
-    pp1 (nm,_:t) = mkl (TypeName nm) ++ pp0 t 
+    pp1 (nm,_:t) = mdmLink mdm (TypeName nm) ++ pp0 t 
