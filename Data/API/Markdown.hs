@@ -3,10 +3,9 @@
 module Data.API.Markdown
     ( markdown
     , MarkdownMethods(..)
-    , markdownMethods
+    , defaultMarkdownMethods
     , thing
     , node
-    , pp
     ) where
 
 import           Data.API.Types
@@ -34,12 +33,14 @@ data MarkdownMethods
     = MDM
         { mdmSummaryPostfix :: TypeName -> MDComment
         , mdmLink           :: TypeName -> MDComment
+        , mdmPp             :: MDComment -> MDComment -> MDComment
         }
 
-markdownMethods :: MarkdownMethods
-markdownMethods =
+defaultMarkdownMethods :: MarkdownMethods
+defaultMarkdownMethods =
     MDM { mdmSummaryPostfix = const ""
         , mdmLink           = _TypeName
+		, mdmPp             = (++)
         }
 
 markdown :: MarkdownMethods -> API -> MDComment
@@ -48,15 +49,16 @@ markdown mdm ths = foldr (thing mdm) "" ths
 thing :: MarkdownMethods -> Thing -> MDComment  -> MDComment
 thing mdm th tl_md =
     case th of
-      ThComment md -> pp   mdm md tl_md 
-      ThNode    an -> node mdm an tl_md
+      ThComment md -> mdmPp mdm md tl_md 
+      ThNode    an -> node  mdm an tl_md
 
 node :: MarkdownMethods -> APINode -> MDComment -> MDComment
 node mdm an tl_md = 
         header mdm an $ body mdm an $ version an $ vlog an $ "\n\n" ++ tl_md 
 
 header :: MarkdownMethods -> APINode -> MDComment -> MDComment
-header mdm an tl_md = printf "###%s\n\n%s\n\n%s" nm_md (pp mdm cm_md "") tl_md 
+header mdm an tl_md =
+				printf "###%s\n\n%s\n\n%s" nm_md (mdmPp mdm cm_md "") tl_md 
   where
     nm_md = type_name_md an
     cm_md = comment_md   an
@@ -107,7 +109,7 @@ mk_md_table mdm is_u fds = map f $ hdr : dhs : rws
     
     rws  = map fmt fds
 
-    fmt (fn0,(ty,ct)) = (fn',type_md mdm ty,pp mdm "" $ cln ct)
+    fmt (fn0,(ty,ct)) = (fn',type_md mdm ty,mdmPp mdm "" $ cln ct)
       where
         fn' = if is_u then "_" ++ fn ++ "_" else fn
 
@@ -168,6 +170,7 @@ ljust fw s = s ++ replicate p ' '
   where
     p = max 0 $ fw - length s 
 
+{-
 pp :: MarkdownMethods -> MDComment -> MDComment -> MDComment
 pp mdm s0 tl_md = pp0 s0
   where
@@ -179,3 +182,4 @@ pp mdm s0 tl_md = pp0 s0
 
     pp1 (nm,[] ) = '{' : nm ++ tl_md
     pp1 (nm,_:t) = mdmLink mdm (TypeName nm) ++ pp0 t 
+-}

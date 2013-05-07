@@ -11,7 +11,7 @@ each describing a named JSON thing which can be
 referenced in other (object) nodes.
 
 
-JSON Type : **[APINode]** [Haskell prefix is `ans`]
+JSON Type : **[APINode]** [Haskell prefix is `ans`] 
 
 version: 0
 
@@ -21,11 +21,11 @@ version: 0
 Each node is named (with a name that conforms to Haskell's
 Type identifier rules, starting with a capital letter) and some
 comment text (like this comment). The JSON spec is all contained
-in the Spec, the other fields being used behind the scenes
+in the {Spec}, the other fields being used behind the scenes
 to manage the Haskell name space and migrations.
 
 
-JSON Type : **record object** [Haskell prefix is `an`]
+JSON Type : **record object** [Haskell prefix is `an`] 
 
 Field   | Type         | Comment
 ------- | ------------ | -------
@@ -44,7 +44,7 @@ version: 0
 here we specify the JSON representation:
 
 
-JSON Type : **union object** [Haskell prefix is `sp`]
+JSON Type : **union object** [Haskell prefix is `sp`] 
 
 Alternative | Type      | Comment
 ----------- | --------- | -------
@@ -62,7 +62,7 @@ Conversions are just used on the Haskell side to map the concrete JSON
 representation into an internal type and back again
 
 
-JSON Type : **record object** [Haskell prefix is `cv`]
+JSON Type : **record object** [Haskell prefix is `cv`] 
 
 Field      | Type   | Comment
 ---------- | ------ | -------
@@ -78,7 +78,7 @@ a union object (in which exactly one of the 'fields' is ever present in
 the object)
 
 
-JSON Type : **record object** [Haskell prefix is `fd`]
+JSON Type : **record object** [Haskell prefix is `fd`] 
 
 Field   | Type    | Comment
 ------- | ------- | -------
@@ -94,7 +94,7 @@ this is used to represent JSON types in fields (or synonyms) and is one
 one of the following:
 
 
-JSON Type : **union object** [Haskell prefix is `ty`]
+JSON Type : **union object** [Haskell prefix is `ty`] 
 
 Alternative | Type      | Comment
 ----------- | --------- | -------
@@ -112,7 +112,7 @@ in which the byte string has been encoded with base-64, safe for
 embedding in a UTF-8-encoded JSON string
 
 
-JSON Type : **string (string|binary|boolean|integer)** [Haskell prefix is `bt`]
+JSON Type : **string (string|binary|boolean|integer)** [Haskell prefix is `bt`] 
 
 version: 0
 
