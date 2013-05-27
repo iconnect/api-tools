@@ -138,4 +138,5 @@ data BasicType
     | BTbinary              -- | a base-64-encoded byte string
     | BTbool                -- | a JSON bool
     | BTint                 -- | a JSON integral number
+    | BTutc                 -- | a JSON UTC string
     deriving (Show)

@@ -74,3 +74,5 @@ convert_basic bt =
       BTbinary -> D.BT_binary
       BTbool   -> D.BT_boolean
       BTint    -> D.BT_integer
+      BTutc    -> D.BT_utc
+      

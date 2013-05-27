@@ -33,6 +33,7 @@ import           Text.Printf
     with                                { (,) _ With            }    
     integer                             { (,) _ Integer         }
     boolean                             { (,) _ Boolean         }
+    utc                                 { (,) _ UTC             }
     string                              { (,) _ String          }
     binary                              { (,) _ Binary          }
     record                              { (,) _ Record          }
@@ -136,6 +137,7 @@ Basic
     | binary                            { BTbinary                          }
     | boolean                           { BTbool                            }
     | integer                           { BTint                             }
+    | utc                               { BTutc                             }
 
 FieldName :: { FieldName }
 FieldName

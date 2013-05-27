@@ -107,7 +107,7 @@ bt :: BasicType
     // finally we get down to the basic JSON types ('binary' is a string
     // in which the byte string has been encoded with base-64, safe for
     // embedding in a UTF-8-encoded JSON string
-    = "string" | "binary" | "boolean" | "integer"
+    = "string" | "binary" | "boolean" | "integer" | "utc"
 |]
 
 {-

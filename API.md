@@ -112,7 +112,7 @@ in which the byte string has been encoded with base-64, safe for
 embedding in a UTF-8-encoded JSON string
 
 
-JSON Type : **string (string|binary|boolean|integer)** [Haskell prefix is `bt`] 
+JSON Type : **string (string|binary|boolean|integer|utc)** [Haskell prefix is `bt`] 
 
 version: 0
 

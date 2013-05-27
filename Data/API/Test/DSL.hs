@@ -80,4 +80,12 @@ chc :: CHOICE
 enm :: ENUM
     = e1 | e2
     with inj_enum, prj_enum
+
+uv :: MyUTC
+    = utc
+
+urec :: URec
+    = record
+        foo : utc
+
 |]

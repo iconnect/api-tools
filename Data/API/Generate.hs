@@ -17,6 +17,7 @@ module Data.API.Generate
     , Test.QuickCheck.arbitrary
     , Test.QuickCheck.oneof
     , Test.QuickCheck.elements
+    , UTCTime
     , IsString
     , typeMismatch
     , ToJSON(..)
@@ -28,9 +29,11 @@ module Data.API.Generate
     , mzero
     , (<*>)
     , mkInt
+    , mkUTC
     , withText
     , withBool
     , withInt
+    , withUTC
     , alternatives
     , genTextMap
     , jsonStrMap_p
@@ -61,8 +64,11 @@ import           Data.Attoparsec.Number
 import qualified Data.ByteString.Char8          as B
 import qualified Data.ByteString.Base64         as B64
 import           Data.SafeCopy
+import           Data.Time
 import qualified Test.QuickCheck                as QC
 import qualified Control.Lens                   as L
+import           System.Locale
+import           Safe
 
 
 generate :: API -> Q [Dec]
@@ -121,6 +127,23 @@ instance QC.Arbitrary T.Text where
 instance QC.Arbitrary Binary where
     arbitrary = Binary <$> B.pack <$> QC.arbitrary
 
+
+
+
+instance QC.Arbitrary UTCTime where
+    arbitrary = QC.elements
+        [ mk "2010-01-01T00:00:00Z"
+        , mk "2013-05-27T19:13:50Z"
+        , mk "2011-07-20T22:04:00Z"
+        , mk "2012-02-02T15:45:11Z"
+        , mk "2009-11-12T20:57:54Z"
+        , mk "2000-10-28T21:03:24Z"
+        , mk "1965-03-10T09:23:01Z"
+        ]
+      where
+        mk  = fromJustNote lab . parseUTC'
+        
+        lab = "Data.API.Generate.Arbitrary-UTCTime"
 
 
 gen :: APINode -> Q [Dec]
@@ -242,6 +265,7 @@ gen_sn_dt as sn = return $ NewtypeD [] nm [] c $ derive_nms ++ iss
             BTbinary -> []
             BTbool   -> []
             BTint    -> []
+            BTutc    -> []
 
 gen_sn_to as sn = return $ InstanceD [] typ [FunD to_json_nm [Clause [] bdy []]]
   where
@@ -254,6 +278,7 @@ gen_sn_to as sn = return $ InstanceD [] typ [FunD to_json_nm [Clause [] bdy []]]
             BTbinary -> VarE mk_binary_nm
             BTbool   -> ConE bool_con_nm
             BTint    -> VarE mk_int_nm
+            BTutc    -> VarE mk_utc_nm
 
 gen_sn_fm as sn = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
   where
@@ -273,6 +298,7 @@ gen_sn_fm as sn = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
             BTbinary -> with_binary_nm
             BTbool   -> with_bool_nm
             BTint    -> with_int_nm
+            BTutc    -> with_utc_nm
 
 gen_sn_ab as _sn = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
   where
@@ -631,6 +657,7 @@ basic_type bt =
       BTbinary -> ConT $ binary_nm
       BTbool   -> ConT $ mkName "Bool"
       BTint    -> ConT $ mkName "Int"
+      BTutc    -> ConT $ utc_time_nm
 
 
 derive_nms :: [Name]
@@ -640,14 +667,14 @@ derive_nms = [show_nm,eq_nm,ord_nm,typeable_cl_nm]
 x_nm, string_nm, maybe_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
     fmap_nm, to_json_nm, parse_json_nm, return_nm, 
     arbitrary_nm, dot_nm, then_nm,
-    map_ty_nm, text_nm, is_string_cl_nm, typeable_cl_nm, 
+    utc_time_nm, map_ty_nm, text_nm, is_string_cl_nm, typeable_cl_nm, 
     to_json_cl_nm, from_json_cl_nm, to_json_fn_nm, parse_json_fn_nm,
     value_nm, gen_nm,
     arbitrary_cl_nm,
     object_nm, object_con_nm, string_con_nm, bool_con_nm,
     dot_eq_nm, dot_co_nm, mzero_nm, astar_nm, mismatch_nm, 
-    with_text_nm, with_bool_nm, with_int_nm, mk_int_nm, alts_nm,
-    arbitrary_fn_nm, oneof_nm, elements_nm,
+    with_text_nm, with_bool_nm, with_int_nm, with_utc_nm, mk_int_nm, mk_utc_nm,
+    alts_nm, arbitrary_fn_nm, oneof_nm, elements_nm,
     gen_text_map_id, json_str_map_id,
     binary_nm, mk_binary_nm, with_binary_nm :: Name
 
@@ -667,6 +694,7 @@ arbitrary_nm        = mkName "arbitrary"
 dot_nm              = mkName "."
 then_nm             = mkName ">>="
 
+utc_time_nm         = Name (mkOccName "UTCTime"     ) $ NameQ gn_mod
 map_ty_nm           = Name (mkOccName "Map"         ) $ NameQ gn_mod
 text_nm             = Name (mkOccName "Text"        ) $ NameQ gn_mod
 is_string_cl_nm     = Name (mkOccName "IsString"    ) $ NameQ gn_mod
@@ -690,7 +718,9 @@ mismatch_nm         = Name (mkOccName "typeMismatch") $ NameQ gn_mod
 with_text_nm        = Name (mkOccName "withText"    ) $ NameQ gn_mod
 with_bool_nm        = Name (mkOccName "withBool"    ) $ NameQ gn_mod
 mk_int_nm           = Name (mkOccName "mkInt"       ) $ NameQ gn_mod
+mk_utc_nm           = Name (mkOccName "mkUTC"       ) $ NameQ gn_mod
 with_int_nm         = Name (mkOccName "withInt"     ) $ NameQ gn_mod
+with_utc_nm         = Name (mkOccName "withUTC"     ) $ NameQ gn_mod
 alts_nm             = Name (mkOccName "alternatives") $ NameQ gn_mod
 arbitrary_fn_nm     = Name (mkOccName "arbitrary"   ) $ NameQ gn_mod
 oneof_nm            = Name (mkOccName "oneof"       ) $ NameQ gn_mod
@@ -726,6 +756,26 @@ json_string_p :: Ord a => (T.Text->Maybe a) -> Value -> Parser a
 json_string_p p (String t) | Just val <- p t = return val
                            | otherwise       = mzero
 json_string_p _  _                           = mzero
+
+
+-- Inject and project UTC Values from Text values
+
+mkUTC :: UTCTime -> Value
+mkUTC = String . mkUTC'
+
+withUTC :: String -> (UTCTime->Parser a) -> Value -> Parser a
+withUTC lab f = withText lab g
+  where
+    g t = maybe (typeMismatch lab (String t)) f $ parseUTC' t
+
+utcFormat :: String
+utcFormat = "%Y-%m-%dT%H:%M:%SZ"
+
+mkUTC' :: UTCTime -> T.Text
+mkUTC' utct = T.pack $ formatTime defaultTimeLocale utcFormat utct
+
+parseUTC' :: T.Text -> Maybe UTCTime
+parseUTC' t = parseTime defaultTimeLocale utcFormat $ T.unpack t 
 
 
 -- Inject and project binary Values from Text values using the base64 codec

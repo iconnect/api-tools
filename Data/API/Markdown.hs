@@ -144,6 +144,7 @@ basic_type_md bt =
       BTbinary -> "base64 string" 
       BTbool   -> "boolean"
       BTint    -> "integer"
+      BTutc    -> "utc"
 
 type_name_md, prefix_md, comment_md :: APINode -> MDComment
 type_name_md = _TypeName   . anName

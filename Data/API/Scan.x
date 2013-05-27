@@ -35,6 +35,7 @@ tokens :-
     with                                { simple    With            }    
     integer                             { simple    Integer         }
     boolean                             { simple    Boolean         }
+    utc                                 { simple    UTC             }
     string                              { simple    String          }
     binary                              { simple    Binary          }
     record                              { simple    Record          }
@@ -63,6 +64,7 @@ data Token
     | Equals
     | Boolean
     | Integer
+    | UTC
     | Query
     | Record
     | String

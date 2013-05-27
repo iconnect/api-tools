@@ -6,7 +6,7 @@ import           Data.API.API.Gen
 import           Data.API.API.DSL
 import           Data.API.Test.Gen
 import           Data.API.Test.DSL
-import           Data.API.Types
+
 import           Data.API.Markdown
 import           Data.API.Generate
 import           Data.API.Test.SimpleTest
@@ -28,13 +28,11 @@ main =
     print $ (decode $ encode test_wibble_1 :: Maybe Wibble  )
     print $ (decode $ encode test_wibble_2 :: Maybe Wibble  )
     print $ (decode $ encode test_enumer   :: Maybe [Enumer])
-    putStr $ markdown ty_hd _TypeName example
-    putStr $ markdown ty_hd _TypeName example2
-    writeFile "example.md"  $ markdown ty_hd _TypeName example
-    writeFile "example2.md" $ markdown ty_hd _TypeName example2
+    putStr $ markdown defaultMarkdownMethods example
+    putStr $ markdown defaultMarkdownMethods example2
+    writeFile "example.md"  $ markdown defaultMarkdownMethods example
+    writeFile "example2.md" $ markdown defaultMarkdownMethods example2
     testAllWrappers
-  where
-    ty_hd = ("Type","")
 
 dump :: IO ()
 dump = BL.putStrLn $ encodePretty $ extractAPI apiAPI
