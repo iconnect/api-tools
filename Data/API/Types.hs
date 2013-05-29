@@ -18,10 +18,22 @@ module Data.API.Types
     , Vrn(..)
     , APIType(..)
     , BasicType(..)
+    , mkUTC
+    , withUTC
+    , parseUTC'
+    , parseUTC''
+    , utcFormat
+    , utcFormats
     ) where
 
 import qualified Data.CaseInsensitive       as CI
 import           Data.String
+import           Data.Time
+import           Data.Maybe
+import           Data.Aeson
+import           Data.Aeson.Types
+import qualified Data.Text                  as T
+import           System.Locale
 
 
 -- | an API spec is made up of a list of type/element specs, each
@@ -140,3 +152,34 @@ data BasicType
     | BTint                 -- | a JSON integral number
     | BTutc                 -- | a JSON UTC string
     deriving (Show)
+
+-- Inject and project UTC Values from Text values
+
+mkUTC :: UTCTime -> Value
+mkUTC = String . mkUTC'
+
+withUTC :: String -> (UTCTime->Parser a) -> Value -> Parser a
+withUTC lab f = withText lab g
+  where
+    g t = maybe (typeMismatch lab (String t)) f $ parseUTC' t
+
+utcFormat :: String
+utcFormat =               "%Y-%m-%dT%H:%M:%SZ"
+
+utcFormats :: [String]
+utcFormats =
+                        [ "%Y-%m-%dT%H:%M:%S%z"
+                        , "%Y-%m-%dT%H:%M:%S%Z"
+                        , utcFormat
+                        ]
+
+mkUTC' :: UTCTime -> T.Text
+mkUTC' utct = T.pack $ formatTime defaultTimeLocale utcFormat utct
+
+parseUTC' :: T.Text -> Maybe UTCTime
+parseUTC' t = parseUTC'' $ T.unpack t
+
+parseUTC'' :: String -> Maybe UTCTime
+parseUTC'' s = listToMaybe $ catMaybes $
+            map (\fmt->parseTime defaultTimeLocale fmt s) utcFormats  
+

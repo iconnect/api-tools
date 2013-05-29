@@ -65,10 +65,8 @@ import qualified Data.ByteString.Char8          as B
 import qualified Data.ByteString.Base64         as B64
 import           Data.SafeCopy
 import           Data.Time
-import           Data.Maybe
 import qualified Test.QuickCheck                as QC
 import qualified Control.Lens                   as L
-import           System.Locale
 import           Safe
 
 
@@ -757,34 +755,6 @@ json_string_p :: Ord a => (T.Text->Maybe a) -> Value -> Parser a
 json_string_p p (String t) | Just val <- p t = return val
                            | otherwise       = mzero
 json_string_p _  _                           = mzero
-
-
--- Inject and project UTC Values from Text values
-
-mkUTC :: UTCTime -> Value
-mkUTC = String . mkUTC'
-
-withUTC :: String -> (UTCTime->Parser a) -> Value -> Parser a
-withUTC lab f = withText lab g
-  where
-    g t = maybe (typeMismatch lab (String t)) f $ parseUTC' t
-
-utcFormat :: String
-utcFormat =               "%Y-%m-%dT%H:%M:%SZ"
-
-utcFormats :: [String]
-utcFormats =
-                        [ "%Y-%m-%dT%H:%M:%S%z"
-                        , "%Y-%m-%dT%H:%M:%S%Z"
-                        , utcFormat
-                        ]
-
-mkUTC' :: UTCTime -> T.Text
-mkUTC' utct = T.pack $ formatTime defaultTimeLocale utcFormat utct
-
-parseUTC' :: T.Text -> Maybe UTCTime
-parseUTC' t = listToMaybe $ catMaybes $
-            map (\fmt->parseTime defaultTimeLocale fmt $ T.unpack t) utcFormats  
 
 
 -- Inject and project binary Values from Text values using the base64 codec
