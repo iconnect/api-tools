@@ -65,6 +65,7 @@ import qualified Data.ByteString.Char8          as B
 import qualified Data.ByteString.Base64         as B64
 import           Data.SafeCopy
 import           Data.Time
+import           Data.Maybe
 import qualified Test.QuickCheck                as QC
 import qualified Control.Lens                   as L
 import           System.Locale
@@ -769,13 +770,21 @@ withUTC lab f = withText lab g
     g t = maybe (typeMismatch lab (String t)) f $ parseUTC' t
 
 utcFormat :: String
-utcFormat = "%Y-%m-%dT%H:%M:%SZ"
+utcFormat =               "%Y-%m-%dT%H:%M:%SZ"
+
+utcFormats :: [String]
+utcFormats =
+                        [ "%Y-%m-%dT%H:%M:%S%z"
+                        , "%Y-%m-%dT%H:%M:%S%Z"
+                        , utcFormat
+                        ]
 
 mkUTC' :: UTCTime -> T.Text
 mkUTC' utct = T.pack $ formatTime defaultTimeLocale utcFormat utct
 
 parseUTC' :: T.Text -> Maybe UTCTime
-parseUTC' t = parseTime defaultTimeLocale utcFormat $ T.unpack t 
+parseUTC' t = listToMaybe $ catMaybes $
+            map (\fmt->parseTime defaultTimeLocale fmt $ T.unpack t) utcFormats  
 
 
 -- Inject and project binary Values from Text values using the base64 codec
