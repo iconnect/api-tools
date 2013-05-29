@@ -170,6 +170,7 @@ utcFormats :: [String]
 utcFormats =
                         [ "%Y-%m-%dT%H:%M:%S%z"
                         , "%Y-%m-%dT%H:%M:%S%Z"
+                        , "%Y-%m-%dT%H:%S%Z"
                         , utcFormat
                         ]
 
