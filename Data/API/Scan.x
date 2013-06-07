@@ -40,10 +40,15 @@ tokens :-
     binary                              { simple    Binary          }
     record                              { simple    Record          }
     union                               { simple    Union           }
+    enum                                { simple    Enum            }
+    basic                               { simple    Basic           }
+    true                                { simple    TRUE            }
+    false                               { simple    FALSE           }
       $upper [$lower $upper $digit]*    { mk        TypeIden        }
-    \"$upper [$lower $upper $digit]*\"  { strip_qs  TypeIden        }
+    \'$upper [$lower $upper $digit]*\'  { strip_qs  TypeIden        }
       $lower [$lower $upper $digit]*    { mk        VarIden         }
-    \"$lower [$lower $upper $digit]*\"  { strip_qs  VarIden         }
+    \'$lower [$lower $upper $digit]*\'  { strip_qs  VarIden         }
+    \"([^\\\"]|\\[\\\'\"])*\"           { string                    }
     $digit+                             { intg                      }
     "//".*                              { line_comment              }
     "(*"(\n|[^\*]|\*[^\)])*"*)"         { block_comment             }
@@ -71,10 +76,15 @@ data Token
     | Union
     | Version
     | With
+    | Enum
+    | Basic
+    | TRUE
+    | FALSE
     | Comment  String
     | TypeIden String
     | VarIden  String
     | Intg     Int
+    | Strg     String
     deriving (Eq,Show)
 
 line_comment :: AlexPosn -> String -> PToken
@@ -97,11 +107,29 @@ munch_ws = dropWhile isSpace
 simple :: Token -> AlexPosn -> String -> PToken
 simple tk = mk $ const tk
 
-mk :: (String->Token) -> AlexPosn -> String -> PToken
-mk f p s = (p,f s)
-
 intg :: AlexPosn -> String -> PToken
 intg p s = (p,Intg $ readNote "Data.API.Scan.intg" s)
+
+string :: AlexPosn -> String -> PToken
+string = mk (Strg . f . chop)
+  where
+    f ""    = ""
+    f (c:s) = case c of
+                '\\' -> g s
+                _    -> c : f s
+
+    g ""    = ""
+    g (c:s) = c : f s
+
+chop :: String -> String
+chop ""    = ""
+chop (c:s) =
+    case reverse s of
+      ""   -> ""
+      _:rs -> reverse rs
+
+mk :: (String->Token) -> AlexPosn -> String -> PToken
+mk f p s = (p,f s)
 
 scan :: String -> [PToken]
 scan = pp . alexScanTokens
