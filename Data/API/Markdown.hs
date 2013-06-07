@@ -10,7 +10,6 @@ module Data.API.Markdown
 
 import           Data.API.Types
 import qualified Data.CaseInsensitive       as CI
-import           Data.List
 import           Data.Char
 import           Text.Printf
 import           Control.Lens
@@ -84,9 +83,19 @@ union_ mdm an su =
     summary_lines mdm an "union object" ++ mk_md_table mdm True (suFields su)
 
 enum_ :: MarkdownMethods -> APINode -> SpecEnum -> [MDComment]
-enum_ mdm an se = summary_lines mdm an (printf "string (%s)" en_s)
+enum_ mdm an en =
+    summary_lines mdm an "string enumeration" ++ map f (hdr : zip fds cts)
   where
-    en_s = concat $ intersperse "|" $ map _FieldName $ seAlts se
+    f (fnm,cmt) = ljust lnx fnm ++ " | " ++ cmt
+
+    lnx         = maximum $ 0 : map length fds
+
+    fds         = map _FieldName fds_
+
+    (fds_,cts)  = unzip   $ seAlts en
+
+    hdr  = ("Enumeration","Comment")
+
 
 synonym :: MarkdownMethods -> APINode -> APIType -> [MDComment]
 synonym mdm an ty = summary_lines mdm an $ type_md mdm ty

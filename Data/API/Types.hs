@@ -121,7 +121,7 @@ data SpecUnion = SpecUnion
 -- | SpecEnum is your classic enumerated type
 
 data SpecEnum = SpecEnum
-    { seAlts :: [FieldName]
+    { seAlts :: [(FieldName,MDComment)]
     }
     deriving (Show)
 
@@ -183,4 +183,3 @@ parseUTC' t = parseUTC'' $ T.unpack t
 parseUTC'' :: String -> Maybe UTCTime
 parseUTC'' s = listToMaybe $ catMaybes $
             map (\fmt->parseTime defaultTimeLocale fmt s) utcFormats  
-

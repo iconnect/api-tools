@@ -56,8 +56,8 @@ convert_fields al = map f al
             , D._fd_comment = T.pack co
             }
 
-convert_alts :: [FieldName] -> [T.Text] 
-convert_alts fns = map (T.pack . _FieldName) fns
+convert_alts :: [(FieldName,MDComment)] -> [T.Text] 
+convert_alts fns = map (T.pack . _FieldName . fst) fns
 
 convert_type :: APIType -> D.APIType
 convert_type ty0 =

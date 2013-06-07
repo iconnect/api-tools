@@ -38,6 +38,10 @@ import           Text.Printf
     binary                              { (,) _ Binary          }
     record                              { (,) _ Record          }
     union                               { (,) _ Union           }
+    enum                                { (,) _ Enum            }
+    basic                               { (,) _ Basic           }
+ -- true                                { (,) _ True            }
+ -- false                               { (,) _ False           }
     comment                             { (,) _ (Comment  $$)   }
     typeiden                            { (,) _ (TypeIden $$)   }
     variden                             { (,) _ (VarIden  $$)   }
@@ -69,7 +73,8 @@ Spec
     : Record                            { SpRecord  $ $1                    }
     | Union                             { SpUnion   $ $1                    }
     | Enum                              { SpEnum    $ $1                    }
-    | Type                              { sp_type   $ $1                    }
+    | Basic                             { SpNewtype $ $1                    }
+    | Type                              { SpSynonym $ $1                    }
 
 With :: { Conversion }
 With
@@ -117,22 +122,25 @@ RUFields
 
 Enum :: { SpecEnum }
 Enum
-    : REnums                            { SpecEnum $ reverse $1             }
+    : enum REnums                       { SpecEnum $ reverse $2             }
 
-REnums :: { [FieldName] }
-EEnums
-    : REnums '|' FieldName              { $3 : $1                           } 
-    | FieldName                         { [$1]                              }
+REnums :: { [(FieldName,MDComment)] }
+REnums
+    : REnums '|' FieldName Comments     { ($3,$4) : $1                      } 
+    | FieldName            Comments     { [($1,$2)]                         }
+
+Basic :: { SpecNewtype }
+    : basic BasicType                   { SpecNewtype $2                    }
 
 Type :: { APIType }
 Type
     : '?' Type                          { TyMaybe            $2             }
     | '[' Type ']'                      { TyList             $2             }
     | typeiden                          { TyName  $ TypeName $1             }
-    | Basic                             { TyBasic            $1             }
+    | BasicType                         { TyBasic            $1             }
 
-Basic :: { BasicType }
-Basic
+BasicType :: { BasicType }
+BasicType
     : string                            { BTstring                          }
     | binary                            { BTbinary                          }
     | boolean                           { BTbool                            }
@@ -155,6 +163,7 @@ happyError tks = error $ printf "Syntax error at %s: %s\n" loc $ show (take 5 tk
 parseAPI :: String -> API
 parseAPI = parse . scan
 
+{-
 sp_type :: APIType -> Spec
 sp_type ty =
     case ty of
@@ -162,4 +171,5 @@ sp_type ty =
       TyList  _   -> SpSynonym ty
       TyMaybe _   -> SpSynonym ty
       TyName  _   -> SpSynonym ty
+-}
 }

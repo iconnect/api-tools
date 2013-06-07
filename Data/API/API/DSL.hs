@@ -55,7 +55,7 @@ an :: APINode
                                     // in the comments) and reject a request
                                     // with a 400 error; has no effect on the
                                     // JSON representation
-        "version"  : integer        // (Haskell side mostly) the version number
+        'version'  : integer        // (Haskell side mostly) the version number
                                     // for handling server migrations
         log        : string         // a log explaining the changes that have
                                     // been made through the migrations
@@ -64,9 +64,9 @@ sp :: Spec
     // here we specify the JSON representation:
     = union
       | newtype    : BasicType      // here we have a basic string or number type
-      | "record"   : [Field]        // an object representing a record
-      | "union"    : [Field]        // an object representing a number of alternatives
-      | enum       : [string]       // a string type which must contain a number of
+      | 'record'   : [Field]        // an object representing a record
+      | 'union'    : [Field]        // an object representing a number of alternatives
+      | 'enum'     : [string]       // a string type which must contain a number of
                                     // discrete values
       | synonym    : APIType        // is just an alias for another type
 
@@ -98,16 +98,21 @@ ty :: APIType
     // this is used to represent JSON types in fields (or synonyms) and is one
     // one of the following:
     = union
-      | list  : APIType             // a JSON list of the given type 
-      | maybe : APIType             // either the given type or the null value
-      | name  : string              // a named type (node) from the API
-      | basic : BasicType           // a basic JSON type
+      | list    : APIType           // a JSON list of the given type 
+      | maybe   : APIType           // either the given type or the null value
+      | name    : string            // a named type (node) from the API
+      | 'basic' : BasicType         // a basic JSON type
 
 bt :: BasicType
     // finally we get down to the basic JSON types ('binary' is a string
     // in which the byte string has been encoded with base-64, safe for
     // embedding in a UTF-8-encoded JSON string
-    = "string" | "binary" | "boolean" | "integer" | "utc"
+    = enum
+          'string' 
+        | 'binary' 
+        | 'boolean' 
+        | 'integer' 
+        | 'utc'
 |]
 
 {-

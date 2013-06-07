@@ -524,7 +524,7 @@ gen_se_dt, gen_se_to, gen_se_fm, gen_se_ab,
 gen_se_dt as se = return $ DataD [] nm [] cs $
                                 derive_nms ++ [bounded_nm,enum_nm] -- [show_nm,eq_nm,ord_nm,bounded_nm,enum_nm]
   where
-    cs = [NormalC (pref_con_nm as fnm) [] | fnm <- seAlts se ]
+    cs = [NormalC (pref_con_nm as fnm) [] | (fnm,_) <- seAlts se ]
     
     nm = rep_type_nm as
 
@@ -555,7 +555,7 @@ gen_se_tx as se = return $ FunD (txt_nm as) [Clause [VarP x_nm] bdy []]
     bdy    = NormalB $ 
                 CaseE (VarE x_nm) [ Match (pt fnm) (bd fnm) [] | fnm<-fnms ]  
 
-    fnms   = seAlts se
+    fnms   = map fst $ seAlts se
 
     pt fnm = ConP (pref_con_nm as fnm) []
 
@@ -585,7 +585,7 @@ gen_se_ab as se = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
 
     tn  = rep_type_nm as
     
-    ks  = map (pref_con_nm as) $ seAlts se
+    ks  = map (pref_con_nm as . fst) $ seAlts se
 
 
 gen_in, gen_pr :: FieldName -> APINode -> Q Dec
