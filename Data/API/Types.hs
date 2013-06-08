@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 
@@ -19,6 +20,7 @@ module Data.API.Types
     , Vrn(..)
     , APIType(..)
     , BasicType(..)
+    , Example(..)
     , mkUTC
     , withUTC
     , parseUTC'
@@ -147,7 +149,11 @@ newtype Vrn = Vrn { _Vrn :: Int }
 data APIType
     = TyList  APIType       -- | list elements are types
     | TyMaybe APIType       -- | Maybe elements are types
-    | TyName  TypeName      -- | the referenced type must be defined by the API
+    | TyName  TypeName (Maybe BasicType)
+                            -- | the referenced type must be defined by the API
+                            --   the BasicType is only given if it carries an
+                            -- example, in which case the type must be a
+                            -- compatible newtype
     | TyBasic BasicType     -- | a JSON string, int or bool
     deriving (Show)
 
@@ -160,6 +166,34 @@ data BasicType
     | BTint    (Maybe Int    ) -- | a JSON integral number
     | BTutc    (Maybe UTCTime) -- | a JSON UTC string
     deriving (Show)
+
+
+
+-- | the Example class is used to generate a documentation-friendly
+--   example for each type in the model
+
+class Example a where
+    example :: a
+
+instance Example a => Example (Maybe a) where
+    example = Just example
+    
+instance Example a => Example [a] where
+    example = [example]
+
+instance Example Int where
+    example = 42
+    
+instance Example Bool where
+    example = True
+
+instance Example T.Text where
+    example = "Mary had a little lamb"
+
+instance Example Binary where
+    example = Binary $ B.pack "lots of 1s and 0s"
+
+
 
 -- Inject and project UTC Values from Text values
 

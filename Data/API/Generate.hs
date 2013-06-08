@@ -61,8 +61,6 @@ import qualified Data.CaseInsensitive           as CI
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Attoparsec.Number
-
-
 import           Data.SafeCopy
 import           Data.Time
 import qualified Test.QuickCheck                as QC
@@ -629,10 +627,10 @@ pref_con_nm as fnm = mkName $ pre ++ _FieldName fnm
 mk_type :: APIType -> Type
 mk_type ty =
     case ty of
-      TyList  ty' -> AppT ListT  $ mk_type ty'
-      TyMaybe ty' -> AppT (ConT maybe_nm) $ mk_type ty'
-      TyName  nm  -> ConT  $ mkName $ _TypeName nm
-      TyBasic bt  -> basic_type bt
+      TyList  ty'  -> AppT ListT  $ mk_type ty'
+      TyMaybe ty'  -> AppT (ConT maybe_nm) $ mk_type ty'
+      TyName  nm _ -> ConT  $ mkName $ _TypeName nm
+      TyBasic bt   -> basic_type bt
 
 basic_type :: BasicType -> Type
 basic_type bt =

@@ -141,10 +141,10 @@ summary_lines mdm an smy =
 type_md :: MarkdownMethods -> APIType -> MDComment
 type_md mdm ty =
     case ty of
-      TyList  ty' -> "[" ++ type_md mdm ty' ++ "]"
-      TyMaybe ty' -> "? " ++ type_md mdm ty'
-      TyName  nm  -> mdmLink mdm nm
-      TyBasic bt  -> basic_type_md bt
+      TyList  ty'  -> "[" ++ type_md mdm ty' ++ "]"
+      TyMaybe ty'  -> "? " ++ type_md mdm ty'
+      TyName  nm _ -> mdmLink mdm nm
+      TyBasic bt   -> basic_type_md bt
 
 basic_type_md :: BasicType -> MDComment
 basic_type_md bt =

@@ -139,7 +139,7 @@ Type :: { APIType }
 Type
     : '?' Type                          { TyMaybe            $2             }
     | '[' Type ']'                      { TyList             $2             }
-    | typeiden                          { TyName  $ TypeName $1             }
+    | typeiden                          { TyName   (TypeName $1) Nothing    }
     | BasicType                         { TyBasic            $1             }
 
 BasicType :: { BasicType }

@@ -806,7 +806,7 @@ happyReduction_32 _ _ _  = notHappyAtAll
 happyReduce_33 = happySpecReduce_1  22# happyReduction_33
 happyReduction_33 (HappyTerminal ((,) _ (TypeIden happy_var_1)))
 	 =  HappyAbsSyn22
-		 (TyName  $ TypeName happy_var_1
+		 (TyName   (TypeName happy_var_1) Nothing
 	)
 happyReduction_33 _  = notHappyAtAll 
 
