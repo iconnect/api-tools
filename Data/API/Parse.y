@@ -26,7 +26,6 @@ import           Text.Printf
     '['                                 { (,) _ Bra             }
     ']'                                 { (,) _ Ket             }
     '::'                                { (,) _ ColCol          }
-    ':'                                 { (,) _ Colon           }
     '='                                 { (,) _ Equals          }
     '?'                                 { (,) _ Query           }
     ','                                 { (,) _ Comma           }
@@ -111,16 +110,16 @@ Union
 
 RRFields :: { [(FieldName,(APIType,MDComment))] }
 RRFields
-    : RRFields FieldName ':' Type Comments
+    : RRFields FieldName '::' Type Comments
                                         {  ($2,($4,$5)) : $1                 }
-    |          FieldName ':' Type Comments       
+    |          FieldName '::' Type Comments       
                                         { [($1,($3,$4))]                     }
 
 RUFields :: { [(FieldName,(APIType,MDComment))] }
 RUFields
-    : RUFields '|' FieldName ':' Type Comments
+    : RUFields '|' FieldName '::' Type Comments
                                         {  ($3,($5,$6)) : $1                }
-    |          '|' FieldName ':' Type Comments
+    |          '|' FieldName '::' Type Comments
                                         { [($2,($4,$5))]                    }
 
 Enum :: { SpecEnum }
@@ -130,7 +129,7 @@ Enum
 REnums :: { [(FieldName,MDComment)] }
 REnums
     : REnums '|' FieldName Comments     { ($3,$4) : $1                      } 
-    | FieldName            Comments     { [($1,$2)]                         }
+    |        '|' FieldName Comments     { [($2,$3)]                         }
 
 Basic :: { SpecNewtype }
     : basic BasicType                   { SpecNewtype $2                    }
@@ -139,8 +138,16 @@ Type :: { APIType }
 Type
     : '?' Type                          { TyMaybe            $2             }
     | '[' Type ']'                      { TyList             $2             }
-    | typeiden                          { TyName   (TypeName $1) Nothing    }
+    | typeiden MayBasicLit              { TyName   (TypeName $1) Nothing    }
     | BasicType                         { TyBasic            $1             }
+
+MayBasicLit :: { Maybe BasicType }
+    : strlit                     { Just $ BTstring  (Just $ T.pack $1)      }
+    | true                       { Just $ BTbool    (Just True       )      }
+    | false                      { Just $ BTbool    (Just False      )      }
+    | intlit                     { Just $ BTint     (Just $1         )      }
+    | utclit                     { Just $ BTutc     (Just $1         )      }
+    |                            { Nothing                                  }
 
 BasicType :: { BasicType }
 BasicType
@@ -148,12 +155,12 @@ BasicType
     | strlit                            { BTstring  (Just $ T.pack $1)      }
     | binary                            { BTbinary  Nothing                 }
     | boolean                           { BTbool    Nothing                 }
-    | true                              { BTbool    (Just True )            }
-    | false                             { BTbool    (Just False)            }
+    | true                              { BTbool    (Just True       )      }
+    | false                             { BTbool    (Just False      )      }
     | integer                           { BTint     Nothing                 }
-    | intlit                            { BTint     (Just $1)               }
+    | intlit                            { BTint     (Just $1         )      }
     | utc                               { BTutc     Nothing                 }
-    | utclit                            { BTutc     (Just $1)               }
+    | utclit                            { BTutc     (Just $1         )      }
 
 FieldName :: { FieldName }
 FieldName
