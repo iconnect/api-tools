@@ -1,6 +1,6 @@
-{-# LANGUAGE OverloadedStrings    #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 module Data.API.Generate
     ( api
@@ -61,8 +61,8 @@ import qualified Data.CaseInsensitive           as CI
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Attoparsec.Number
-import qualified Data.ByteString.Char8          as B
-import qualified Data.ByteString.Base64         as B64
+
+
 import           Data.SafeCopy
 import           Data.Time
 import qualified Test.QuickCheck                as QC
@@ -110,21 +110,6 @@ api =
         }
 
 
-
-newtype Binary = Binary { _Binary :: B.ByteString }
-    deriving (Show,Eq,Ord)
-
-instance ToJSON Binary where
-    toJSON = mkBinary  
-    
-instance FromJSON Binary where
-    parseJSON = withBinary "Binary" return
-
-instance QC.Arbitrary T.Text where
-    arbitrary = T.pack <$> QC.arbitrary
-
-instance QC.Arbitrary Binary where
-    arbitrary = Binary <$> B.pack <$> QC.arbitrary
 
 
 
@@ -260,11 +245,11 @@ gen_sn_dt as sn = return $ NewtypeD [] nm [] c $ derive_nms ++ iss
     nm  = rep_type_nm as
 
     iss = case snType sn of
-            BTstring -> [is_string_cl_nm]
-            BTbinary -> []
-            BTbool   -> []
-            BTint    -> []
-            BTutc    -> []
+            BTstring _ -> [is_string_cl_nm]
+            BTbinary _ -> []
+            BTbool   _ -> []
+            BTint    _ -> []
+            BTutc    _ -> []
 
 gen_sn_to as sn = return $ InstanceD [] typ [FunD to_json_nm [Clause [] bdy []]]
   where
@@ -273,11 +258,11 @@ gen_sn_to as sn = return $ InstanceD [] typ [FunD to_json_nm [Clause [] bdy []]]
     bdy = NormalB $ ap2 (VarE dot_nm) ine $ VarE $ newtype_prj_nm as
 
     ine = case snType sn of
-            BTstring -> ConE string_con_nm
-            BTbinary -> VarE mk_binary_nm
-            BTbool   -> ConE bool_con_nm
-            BTint    -> VarE mk_int_nm
-            BTutc    -> VarE mk_utc_nm
+            BTstring _ -> ConE string_con_nm
+            BTbinary _ -> VarE mk_binary_nm
+            BTbool   _ -> ConE bool_con_nm
+            BTint    _ -> VarE mk_int_nm
+            BTutc    _ -> VarE mk_utc_nm
 
 gen_sn_fm as sn = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
   where
@@ -293,11 +278,11 @@ gen_sn_fm as sn = return $ InstanceD [] typ [FunD parse_json_nm [cl]]
     tn  = rep_type_nm as
     
     wnm = case snType sn of
-            BTstring -> with_text_nm
-            BTbinary -> with_binary_nm
-            BTbool   -> with_bool_nm
-            BTint    -> with_int_nm
-            BTutc    -> with_utc_nm
+            BTstring _ -> with_text_nm
+            BTbinary _ -> with_binary_nm
+            BTbool   _ -> with_bool_nm
+            BTint    _ -> with_int_nm
+            BTutc    _ -> with_utc_nm
 
 gen_sn_ab as _sn = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
   where
@@ -652,11 +637,11 @@ mk_type ty =
 basic_type :: BasicType -> Type
 basic_type bt =
     case bt of
-      BTstring -> ConT   text_nm
-      BTbinary -> ConT $ binary_nm
-      BTbool   -> ConT $ mkName "Bool"
-      BTint    -> ConT $ mkName "Int"
-      BTutc    -> ConT $ utc_time_nm
+      BTstring _ -> ConT   text_nm
+      BTbinary _ -> ConT $ binary_nm
+      BTbool   _ -> ConT $ mkName "Bool"
+      BTint    _ -> ConT $ mkName "Int"
+      BTutc    _ -> ConT $ utc_time_nm
 
 
 derive_nms :: [Name]
@@ -755,26 +740,6 @@ json_string_p :: Ord a => (T.Text->Maybe a) -> Value -> Parser a
 json_string_p p (String t) | Just val <- p t = return val
                            | otherwise       = mzero
 json_string_p _  _                           = mzero
-
-
--- Inject and project binary Values from Text values using the base64 codec
-
-mkBinary :: Binary -> Value
-mkBinary = String . b2t . B64.encode . _Binary
-
-withBinary :: String -> (Binary->Parser a) -> Value -> Parser a
-withBinary lab f = withText lab g
-  where
-    g t =
-        case B64.decode $ t2b t of
-          Left  _  -> typeMismatch lab (String t)
-          Right bs -> f $ Binary bs
-
-b2t :: B.ByteString -> T.Text
-b2t = T.pack . B.unpack
-
-t2b :: T.Text -> B.ByteString
-t2b = B.pack . T.unpack
 
 
 -- app <$> <*> ke []          => ke

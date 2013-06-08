@@ -8,7 +8,9 @@ module Data.API.Scan
     , Token(..)
     ) where
 
+import           Data.API.Types
 import           Data.Char
+import           Data.Time
 import           Safe
 }
 
@@ -18,10 +20,14 @@ $digit = 0-9            -- digits
 $lower = [a-z_]         -- lower case & _
 $upper = [A-Z]          -- upper case letters
 
+@d2    = $digit{2}
+@d4    = $digit{4}
+
+
 tokens :-
-    $white+                         ;
-    "--".*                          ;
-    "{-"(\n|[^\-]|\-[^\}])*"-}"     ;
+    $white+                             ;
+    "--".*                              ;
+    "{-"(\n|[^\-]|\-[^\}])*"-}"         ;
     ";"                                 { simple    Semi            }
     "|"                                 { simple    Bar             }
     "["                                 { simple    Bra             }
@@ -37,19 +43,20 @@ tokens :-
     boolean                             { simple    Boolean         }
     utc                                 { simple    UTC             }
     string                              { simple    String          }
-    binary                              { simple    Binary          }
+    binary                              { simple    BInary          }
     record                              { simple    Record          }
     union                               { simple    Union           }
     enum                                { simple    Enum            }
     basic                               { simple    Basic           }
     true                                { simple    TRUE            }
     false                               { simple    FALSE           }
+    @d4\-@d2\-(@d2)T@d2\:@d2(:@d2)?Z    { utc_                      }
       $upper [$lower $upper $digit]*    { mk        TypeIden        }
     \'$upper [$lower $upper $digit]*\'  { strip_qs  TypeIden        }
       $lower [$lower $upper $digit]*    { mk        VarIden         }
     \'$lower [$lower $upper $digit]*\'  { strip_qs  VarIden         }
     \"([^\\\"]|\\[\\\'\"])*\"           { string                    }
-    $digit+                             { intg                      }
+    \-?$digit+                          { intg                      }
     "//".*                              { line_comment              }
     "(*"(\n|[^\*]|\*[^\)])*"*)"         { block_comment             }
 
@@ -60,7 +67,7 @@ type PToken = (AlexPosn,Token)
 data Token
     = Semi
     | Bar
-    | Binary
+    | BInary
     | Bra
     | Ket
     | ColCol
@@ -80,12 +87,17 @@ data Token
     | Basic
     | TRUE
     | FALSE
+    | UTCTIME  UTCTime
     | Comment  String
     | TypeIden String
     | VarIden  String
     | Intg     Int
     | Strg     String
+    | ERROR
     deriving (Eq,Show)
+
+utc_ :: AlexPosn -> String -> PToken
+utc_ = mk $ \s -> maybe ERROR UTCTIME $ parseUTC_ s
 
 line_comment :: AlexPosn -> String -> PToken
 line_comment = mk $ Comment . munch_ws . tailSafe . tailSafe 

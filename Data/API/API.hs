@@ -70,9 +70,9 @@ convert_type ty0 =
 convert_basic :: BasicType -> D.BasicType
 convert_basic bt =
     case bt of
-      BTstring -> D.BT_string
-      BTbinary -> D.BT_binary
-      BTbool   -> D.BT_boolean
-      BTint    -> D.BT_integer
-      BTutc    -> D.BT_utc
+      BTstring t -> D.BT_string  t
+      BTbinary b -> D.BT_binary  b
+      BTbool   b -> D.BT_boolean b
+      BTint    i -> D.BT_integer i
+      BTutc    u -> D.BT_utc     u
       

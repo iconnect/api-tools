@@ -43,11 +43,16 @@ Grammar
 	Type -> typeiden                                   (33)
 	Type -> BasicType                                  (34)
 	BasicType -> string                                (35)
-	BasicType -> binary                                (36)
-	BasicType -> boolean                               (37)
-	BasicType -> integer                               (38)
-	BasicType -> utc                                   (39)
-	FieldName -> variden                               (40)
+	BasicType -> strlit                                (36)
+	BasicType -> binary                                (37)
+	BasicType -> boolean                               (38)
+	BasicType -> true                                  (39)
+	BasicType -> false                                 (40)
+	BasicType -> integer                               (41)
+	BasicType -> intlit                                (42)
+	BasicType -> utc                                   (43)
+	BasicType -> utclit                                (44)
+	FieldName -> variden                               (45)
 
 -----------------------------------------------------------------------------
 Terminals
@@ -67,7 +72,7 @@ Terminals
 	boolean        { (,) _ Boolean }
 	utc            { (,) _ UTC }
 	string         { (,) _ String }
-	binary         { (,) _ Binary }
+	binary         { (,) _ BInary }
 	record         { (,) _ Record }
 	union          { (,) _ Union }
 	enum           { (,) _ Enum }
@@ -76,6 +81,10 @@ Terminals
 	typeiden       { (,) _ (TypeIden $$) }
 	variden        { (,) _ (VarIden  $$) }
 	intlit         { (,) _ (Intg     $$) }
+	strlit         { (,) _ (Strg     $$) }
+	true           { (,) _ TRUE }
+	false          { (,) _ FALSE }
+	utclit         { (,) _ (UTCTIME  $$) }
 
 -----------------------------------------------------------------------------
 Non-terminals
@@ -100,8 +109,8 @@ Non-terminals
 	REnums          rules 28, 29
 	Basic           rule  30
 	Type            rules 31, 32, 33, 34
-	BasicType       rules 35, 36, 37, 38, 39
-	FieldName       rule  40
+	BasicType       rules 35, 36, 37, 38, 39, 40, 41, 42, 43, 44
+	FieldName       rule  45
 
 -----------------------------------------------------------------------------
 States
@@ -170,16 +179,16 @@ State 7
 
 State 8
 
-	FieldName -> variden .                              (rule 40)
+	FieldName -> variden .                              (rule 45)
 
-	';'            reduce using rule 40
-	'|'            reduce using rule 40
-	':'            reduce using rule 40
-	','            reduce using rule 40
-	version        reduce using rule 40
-	with           reduce using rule 40
-	comment        reduce using rule 40
-	%eof           reduce using rule 40
+	';'            reduce using rule 45
+	'|'            reduce using rule 45
+	':'            reduce using rule 45
+	','            reduce using rule 45
+	version        reduce using rule 45
+	with           reduce using rule 45
+	comment        reduce using rule 45
+	%eof           reduce using rule 45
 
 
 State 9
@@ -239,7 +248,7 @@ State 14
 	'='            reduce using rule 17
 	version        reduce using rule 17
 	with           reduce using rule 17
-	comment        shift, and enter state 31
+	comment        shift, and enter state 36
 			(reduce using rule 17)
 
 	variden        reduce using rule 17
@@ -250,7 +259,7 @@ State 15
 
 	Node -> Prefix . '::' typeiden Comments '=' Spec With Vrn Comments    (rule 7)
 
-	'::'           shift, and enter state 30
+	'::'           shift, and enter state 35
 
 
 State 16
@@ -264,7 +273,7 @@ State 17
 
 	RUFields -> RUFields '|' FieldName . ':' Type Comments    (rule 25)
 
-	':'            shift, and enter state 29
+	':'            shift, and enter state 34
 
 
 State 18
@@ -279,6 +288,11 @@ State 18
 	string         shift, and enter state 26
 	binary         shift, and enter state 27
 	typeiden       shift, and enter state 28
+	intlit         shift, and enter state 29
+	strlit         shift, and enter state 30
+	true           shift, and enter state 31
+	false          shift, and enter state 32
+	utclit         shift, and enter state 33
 
 	Type           goto state 19
 	BasicType      goto state 20
@@ -294,7 +308,7 @@ State 19
 	comment        reduce using rule 19
 	%eof           reduce using rule 19
 
-	Comments       goto state 36
+	Comments       goto state 41
 	RCommentList   goto state 14
 
 State 20
@@ -323,8 +337,13 @@ State 21
 	string         shift, and enter state 26
 	binary         shift, and enter state 27
 	typeiden       shift, and enter state 28
+	intlit         shift, and enter state 29
+	strlit         shift, and enter state 30
+	true           shift, and enter state 31
+	false          shift, and enter state 32
+	utclit         shift, and enter state 33
 
-	Type           goto state 35
+	Type           goto state 40
 	BasicType      goto state 20
 
 State 22
@@ -339,13 +358,32 @@ State 22
 	string         shift, and enter state 26
 	binary         shift, and enter state 27
 	typeiden       shift, and enter state 28
+	intlit         shift, and enter state 29
+	strlit         shift, and enter state 30
+	true           shift, and enter state 31
+	false          shift, and enter state 32
+	utclit         shift, and enter state 33
 
-	Type           goto state 34
+	Type           goto state 39
 	BasicType      goto state 20
 
 State 23
 
-	BasicType -> integer .                              (rule 38)
+	BasicType -> integer .                              (rule 41)
+
+	';'            reduce using rule 41
+	'|'            reduce using rule 41
+	']'            reduce using rule 41
+	version        reduce using rule 41
+	with           reduce using rule 41
+	comment        reduce using rule 41
+	variden        reduce using rule 41
+	%eof           reduce using rule 41
+
+
+State 24
+
+	BasicType -> boolean .                              (rule 38)
 
 	';'            reduce using rule 38
 	'|'            reduce using rule 38
@@ -357,32 +395,18 @@ State 23
 	%eof           reduce using rule 38
 
 
-State 24
-
-	BasicType -> boolean .                              (rule 37)
-
-	';'            reduce using rule 37
-	'|'            reduce using rule 37
-	']'            reduce using rule 37
-	version        reduce using rule 37
-	with           reduce using rule 37
-	comment        reduce using rule 37
-	variden        reduce using rule 37
-	%eof           reduce using rule 37
-
-
 State 25
 
-	BasicType -> utc .                                  (rule 39)
+	BasicType -> utc .                                  (rule 43)
 
-	';'            reduce using rule 39
-	'|'            reduce using rule 39
-	']'            reduce using rule 39
-	version        reduce using rule 39
-	with           reduce using rule 39
-	comment        reduce using rule 39
-	variden        reduce using rule 39
-	%eof           reduce using rule 39
+	';'            reduce using rule 43
+	'|'            reduce using rule 43
+	']'            reduce using rule 43
+	version        reduce using rule 43
+	with           reduce using rule 43
+	comment        reduce using rule 43
+	variden        reduce using rule 43
+	%eof           reduce using rule 43
 
 
 State 26
@@ -401,16 +425,16 @@ State 26
 
 State 27
 
-	BasicType -> binary .                               (rule 36)
+	BasicType -> binary .                               (rule 37)
 
-	';'            reduce using rule 36
-	'|'            reduce using rule 36
-	']'            reduce using rule 36
-	version        reduce using rule 36
-	with           reduce using rule 36
-	comment        reduce using rule 36
-	variden        reduce using rule 36
-	%eof           reduce using rule 36
+	';'            reduce using rule 37
+	'|'            reduce using rule 37
+	']'            reduce using rule 37
+	version        reduce using rule 37
+	with           reduce using rule 37
+	comment        reduce using rule 37
+	variden        reduce using rule 37
+	%eof           reduce using rule 37
 
 
 State 28
@@ -429,6 +453,76 @@ State 28
 
 State 29
 
+	BasicType -> intlit .                               (rule 42)
+
+	';'            reduce using rule 42
+	'|'            reduce using rule 42
+	']'            reduce using rule 42
+	version        reduce using rule 42
+	with           reduce using rule 42
+	comment        reduce using rule 42
+	variden        reduce using rule 42
+	%eof           reduce using rule 42
+
+
+State 30
+
+	BasicType -> strlit .                               (rule 36)
+
+	';'            reduce using rule 36
+	'|'            reduce using rule 36
+	']'            reduce using rule 36
+	version        reduce using rule 36
+	with           reduce using rule 36
+	comment        reduce using rule 36
+	variden        reduce using rule 36
+	%eof           reduce using rule 36
+
+
+State 31
+
+	BasicType -> true .                                 (rule 39)
+
+	';'            reduce using rule 39
+	'|'            reduce using rule 39
+	']'            reduce using rule 39
+	version        reduce using rule 39
+	with           reduce using rule 39
+	comment        reduce using rule 39
+	variden        reduce using rule 39
+	%eof           reduce using rule 39
+
+
+State 32
+
+	BasicType -> false .                                (rule 40)
+
+	';'            reduce using rule 40
+	'|'            reduce using rule 40
+	']'            reduce using rule 40
+	version        reduce using rule 40
+	with           reduce using rule 40
+	comment        reduce using rule 40
+	variden        reduce using rule 40
+	%eof           reduce using rule 40
+
+
+State 33
+
+	BasicType -> utclit .                               (rule 44)
+
+	';'            reduce using rule 44
+	'|'            reduce using rule 44
+	']'            reduce using rule 44
+	version        reduce using rule 44
+	with           reduce using rule 44
+	comment        reduce using rule 44
+	variden        reduce using rule 44
+	%eof           reduce using rule 44
+
+
+State 34
+
 	RUFields -> RUFields '|' FieldName ':' . Type Comments    (rule 25)
 
 	'['            shift, and enter state 21
@@ -439,18 +533,23 @@ State 29
 	string         shift, and enter state 26
 	binary         shift, and enter state 27
 	typeiden       shift, and enter state 28
+	intlit         shift, and enter state 29
+	strlit         shift, and enter state 30
+	true           shift, and enter state 31
+	false          shift, and enter state 32
+	utclit         shift, and enter state 33
 
-	Type           goto state 33
+	Type           goto state 38
 	BasicType      goto state 20
 
-State 30
+State 35
 
 	Node -> Prefix '::' . typeiden Comments '=' Spec With Vrn Comments    (rule 7)
 
-	typeiden       shift, and enter state 32
+	typeiden       shift, and enter state 37
 
 
-State 31
+State 36
 
 	RCommentList -> RCommentList comment .              (rule 18)
 
@@ -464,17 +563,17 @@ State 31
 	%eof           reduce using rule 18
 
 
-State 32
+State 37
 
 	Node -> Prefix '::' typeiden . Comments '=' Spec With Vrn Comments    (rule 7)
 
 	'='            reduce using rule 19
 	comment        reduce using rule 19
 
-	Comments       goto state 39
+	Comments       goto state 44
 	RCommentList   goto state 14
 
-State 33
+State 38
 
 	RUFields -> RUFields '|' FieldName ':' Type . Comments    (rule 25)
 
@@ -485,10 +584,10 @@ State 33
 	comment        reduce using rule 19
 	%eof           reduce using rule 19
 
-	Comments       goto state 38
+	Comments       goto state 43
 	RCommentList   goto state 14
 
-State 34
+State 39
 
 	Type -> '?' Type .                                  (rule 31)
 
@@ -502,14 +601,14 @@ State 34
 	%eof           reduce using rule 31
 
 
-State 35
+State 40
 
 	Type -> '[' Type . ']'                              (rule 32)
 
-	']'            shift, and enter state 37
+	']'            shift, and enter state 42
 
 
-State 36
+State 41
 
 	RUFields -> '|' FieldName ':' Type Comments .       (rule 26)
 
@@ -521,7 +620,7 @@ State 36
 	%eof           reduce using rule 26
 
 
-State 37
+State 42
 
 	Type -> '[' Type ']' .                              (rule 32)
 
@@ -535,7 +634,7 @@ State 37
 	%eof           reduce using rule 32
 
 
-State 38
+State 43
 
 	RUFields -> RUFields '|' FieldName ':' Type Comments .    (rule 25)
 
@@ -547,14 +646,14 @@ State 38
 	%eof           reduce using rule 25
 
 
-State 39
+State 44
 
 	Node -> Prefix '::' typeiden Comments . '=' Spec With Vrn Comments    (rule 7)
 
-	'='            shift, and enter state 40
+	'='            shift, and enter state 45
 
 
-State 40
+State 45
 
 	Node -> Prefix '::' typeiden Comments '=' . Spec With Vrn Comments    (rule 7)
 
@@ -565,33 +664,38 @@ State 40
 	utc            shift, and enter state 25
 	string         shift, and enter state 26
 	binary         shift, and enter state 27
-	record         shift, and enter state 47
-	union          shift, and enter state 48
-	enum           shift, and enter state 49
-	basic          shift, and enter state 50
+	record         shift, and enter state 52
+	union          shift, and enter state 53
+	enum           shift, and enter state 54
+	basic          shift, and enter state 55
 	typeiden       shift, and enter state 28
+	intlit         shift, and enter state 29
+	strlit         shift, and enter state 30
+	true           shift, and enter state 31
+	false          shift, and enter state 32
+	utclit         shift, and enter state 33
 
-	Spec           goto state 41
-	Record         goto state 42
-	Union          goto state 43
-	Enum           goto state 44
-	Basic          goto state 45
-	Type           goto state 46
+	Spec           goto state 46
+	Record         goto state 47
+	Union          goto state 48
+	Enum           goto state 49
+	Basic          goto state 50
+	Type           goto state 51
 	BasicType      goto state 20
 
-State 41
+State 46
 
 	Node -> Prefix '::' typeiden Comments '=' Spec . With Vrn Comments    (rule 7)
 
 	';'            reduce using rule 14
 	version        reduce using rule 14
-	with           shift, and enter state 58
+	with           shift, and enter state 63
 	comment        reduce using rule 14
 	%eof           reduce using rule 14
 
-	With           goto state 57
+	With           goto state 62
 
-State 42
+State 47
 
 	Spec -> Record .                                    (rule 8)
 
@@ -602,7 +706,7 @@ State 42
 	%eof           reduce using rule 8
 
 
-State 43
+State 48
 
 	Spec -> Union .                                     (rule 9)
 
@@ -613,7 +717,7 @@ State 43
 	%eof           reduce using rule 9
 
 
-State 44
+State 49
 
 	Spec -> Enum .                                      (rule 10)
 
@@ -624,7 +728,7 @@ State 44
 	%eof           reduce using rule 10
 
 
-State 45
+State 50
 
 	Spec -> Basic .                                     (rule 11)
 
@@ -635,7 +739,7 @@ State 45
 	%eof           reduce using rule 11
 
 
-State 46
+State 51
 
 	Spec -> Type .                                      (rule 12)
 
@@ -646,33 +750,33 @@ State 46
 	%eof           reduce using rule 12
 
 
-State 47
+State 52
 
 	Record -> record . RRFields                         (rule 21)
 
 	variden        shift, and enter state 8
 
-	RRFields       goto state 55
-	FieldName      goto state 56
+	RRFields       goto state 60
+	FieldName      goto state 61
 
-State 48
+State 53
 
 	Union -> union . RUFields                           (rule 22)
 
 	'|'            shift, and enter state 5
 
-	RUFields       goto state 54
+	RUFields       goto state 59
 
-State 49
+State 54
 
 	Enum -> enum . REnums                               (rule 27)
 
 	variden        shift, and enter state 8
 
-	REnums         goto state 52
-	FieldName      goto state 53
+	REnums         goto state 57
+	FieldName      goto state 58
 
-State 50
+State 55
 
 	Basic -> basic . BasicType                          (rule 30)
 
@@ -681,10 +785,15 @@ State 50
 	utc            shift, and enter state 25
 	string         shift, and enter state 26
 	binary         shift, and enter state 27
+	intlit         shift, and enter state 29
+	strlit         shift, and enter state 30
+	true           shift, and enter state 31
+	false          shift, and enter state 32
+	utclit         shift, and enter state 33
 
-	BasicType      goto state 51
+	BasicType      goto state 56
 
-State 51
+State 56
 
 	Basic -> basic BasicType .                          (rule 30)
 
@@ -695,20 +804,20 @@ State 51
 	%eof           reduce using rule 30
 
 
-State 52
+State 57
 
 	Enum -> enum REnums .                               (rule 27)
 	REnums -> REnums . '|' FieldName Comments           (rule 28)
 
 	';'            reduce using rule 27
-	'|'            shift, and enter state 65
+	'|'            shift, and enter state 70
 	version        reduce using rule 27
 	with           reduce using rule 27
 	comment        reduce using rule 27
 	%eof           reduce using rule 27
 
 
-State 53
+State 58
 
 	REnums -> FieldName . Comments                      (rule 29)
 
@@ -719,10 +828,10 @@ State 53
 	comment        reduce using rule 19
 	%eof           reduce using rule 19
 
-	Comments       goto state 64
+	Comments       goto state 69
 	RCommentList   goto state 14
 
-State 54
+State 59
 
 	Union -> union RUFields .                           (rule 22)
 	RUFields -> RUFields . '|' FieldName ':' Type Comments    (rule 25)
@@ -735,7 +844,7 @@ State 54
 	%eof           reduce using rule 22
 
 
-State 55
+State 60
 
 	Record -> record RRFields .                         (rule 21)
 	RRFields -> RRFields . FieldName ':' Type Comments    (rule 23)
@@ -747,42 +856,42 @@ State 55
 	variden        shift, and enter state 8
 	%eof           reduce using rule 21
 
-	FieldName      goto state 63
+	FieldName      goto state 68
 
-State 56
+State 61
 
 	RRFields -> FieldName . ':' Type Comments           (rule 24)
 
-	':'            shift, and enter state 62
+	':'            shift, and enter state 67
 
 
-State 57
+State 62
 
 	Node -> Prefix '::' typeiden Comments '=' Spec With . Vrn Comments    (rule 7)
 
 	';'            reduce using rule 16
-	version        shift, and enter state 61
+	version        shift, and enter state 66
 	comment        reduce using rule 16
 	%eof           reduce using rule 16
 
-	Vrn            goto state 60
+	Vrn            goto state 65
 
-State 58
+State 63
 
 	With -> with . FieldName ',' FieldName              (rule 13)
 
 	variden        shift, and enter state 8
 
-	FieldName      goto state 59
+	FieldName      goto state 64
 
-State 59
+State 64
 
 	With -> with FieldName . ',' FieldName              (rule 13)
 
-	','            shift, and enter state 71
+	','            shift, and enter state 76
 
 
-State 60
+State 65
 
 	Node -> Prefix '::' typeiden Comments '=' Spec With Vrn . Comments    (rule 7)
 
@@ -790,17 +899,17 @@ State 60
 	comment        reduce using rule 19
 	%eof           reduce using rule 19
 
-	Comments       goto state 70
+	Comments       goto state 75
 	RCommentList   goto state 14
 
-State 61
+State 66
 
 	Vrn -> version . intlit                             (rule 15)
 
-	intlit         shift, and enter state 69
+	intlit         shift, and enter state 74
 
 
-State 62
+State 67
 
 	RRFields -> FieldName ':' . Type Comments           (rule 24)
 
@@ -812,18 +921,23 @@ State 62
 	string         shift, and enter state 26
 	binary         shift, and enter state 27
 	typeiden       shift, and enter state 28
+	intlit         shift, and enter state 29
+	strlit         shift, and enter state 30
+	true           shift, and enter state 31
+	false          shift, and enter state 32
+	utclit         shift, and enter state 33
 
-	Type           goto state 68
+	Type           goto state 73
 	BasicType      goto state 20
 
-State 63
+State 68
 
 	RRFields -> RRFields FieldName . ':' Type Comments    (rule 23)
 
-	':'            shift, and enter state 67
+	':'            shift, and enter state 72
 
 
-State 64
+State 69
 
 	REnums -> FieldName Comments .                      (rule 29)
 
@@ -835,15 +949,15 @@ State 64
 	%eof           reduce using rule 29
 
 
-State 65
+State 70
 
 	REnums -> REnums '|' . FieldName Comments           (rule 28)
 
 	variden        shift, and enter state 8
 
-	FieldName      goto state 66
+	FieldName      goto state 71
 
-State 66
+State 71
 
 	REnums -> REnums '|' FieldName . Comments           (rule 28)
 
@@ -854,10 +968,10 @@ State 66
 	comment        reduce using rule 19
 	%eof           reduce using rule 19
 
-	Comments       goto state 75
+	Comments       goto state 80
 	RCommentList   goto state 14
 
-State 67
+State 72
 
 	RRFields -> RRFields FieldName ':' . Type Comments    (rule 23)
 
@@ -869,11 +983,16 @@ State 67
 	string         shift, and enter state 26
 	binary         shift, and enter state 27
 	typeiden       shift, and enter state 28
+	intlit         shift, and enter state 29
+	strlit         shift, and enter state 30
+	true           shift, and enter state 31
+	false          shift, and enter state 32
+	utclit         shift, and enter state 33
 
-	Type           goto state 74
+	Type           goto state 79
 	BasicType      goto state 20
 
-State 68
+State 73
 
 	RRFields -> FieldName ':' Type . Comments           (rule 24)
 
@@ -884,10 +1003,10 @@ State 68
 	variden        reduce using rule 19
 	%eof           reduce using rule 19
 
-	Comments       goto state 73
+	Comments       goto state 78
 	RCommentList   goto state 14
 
-State 69
+State 74
 
 	Vrn -> version intlit .                             (rule 15)
 
@@ -896,7 +1015,7 @@ State 69
 	%eof           reduce using rule 15
 
 
-State 70
+State 75
 
 	Node -> Prefix '::' typeiden Comments '=' Spec With Vrn Comments .    (rule 7)
 
@@ -904,15 +1023,15 @@ State 70
 	%eof           reduce using rule 7
 
 
-State 71
+State 76
 
 	With -> with FieldName ',' . FieldName              (rule 13)
 
 	variden        shift, and enter state 8
 
-	FieldName      goto state 72
+	FieldName      goto state 77
 
-State 72
+State 77
 
 	With -> with FieldName ',' FieldName .              (rule 13)
 
@@ -922,7 +1041,7 @@ State 72
 	%eof           reduce using rule 13
 
 
-State 73
+State 78
 
 	RRFields -> FieldName ':' Type Comments .           (rule 24)
 
@@ -934,7 +1053,7 @@ State 73
 	%eof           reduce using rule 24
 
 
-State 74
+State 79
 
 	RRFields -> RRFields FieldName ':' Type . Comments    (rule 23)
 
@@ -945,10 +1064,10 @@ State 74
 	variden        reduce using rule 19
 	%eof           reduce using rule 19
 
-	Comments       goto state 76
+	Comments       goto state 81
 	RCommentList   goto state 14
 
-State 75
+State 80
 
 	REnums -> REnums '|' FieldName Comments .           (rule 28)
 
@@ -960,7 +1079,7 @@ State 75
 	%eof           reduce using rule 28
 
 
-State 76
+State 81
 
 	RRFields -> RRFields FieldName ':' Type Comments .    (rule 23)
 
@@ -975,7 +1094,7 @@ State 76
 -----------------------------------------------------------------------------
 Grammar Totals
 -----------------------------------------------------------------------------
-Number of rules: 41
-Number of terminals: 24
+Number of rules: 46
+Number of terminals: 28
 Number of non-terminals: 22
-Number of states: 77
+Number of states: 82

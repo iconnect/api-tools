@@ -9,6 +9,7 @@ import           Data.API.Types
 import           Data.API.Scan
 import           Data.Char
 import           Data.String
+import qualified Data.Text                  as T
 import qualified Data.CaseInsensitive       as CI
 import           Text.Printf
 }
@@ -35,17 +36,19 @@ import           Text.Printf
     boolean                             { (,) _ Boolean         }
     utc                                 { (,) _ UTC             }
     string                              { (,) _ String          }
-    binary                              { (,) _ Binary          }
+    binary                              { (,) _ BInary          }
     record                              { (,) _ Record          }
     union                               { (,) _ Union           }
     enum                                { (,) _ Enum            }
     basic                               { (,) _ Basic           }
- -- true                                { (,) _ True            }
- -- false                               { (,) _ False           }
     comment                             { (,) _ (Comment  $$)   }
     typeiden                            { (,) _ (TypeIden $$)   }
     variden                             { (,) _ (VarIden  $$)   }
     intlit                              { (,) _ (Intg     $$)   }
+    strlit                              { (,) _ (Strg     $$)   }
+    true                                { (,) _ TRUE            }
+    false                               { (,) _ FALSE           }
+    utclit                              { (,) _ (UTCTIME  $$)   }
 
 
 %%
@@ -141,11 +144,16 @@ Type
 
 BasicType :: { BasicType }
 BasicType
-    : string                            { BTstring                          }
-    | binary                            { BTbinary                          }
-    | boolean                           { BTbool                            }
-    | integer                           { BTint                             }
-    | utc                               { BTutc                             }
+    : string                            { BTstring  Nothing                 }
+    | strlit                            { BTstring  (Just $ T.pack $1)      }
+    | binary                            { BTbinary  Nothing                 }
+    | boolean                           { BTbool    Nothing                 }
+    | true                              { BTbool    (Just True )            }
+    | false                             { BTbool    (Just False)            }
+    | integer                           { BTint     Nothing                 }
+    | intlit                            { BTint     (Just $1)               }
+    | utc                               { BTutc     Nothing                 }
+    | utclit                            { BTutc     (Just $1)               }
 
 FieldName :: { FieldName }
 FieldName

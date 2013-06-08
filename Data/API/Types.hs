@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 
 module Data.API.Types
@@ -21,19 +22,26 @@ module Data.API.Types
     , mkUTC
     , withUTC
     , parseUTC'
-    , parseUTC''
+    , parseUTC_
     , utcFormat
     , utcFormats
+    , Binary(..)
+    , mkBinary
+    , withBinary
     ) where
 
-import qualified Data.CaseInsensitive       as CI
+import qualified Data.CaseInsensitive           as CI
 import           Data.String
 import           Data.Time
 import           Data.Maybe
 import           Data.Aeson
 import           Data.Aeson.Types
-import qualified Data.Text                  as T
+import qualified Data.Text                      as T
+import qualified Data.ByteString.Char8          as B
 import           System.Locale
+import qualified Test.QuickCheck                as QC
+import           Control.Applicative
+import qualified Data.ByteString.Base64         as B64
 
 
 -- | an API spec is made up of a list of type/element specs, each
@@ -146,11 +154,11 @@ data APIType
 -- the basic JSON types (N.B., no floating point numbers, yet)
 
 data BasicType
-    = BTstring              -- | a JSON UTF-8 string
-    | BTbinary              -- | a base-64-encoded byte string
-    | BTbool                -- | a JSON bool
-    | BTint                 -- | a JSON integral number
-    | BTutc                 -- | a JSON UTC string
+    = BTstring (Maybe T.Text ) -- | a JSON UTF-8 string
+    | BTbinary (Maybe Binary ) -- | a base-64-encoded byte string
+    | BTbool   (Maybe Bool   ) -- | a JSON bool
+    | BTint    (Maybe Int    ) -- | a JSON integral number
+    | BTutc    (Maybe UTCTime) -- | a JSON UTC string
     deriving (Show)
 
 -- Inject and project UTC Values from Text values
@@ -170,7 +178,7 @@ utcFormats :: [String]
 utcFormats =
                         [ "%Y-%m-%dT%H:%M:%S%z"
                         , "%Y-%m-%dT%H:%M:%S%Z"
-                        , "%Y-%m-%dT%H:%S%Z"
+                        , "%Y-%m-%dT%H:%M%Z"
                         , utcFormat
                         ]
 
@@ -178,8 +186,44 @@ mkUTC' :: UTCTime -> T.Text
 mkUTC' utct = T.pack $ formatTime defaultTimeLocale utcFormat utct
 
 parseUTC' :: T.Text -> Maybe UTCTime
-parseUTC' t = parseUTC'' $ T.unpack t
+parseUTC' t = parseUTC_ $ T.unpack t
 
-parseUTC'' :: String -> Maybe UTCTime
-parseUTC'' s = listToMaybe $ catMaybes $
+parseUTC_ :: String -> Maybe UTCTime
+parseUTC_ s = listToMaybe $ catMaybes $
             map (\fmt->parseTime defaultTimeLocale fmt s) utcFormats  
+
+
+
+newtype Binary = Binary { _Binary :: B.ByteString }
+    deriving (Show,Eq,Ord)
+
+instance ToJSON Binary where
+    toJSON = mkBinary  
+    
+instance FromJSON Binary where
+    parseJSON = withBinary "Binary" return
+
+instance QC.Arbitrary T.Text where
+    arbitrary = T.pack <$> QC.arbitrary
+
+instance QC.Arbitrary Binary where
+    arbitrary = Binary <$> B.pack <$> QC.arbitrary
+
+-- Inject and project binary Values from Text values using the base64 codec
+
+mkBinary :: Binary -> Value
+mkBinary = String . b2t . B64.encode . _Binary
+
+withBinary :: String -> (Binary->Parser a) -> Value -> Parser a
+withBinary lab f = withText lab g
+  where
+    g t =
+        case B64.decode $ t2b t of
+          Left  _  -> typeMismatch lab (String t)
+          Right bs -> f $ Binary bs
+
+b2t :: B.ByteString -> T.Text
+b2t = T.pack . B.unpack
+
+t2b :: T.Text -> B.ByteString
+t2b = B.pack . T.unpack

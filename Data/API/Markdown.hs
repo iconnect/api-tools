@@ -149,11 +149,11 @@ type_md mdm ty =
 basic_type_md :: BasicType -> MDComment
 basic_type_md bt =
     case bt of
-      BTstring -> "string" 
-      BTbinary -> "base64 string" 
-      BTbool   -> "boolean"
-      BTint    -> "integer"
-      BTutc    -> "utc"
+      BTstring _ -> "string" 
+      BTbinary _ -> "base64 string" 
+      BTbool   _ -> "boolean"
+      BTint    _ -> "integer"
+      BTutc    _ -> "utc"
 
 type_name_md, prefix_md, comment_md :: APINode -> MDComment
 type_name_md = _TypeName   . anName
