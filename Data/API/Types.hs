@@ -22,6 +22,7 @@ module Data.API.Types
     , BasicType(..)
     , Example(..)
     , mkUTC
+    , mkUTC'
     , withUTC
     , parseUTC'
     , parseUTC_
@@ -44,6 +45,7 @@ import           System.Locale
 import qualified Test.QuickCheck                as QC
 import           Control.Applicative
 import qualified Data.ByteString.Base64         as B64
+import           Safe
 
 
 -- | an API spec is made up of a list of type/element specs, each
@@ -151,9 +153,9 @@ data APIType
     | TyMaybe APIType       -- | Maybe elements are types
     | TyName  TypeName (Maybe BasicType)
                             -- | the referenced type must be defined by the API
-                            --   the BasicType is only given if it carries an
-                            -- example, in which case the type must be a
-                            -- compatible newtype
+                            -- | the BasicType is only given if it carries an
+                            -- | example, in which case the type must be a
+                            -- | compatible newtype
     | TyBasic BasicType     -- | a JSON string, int or bool
     deriving (Show)
 
@@ -226,7 +228,10 @@ parseUTC_ :: String -> Maybe UTCTime
 parseUTC_ s = listToMaybe $ catMaybes $
             map (\fmt->parseTime defaultTimeLocale fmt s) utcFormats  
 
-
+instance Example UTCTime where
+    example = fromJustNote dg $ parseUTC_ "2013-06-09T15:52:30Z"
+      where
+        dg = "Data.API.Types.Example-UTCTime"
 
 newtype Binary = Binary { _Binary :: B.ByteString }
     deriving (Show,Eq,Ord)

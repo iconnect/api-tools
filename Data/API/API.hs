@@ -11,6 +11,7 @@ import           Data.API.Types
 import           Data.Aeson
 import qualified Data.CaseInsensitive           as CI
 import qualified Data.Text                      as T
+import           Control.Applicative
 
 
 -- | Take and API spec and generate the JSON
@@ -62,10 +63,13 @@ convert_alts fns = map (T.pack . _FieldName . fst) fns
 convert_type :: APIType -> D.APIType
 convert_type ty0 =
     case ty0 of
-      TyList  ty  -> D.TY_list  $ convert_type ty
-      TyMaybe ty  -> D.TY_maybe $ convert_type ty
-      TyName  tnm -> D.TY_name  $ T.pack $ _TypeName tnm
-      TyBasic bt  -> D.TY_basic $ convert_basic bt
+      TyList  ty    -> D.TY_list  $ convert_type  ty
+      TyMaybe ty    -> D.TY_maybe $ convert_type  ty
+      TyName  tn ex -> D.TY_ref   $ convert_ref   tn ex
+      TyBasic bt    -> D.TY_basic $ convert_basic bt
+
+convert_ref :: TypeName -> Maybe BasicType -> D.TypeRef
+convert_ref (TypeName tn) mb = D.TypeRef (T.pack tn) (convert_basic <$> mb)
 
 convert_basic :: BasicType -> D.BasicType
 convert_basic bt =

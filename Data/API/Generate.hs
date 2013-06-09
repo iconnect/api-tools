@@ -23,6 +23,7 @@ module Data.API.Generate
     , ToJSON(..)
     , FromJSON(..)
     , Value(..)
+    , Example(..)
     , object
     , (.:)
     , (.=)
@@ -40,6 +41,11 @@ module Data.API.Generate
     , mkBinary
     , withBinary
     , binary
+    , ex_str_lit
+    , ex_bin_lit
+    , ex_boo_lit
+    , ex_int_lit
+    , ex_utc_lit
     ) where
 
 import           Data.API.Types
@@ -62,6 +68,8 @@ import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Attoparsec.Number
 import           Data.SafeCopy
+import qualified Data.ByteString.Base64         as B64
+import qualified Data.ByteString.Char8          as BC
 import           Data.Time
 import qualified Test.QuickCheck                as QC
 import qualified Control.Lens                   as L
@@ -106,11 +114,6 @@ api =
         , quoteType = error "api QuasiQuoter used in type        context"
         , quoteDec  = error "api QuasiQuoter used in declaration context"
         }
-
-
-
-
-
 
 instance QC.Arbitrary UTCTime where
     arbitrary = QC.elements
@@ -170,6 +173,7 @@ gen_sn as sn = sequence $
     [ gen_pr pj as    | Just (_,pj) <- [anConvert as]
     ] ++
     [ gen_sn_ab as sn
+    , gen_sn_ex as sn
     ]
 
 gen_sr :: APINode -> SpecRecord -> Q [Dec] 
@@ -183,6 +187,7 @@ gen_sr as sr = sequence $
     [ gen_pr pj as    | Just (_,pj) <- [anConvert as]
     ] ++
     [ gen_sr_ab as sr
+    , gen_sr_ex as sr
     ]
 
 gen_su :: APINode -> SpecUnion -> Q [Dec] 
@@ -196,6 +201,7 @@ gen_su as su = sequence $
     [ gen_pr pj as    | Just (_,pj) <- [anConvert as]
     ] ++
     [ gen_su_ab as su
+    , gen_su_ex as su   
     ]
 
 gen_se :: APINode -> SpecEnum -> Q [Dec] 
@@ -207,6 +213,7 @@ gen_se as se = sequence $
     , gen_se_tx     as se
     , gen_se_mp_sig as se
     , gen_se_mp     as se
+    , gen_se_ex     as se
     ] ++
     [ gen_in ij as    | Just (ij,_) <- [anConvert as]
     ] ++
@@ -234,7 +241,8 @@ instance FromJSON JobId where
     parseJSON = withText "JobId" (return . JobId)
 -}
 
-gen_sn_dt, gen_sn_to, gen_sn_fm, gen_sn_ab :: APINode -> SpecNewtype -> Q Dec
+gen_sn_dt, gen_sn_to, gen_sn_fm, gen_sn_ab, gen_sn_ex
+                                         :: APINode -> SpecNewtype -> Q Dec
 
 gen_sn_dt as sn = return $ NewtypeD [] nm [] c $ derive_nms ++ iss
   where
@@ -292,6 +300,31 @@ gen_sn_ab as _sn = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
 
     tn  = rep_type_nm as
 
+gen_sn_ex as sn = return $ InstanceD [] typ [FunD example_nm [cl]]
+  where
+    typ   = AppT (ConT example_cl_nm) $ ConT tn
+
+    cl    = Clause [] bdy []
+
+    bdy   = NormalB $ AppE (ConE $ rep_type_nm as) $ 
+                                            example_basic_type $ snType sn
+
+    tn    = rep_type_nm as
+
+example_basic_type :: BasicType -> Exp
+example_basic_type bt =
+    case bt of
+      BTstring mb -> maybe ex (f prep_ex_str ex_str_lit_nm) mb
+      BTbinary mb -> maybe ex (f prep_ex_bin ex_bin_lit_nm) mb
+      BTbool   mb -> maybe ex (f prep_ex_boo ex_boo_lit_nm) mb
+      BTint    mb -> maybe ex (f prep_ex_int ex_int_lit_nm) mb
+      BTutc    mb -> maybe ex (f prep_ex_utc ex_utc_lit_nm) mb
+  where
+    f pf lf_nm x = AppE (VarE lf_nm) (pf x)
+
+    ex           = VarE example_fn_nm
+
+
 {-
 -- a sample record type definition, wrapper and test function
 -- we are trying to generate something like this
@@ -324,12 +357,13 @@ instance ToJSON JobSpecId where
             ]
 -}
 
-gen_sr_dt, gen_sr_to, gen_sr_fm, gen_sr_ab :: APINode -> SpecRecord -> Q Dec
+gen_sr_dt, gen_sr_to, gen_sr_fm, gen_sr_ab, gen_sr_ex :: 
+                                            APINode -> SpecRecord -> Q Dec
 
 gen_sr_dt as sr = return $ DataD [] nm [] cs derive_nms -- [show_nm,eq_nm]
   where
-    cs = [RecC nm [(pref_field_nm as fnm,NotStrict,mk_type ty) | 
-                                    (fnm,(ty,_))<-srFields sr]]
+    cs = [RecC nm [(pref_field_nm as fnm,IsStrict,mk_type ty) | 
+                                                (fnm,(ty,_))<-srFields sr]]
 
     nm = rep_type_nm as
 
@@ -376,6 +410,17 @@ gen_sr_ab as sr = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
 
     tn    = rep_type_nm as
 
+gen_sr_ex as sr = return $ InstanceD [] typ [FunD example_nm [cl]]
+  where
+    typ   = AppT (ConT example_cl_nm) $ ConT tn
+
+    cl    = Clause [] bdy []
+
+    bdy   = NormalB $ ap_l (ConE tn) $
+                        replicate (length $ srFields sr) $ VarE example_fn_nm 
+
+    tn    = rep_type_nm as
+
 
 {-
 
@@ -397,11 +442,12 @@ instance FromJSON Foo where
     parseJSON val = typeMismatch "Foo" val 
 -}
 
-gen_su_dt, gen_su_to, gen_su_fm, gen_su_ab :: APINode -> SpecUnion -> Q Dec
+gen_su_dt, gen_su_to, gen_su_fm, gen_su_ab, gen_su_ex
+                                             :: APINode -> SpecUnion -> Q Dec
 
 gen_su_dt as su = return $ DataD [] nm [] cs derive_nms -- [show_nm,eq_nm]
   where
-    cs = [NormalC (pref_con_nm as fnm) [(NotStrict,mk_type ty)] | 
+    cs = [NormalC (pref_con_nm as fnm) [(IsStrict,mk_type ty)] | 
                                             (fnm,(ty,_))<-suFields su]
     
     nm = rep_type_nm as
@@ -458,6 +504,22 @@ gen_su_ab as su = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
     tn  = rep_type_nm as
     ks  = map (pref_con_nm as) $ map fst $ suFields su
 
+gen_su_ex as su = return $ InstanceD [] typ [FunD example_nm [cl]]
+  where
+    typ   = AppT (ConT example_cl_nm) $ ConT tn
+
+    cl    = Clause [] bdy []
+
+    bdy   = NormalB $ AppE (ConE cn) $ VarE example_fn_nm 
+
+    cn    = headNote dg ks
+    tn    = rep_type_nm as
+    
+    ks  = map (pref_con_nm as) $ map fst $ suFields su
+
+    dg    = "Data.API.Generate.gen_su_ex"
+              
+
 
 {-
 
@@ -502,7 +564,8 @@ instance FromJSON FrameRate where
 
 gen_se_dt, gen_se_to, gen_se_fm, gen_se_ab,
                 gen_se_tx_sig, gen_se_tx, 
-                gen_se_mp_sig, gen_se_mp :: APINode -> SpecEnum -> Q Dec
+                gen_se_mp_sig, gen_se_mp,
+                gen_se_ex :: APINode -> SpecEnum -> Q Dec
 
 gen_se_dt as se = return $ DataD [] nm [] cs $
                                 derive_nms ++ [bounded_nm,enum_nm] -- [show_nm,eq_nm,ord_nm,bounded_nm,enum_nm]
@@ -570,6 +633,21 @@ gen_se_ab as se = return $ InstanceD [] typ [FunD arbitrary_nm [cl]]
     
     ks  = map (pref_con_nm as . fst) $ seAlts se
 
+gen_se_ex as se = return $ InstanceD [] typ [FunD example_nm [cl]]
+  where
+    typ   = AppT (ConT example_cl_nm) $ ConT tn
+
+    cl    = Clause [] bdy []
+
+    bdy   = NormalB $ ConE cn 
+
+    cn    = headNote dg ks
+    tn    = rep_type_nm as
+    
+    ks    = map (pref_con_nm as . fst) $ seAlts se
+
+    dg    = "Data.API.Generate.gen_se_ex"
+              
 
 gen_in, gen_pr :: FieldName -> APINode -> Q Dec
 
@@ -649,6 +727,7 @@ derive_nms = [show_nm,eq_nm,ord_nm,typeable_cl_nm]
 x_nm, string_nm, maybe_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
     fmap_nm, to_json_nm, parse_json_nm, return_nm, 
     arbitrary_nm, dot_nm, then_nm,
+    true_nm, false_nm,
     utc_time_nm, map_ty_nm, text_nm, is_string_cl_nm, typeable_cl_nm, 
     to_json_cl_nm, from_json_cl_nm, to_json_fn_nm, parse_json_fn_nm,
     value_nm, gen_nm,
@@ -675,6 +754,8 @@ return_nm           = mkName "return"
 arbitrary_nm        = mkName "arbitrary"
 dot_nm              = mkName "."
 then_nm             = mkName ">>="
+true_nm             = mkName "True"
+false_nm            = mkName "False"
 
 utc_time_nm         = Name (mkOccName "UTCTime"     ) $ NameQ gn_mod
 map_ty_nm           = Name (mkOccName "Map"         ) $ NameQ gn_mod
@@ -712,6 +793,55 @@ json_str_map_id     = Name (mkOccName "jsonStrMap_p") $ NameQ gn_mod
 mk_binary_nm        = Name (mkOccName "mkBinary"    ) $ NameQ gn_mod
 with_binary_nm      = Name (mkOccName "withBinary"  ) $ NameQ gn_mod
 binary_nm           = Name (mkOccName "Binary"      ) $ NameQ gn_mod
+
+
+example_nm, example_cl_nm, example_fn_nm,
+    ex_str_lit_nm,
+    ex_bin_lit_nm,
+    ex_boo_lit_nm,
+    ex_int_lit_nm,
+    ex_utc_lit_nm   :: Name
+
+example_nm    = mkName "example"
+example_cl_nm = Name (mkOccName "Example"           ) $ NameQ gn_mod
+example_fn_nm = Name (mkOccName "example"           ) $ NameQ gn_mod
+ex_str_lit_nm = Name (mkOccName "ex_str_lit"        ) $ NameQ gn_mod
+ex_bin_lit_nm = Name (mkOccName "ex_bin_lit"        ) $ NameQ gn_mod
+ex_boo_lit_nm = Name (mkOccName "ex_boo_lit"        ) $ NameQ gn_mod
+ex_int_lit_nm = Name (mkOccName "ex_int_lit"        ) $ NameQ gn_mod
+ex_utc_lit_nm = Name (mkOccName "ex_utc_lit"        ) $ NameQ gn_mod
+
+prep_ex_str :: T.Text   -> Exp
+prep_ex_str = LitE . StringL . T.unpack
+ 
+ex_str_lit :: String -> T.Text
+ex_str_lit = T.pack
+
+prep_ex_bin :: Binary   -> Exp
+prep_ex_bin (Binary bs) = LitE $ StringL $ BC.unpack $ B64.encode bs
+
+ex_bin_lit :: String -> Binary
+ex_bin_lit = Binary . B64.decodeLenient . BC.pack
+
+prep_ex_boo :: Bool     -> Exp
+prep_ex_boo b = ConE $ if b then true_nm else false_nm 
+
+ex_boo_lit :: Bool -> Bool
+ex_boo_lit = id
+
+prep_ex_int :: Int      -> Exp
+prep_ex_int = LitE . IntegerL . toInteger 
+
+ex_int_lit :: Int -> Int
+ex_int_lit = id
+
+prep_ex_utc :: UTCTime  -> Exp
+prep_ex_utc = prep_ex_str . mkUTC'
+
+ex_utc_lit :: String -> UTCTime
+ex_utc_lit = maybe oops id . parseUTC_
+  where
+    oops = error "Data.API.generate.ex_utc_lit: failed to parse UTC literal"
 
 gn_mod :: ModName
 gn_mod = mkModName "Data.API.Generate"
@@ -759,6 +889,10 @@ app fd fs ke es0 =
 
 ap2 :: Exp -> Exp -> Exp -> Exp
 ap2 f e e' = AppE (AppE f e) e'
+
+ap_l :: Exp -> [Exp] -> Exp
+ap_l f []     = f
+ap_l f (e:es) = ap_l (AppE f e) es
 
 $(L.makeLenses           ''Binary)
 $(deriveSafeCopy 0 'base ''Binary)
