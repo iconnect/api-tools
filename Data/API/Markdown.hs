@@ -145,15 +145,16 @@ type_md mdm ty =
       TyMaybe ty'  -> "? " ++ type_md mdm ty'
       TyName  nm _ -> mdmLink mdm nm
       TyBasic bt   -> basic_type_md bt
+      TyJSON       -> "**json**"
 
 basic_type_md :: BasicType -> MDComment
 basic_type_md bt =
     case bt of
-      BTstring _ -> "string" 
-      BTbinary _ -> "base64 string" 
-      BTbool   _ -> "boolean"
-      BTint    _ -> "integer"
-      BTutc    _ -> "utc"
+      BTstring _ -> "**string**" 
+      BTbinary _ -> "**base64 string**" 
+      BTbool   _ -> "**boolean**"
+      BTint    _ -> "**integer**"
+      BTutc    _ -> "**utc**"
 
 type_name_md, prefix_md, comment_md :: APINode -> MDComment
 type_name_md = _TypeName   . anName

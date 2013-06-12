@@ -67,6 +67,7 @@ convert_type ty0 =
       TyMaybe ty    -> D.TY_maybe $ convert_type  ty
       TyName  tn ex -> D.TY_ref   $ convert_ref   tn ex
       TyBasic bt    -> D.TY_basic $ convert_basic bt
+      TyJSON        -> D.TY_json    0
 
 convert_ref :: TypeName -> Maybe BasicType -> D.TypeRef
 convert_ref (TypeName tn) mb = D.TypeRef (T.pack tn) (convert_basic <$> mb)

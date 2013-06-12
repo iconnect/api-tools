@@ -156,7 +156,8 @@ data APIType
                             -- | the BasicType is only given if it carries an
                             -- | example, in which case the type must be a
                             -- | compatible newtype
-    | TyBasic BasicType     -- | a JSON string, int or bool
+    | TyBasic BasicType     -- | a JSON string, int, bool etc.
+    | TyJSON                -- | a generic JSON value
     deriving (Show)
 
 -- the basic JSON types (N.B., no floating point numbers, yet)

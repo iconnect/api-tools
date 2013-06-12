@@ -244,7 +244,7 @@ instance FromJSON JobId where
 gen_sn_dt, gen_sn_to, gen_sn_fm, gen_sn_ab, gen_sn_ex
                                          :: APINode -> SpecNewtype -> Q Dec
 
-gen_sn_dt as sn = return $ NewtypeD [] nm [] c $ derive_nms ++ iss
+gen_sn_dt as sn = return $ NewtypeD [] nm [] c $ derive_leaf_nms ++ iss
   where
     c   = RecC nm [(newtype_prj_nm as,NotStrict,mk_type $ TyBasic $ snType sn)]
     
@@ -360,7 +360,7 @@ instance ToJSON JobSpecId where
 gen_sr_dt, gen_sr_to, gen_sr_fm, gen_sr_ab, gen_sr_ex :: 
                                             APINode -> SpecRecord -> Q Dec
 
-gen_sr_dt as sr = return $ DataD [] nm [] cs derive_nms -- [show_nm,eq_nm]
+gen_sr_dt as sr = return $ DataD [] nm [] cs derive_node_nms -- [show_nm,eq_nm]
   where
     cs = [RecC nm [(pref_field_nm as fnm,IsStrict,mk_type ty) | 
                                                 (fnm,(ty,_))<-srFields sr]]
@@ -445,7 +445,7 @@ instance FromJSON Foo where
 gen_su_dt, gen_su_to, gen_su_fm, gen_su_ab, gen_su_ex
                                              :: APINode -> SpecUnion -> Q Dec
 
-gen_su_dt as su = return $ DataD [] nm [] cs derive_nms -- [show_nm,eq_nm]
+gen_su_dt as su = return $ DataD [] nm [] cs derive_node_nms -- [show_nm,eq_nm]
   where
     cs = [NormalC (pref_con_nm as fnm) [(IsStrict,mk_type ty)] | 
                                             (fnm,(ty,_))<-suFields su]
@@ -568,7 +568,7 @@ gen_se_dt, gen_se_to, gen_se_fm, gen_se_ab,
                 gen_se_ex :: APINode -> SpecEnum -> Q Dec
 
 gen_se_dt as se = return $ DataD [] nm [] cs $
-                                derive_nms ++ [bounded_nm,enum_nm] -- [show_nm,eq_nm,ord_nm,bounded_nm,enum_nm]
+                                derive_leaf_nms ++ [bounded_nm,enum_nm] -- [show_nm,eq_nm,ord_nm,bounded_nm,enum_nm]
   where
     cs = [NormalC (pref_con_nm as fnm) [] | (fnm,_) <- seAlts se ]
     
@@ -709,6 +709,7 @@ mk_type ty =
       TyMaybe ty'  -> AppT (ConT maybe_nm) $ mk_type ty'
       TyName  nm _ -> ConT  $ mkName $ _TypeName nm
       TyBasic bt   -> basic_type bt
+      TyJSON       -> ConT value_nm
 
 basic_type :: BasicType -> Type
 basic_type bt =
@@ -720,9 +721,11 @@ basic_type bt =
       BTutc    _ -> ConT $ utc_time_nm
 
 
-derive_nms :: [Name]
-derive_nms = [show_nm,eq_nm,ord_nm,typeable_cl_nm]
+derive_leaf_nms :: [Name]
+derive_leaf_nms = [show_nm,eq_nm,ord_nm,typeable_cl_nm]
 
+derive_node_nms :: [Name]
+derive_node_nms = [show_nm,eq_nm,typeable_cl_nm]
 
 x_nm, string_nm, maybe_nm, eq_nm, ord_nm, show_nm, ord_nm, bounded_nm, enum_nm,
     fmap_nm, to_json_nm, parse_json_nm, return_nm, 

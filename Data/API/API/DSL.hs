@@ -102,6 +102,7 @@ ty :: APIType
       | maybe  :: APIType           // either the given type or the null value
       | ref    :: TypeRef           // a named type (node) with possible example
       | 'basic':: BasicType         // a basic JSON type
+      | 'json' :: 0                 // a generic JSON value
 
 tr :: TypeRef
     // reference to a type name plus an optional example

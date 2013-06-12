@@ -44,6 +44,7 @@ tokens :-
     utc                                 { simple    UTC             }
     string                              { simple    String          }
     binary                              { simple    BInary          }
+    json                                { simple    Json            }
     record                              { simple    Record          }
     union                               { simple    Union           }
     enum                                { simple    Enum            }
@@ -80,6 +81,7 @@ data Token
     | Query
     | Record
     | String
+    | Json
     | Union
     | Version
     | With

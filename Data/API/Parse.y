@@ -36,6 +36,7 @@ import           Text.Printf
     utc                                 { (,) _ UTC             }
     string                              { (,) _ String          }
     binary                              { (,) _ BInary          }
+    json                                { (,) _ Json            }
     record                              { (,) _ Record          }
     union                               { (,) _ Union           }
     enum                                { (,) _ Enum            }
@@ -140,6 +141,7 @@ Type
     | '[' Type ']'                      { TyList             $2             }
     | typeiden MayBasicLit              { TyName   (TypeName $1) Nothing    }
     | BasicType                         { TyBasic            $1             }
+    | json                              { TyJSON                            }
 
 MayBasicLit :: { Maybe BasicType }
     : strlit                     { Just $ BTstring  (Just $ T.pack $1)      }
