@@ -1,22 +1,26 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
--- This module extracts an API specified with the DSL as a JSON-encoded
--- object so that it can be imported into the client's framework
--- for building the client wrappers.
+-- | This module converts an API specified with the DSL into a
+-- JSON-encoded object so that it can be used in clients.
+module Data.API.API
+    ( apiAPI
+    , extractAPI
+    ) where
 
-module Data.API.API (extractAPI) where
-
+import           Data.API.API.DSL
 import qualified Data.API.API.Gen               as D
 import           Data.API.Types
 import           Data.API.JSON
+
+import           Data.Aeson
 import qualified Data.CaseInsensitive           as CI
 import qualified Data.Text                      as T
 import           Control.Applicative
 import           Text.Regex
 
 
--- | Take and API spec and generate the JSON
+-- | Take an API spec and generate a JSON description of the API
 
 extractAPI :: API -> Value
 extractAPI api = toJSON $ map convert [ an | ThNode an <- api ]

@@ -27,7 +27,6 @@ Library
 
   Exposed-modules:
         Data.API.API
-        Data.API.API.DSL
         Data.API.API.Gen
         Data.API.Changes
         Data.API.Doc.Call
@@ -50,6 +49,7 @@ Library
         Data.API.Types
 
   Other-modules:
+        Data.API.API.DSL
         Data.API.Scan
         Data.API.TH
 

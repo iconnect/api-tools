@@ -10,8 +10,8 @@ module Data.API.Tools.Datatypes
 
 import           Data.API.Tools.Combinators
 import           Data.API.Types hiding (withUTC, withBinary)
-import           Data.API.JSON
 
+import           Data.Aeson
 import qualified Data.CaseInsensitive           as CI
 import           Data.Char
 import           Data.String

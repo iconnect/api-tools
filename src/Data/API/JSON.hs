@@ -35,21 +35,15 @@ module Data.API.JSON
     , with_utc_fr, with_utc_to, with_utc_fr_to
     , withVersion
     , withField
-    , (.:)
+    , (.:.)
     , (.::)
     , prop_decodesTo, prop_resultsMatchRoundtrip
-    , JS.ToJSON(..)
-    , JS.Parser
-    , JS.Value(..)
-    , (JS..=)
-    , JS.object
     ) where
 
 import           Data.API.Types hiding (withBinary, withUTC)
 
 import           Control.Applicative
 import qualified Data.Aeson                     as JS
-import qualified Data.Aeson.Types               as JS
 import           Data.Aeson.TH
 import           Data.Attoparsec.Number
 import           Data.Attoparsec.Text
@@ -400,8 +394,8 @@ withStrictField k f m = stepInside (InField k) $ case HMap.lookup k m of
                             Just r  -> f r
 
 -- | Parse the value of a field, treating missing fields as null
-(.:) :: FromJSONWithErrs a => JS.Object -> T.Text -> ParserWithErrs a
-m .: k = withField k parseJSONWithErrs m
+(.:.) :: FromJSONWithErrs a => JS.Object -> T.Text -> ParserWithErrs a
+m .:. k = withField k parseJSONWithErrs m
 
 -- | Parse the value of a field, failing on missing fields
 (.::) :: FromJSONWithErrs a => JS.Object -> T.Text -> ParserWithErrs a

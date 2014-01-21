@@ -10,6 +10,7 @@ import           Data.API.Parse
 import           Data.API.Types
 
 
+-- | API description of the api-tools API itself
 apiAPI :: API
 apiAPI = [api|
 

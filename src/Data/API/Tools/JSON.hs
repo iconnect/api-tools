@@ -13,6 +13,7 @@ import           Data.API.Tools.Datatypes
 import           Data.API.Tools.Enum
 import           Data.API.Types hiding (withUTC, withBinary)
 
+import           Data.Aeson hiding (withText, withBool)
 import           Control.Applicative
 import qualified Data.Map                       as Map
 import qualified Data.Text                      as T
@@ -105,7 +106,7 @@ gen_sr_fm as sr = mk_FromJSON_instances (rep_type_nm as) [cl,cl']
   where
     cl   = Clause [ConP 'Object [VarP x_nm]] (NormalB bdy) []
     bdy  = app (ConE $ rep_type_nm as)
-                [ AppE (AppE (VarE '(.:)) (VarE x_nm))
+                [ AppE (AppE (VarE '(.:.)) (VarE x_nm))
                         (LitE $ StringL $ _FieldName fn) | fn<-fns ]
     fns  = map fst $ srFields sr
 
