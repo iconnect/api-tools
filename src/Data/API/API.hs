@@ -33,8 +33,6 @@ convert (APINode{..}) =
         , D._an_prefix  = T.pack $ CI.original    anPrefix
         , D._an_spec    = convert_spec            anSpec
         , D._an_convert = fmap convert_conversion anConvert
-        , D._an_version = _Vrn                    anVersion
-        , D._an_log     = T.pack                  anLog
         }
 
 convert_spec :: Spec -> D.Spec
@@ -138,8 +136,6 @@ unconvert (D.APINode{..}) =
         , anPrefix  = CI.mk $ T.unpack          _an_prefix
         , anSpec    = unconvert_spec            _an_spec
         , anConvert = fmap unconvert_conversion _an_convert
-        , anVersion = Vrn                       _an_version
-        , anLog     = T.unpack                  _an_log
         }
 
 unconvert_spec :: D.Spec -> Spec

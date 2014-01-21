@@ -58,7 +58,7 @@ thing mdm th tl_md =
 
 node :: MarkdownMethods -> APINode -> MDComment -> MDComment
 node mdm an tl_md =
-        header mdm an $ body mdm an $ version an $ vlog an $ "\n\n" ++ tl_md
+        header mdm an $ body mdm an $ version an $ "\n\n" ++ tl_md
 
 header :: MarkdownMethods -> APINode -> MDComment -> MDComment
 header mdm an tl_md =
@@ -227,12 +227,6 @@ block tl_md cmts = unlines cmts ++ tl_md
 
 version :: APINode -> MDComment -> MDComment
 version _ tl_md = tl_md
-
-vlog :: APINode -> MDComment -> MDComment
-vlog an tl_md =
-    case anLog an of
-      "" -> tl_md
-      lg -> printf "\n###Log\n\n%s\n%s" lg tl_md
 
 ljust :: Int -> String -> String
 ljust fw s = s ++ replicate p ' '

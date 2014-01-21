@@ -16,14 +16,7 @@ safeCopyTool :: APITool
 safeCopyTool = apiDataTypeTool safeCopyNodeTool
 
 safeCopyNodeTool :: APINodeTool
-safeCopyNodeTool an = deriveSafeCopy n be nm
-  where
-    (n,be) =
-        case anVersion an of
-          Vrn i | i==0      -> (fromIntegral i,'base     )
-                | otherwise -> (fromIntegral i,'extension)
-
-    nm     = rep_type_nm an
+safeCopyNodeTool an = deriveSafeCopy 0 'base $ rep_type_nm an
 
 
 $(deriveSafeCopy 0 'base ''Binary)

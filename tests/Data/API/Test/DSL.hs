@@ -11,23 +11,23 @@ import           Data.API.Types
 example :: API
 example = map ThNode 
     [ APINode "IsoS" "simple String newtype defn" ""
-          (SpNewtype $ SpecNewtype BTstring Nothing) Nothing 0 ""
+          (SpNewtype $ SpecNewtype BTstring Nothing) Nothing
     , APINode "IsoB" "simple Bool   newtype defn" ""
-          (SpNewtype $ SpecNewtype BTbool Nothing) Nothing 0 ""
+          (SpNewtype $ SpecNewtype BTbool Nothing) Nothing
     , APINode "IsoI" "simple Int    newtype defn" ""
-          (SpNewtype $ SpecNewtype BTint Nothing) Nothing 0 ""
+          (SpNewtype $ SpecNewtype BTint Nothing) Nothing
     , APINode "Foo" "a test defn" "bAr_" (SpRecord $ SpecRecord
             [ (,) "Baz" (FieldType (TyBasic BTbool) False Nothing "just a bool")
             , (,) "Qux" (FieldType (TyBasic BTint)  False Nothing "just an int")
-            ]) Nothing 0 ""
+            ]) Nothing
     , APINode "Wibble" "another test defn" "dro" (SpUnion $ SpecUnion
             [ (,) "wubble"  (TyList $ TyName "Foo", "list of Foo")
             , (,) "flubble" (TyBasic BTstring     , "a string"   )
-            ]) Nothing 0 ""
+            ]) Nothing
     , APINode "Enumer" "enum test defn" "enm" (SpEnum $ SpecEnum
             [ ("wubble", "")
             , ("flubble", "")
-            ]) Nothing 0 ""
+            ]) Nothing
     ]
 
 example2 :: API
@@ -41,9 +41,6 @@ ide :: Ide
     (* here is a block comment *)
     // and a simple comment
     = string
-    version 0
-    // need to add Migrate instances 
-    // before we can bump the version 
 
 flg :: Flag
     = boolean

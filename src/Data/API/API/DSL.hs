@@ -55,10 +55,6 @@ an :: APINode
                                     // in the comments) and reject a request
                                     // with a 400 error; has no effect on the
                                     // JSON representation
-        'version' :: integer        // (Haskell side mostly) the version number
-                                    // for handling server migrations
-        log       :: string         // a log explaining the changes that have
-                                    // been made through the migrations
 
 sp :: Spec
     // the JSON representation is specified as a simple 'newtype', a record

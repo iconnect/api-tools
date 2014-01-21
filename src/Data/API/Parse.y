@@ -96,8 +96,8 @@ Thing
 
 Node :: { APINode }
 Node
-    : Prefix '::' typeiden Comments '=' Spec With Vrn Comments
-                                { APINode (TypeName $3) $4 $1 $6 $7 $8 $9   }
+    : Prefix '::' typeiden Comments '=' Spec With
+                                        { APINode (TypeName $3) $4 $1 $6 $7 }
 
 Spec :: { Spec }
 Spec
@@ -111,10 +111,6 @@ With :: { Conversion }
 With
     : with FieldName ',' FieldName      { Just ($2,$4)                      }
     |                                   { Nothing                           }
-
-Vrn :: { Vrn }
-Vrn : version intlit                    { Vrn $2                            }
-    |                                   { 0                                 }
 
 Comments :: { MDComment }
 Comments
