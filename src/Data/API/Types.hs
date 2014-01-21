@@ -1,4 +1,3 @@
-{-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -29,7 +28,6 @@ module Data.API.Types
     , IntRange(..)
     , UTCRange(..)
     , RegEx(..)
-    , Example(..)
     , mkRegEx
     , mkRegEx'
     , mkUTC
@@ -41,8 +39,6 @@ module Data.API.Types
     , utcFormat
     , utcFormats
     , Binary(..)
-    , mkBinary
-    , withBinary
     , defaultValueAsJsValue
     ) where
 
@@ -60,7 +56,6 @@ import           Test.QuickCheck                as QC
 import           Control.Applicative
 import qualified Data.ByteString.Base64         as B64
 import           Text.Regex
-import           Safe
 
 
 -- | an API spec is made up of a list of type/element specs, each
@@ -256,36 +251,6 @@ defaultValueAsJsValue (DefValInt    n)           = Number (fromIntegral n)
 defaultValueAsJsValue (DefValUtc    t)           = mkUTC t
 
 
--- | the Example class is used to generate a documentation-friendly
---   example for each type in the model
-
-class Example a where
-    example :: Gen a
-    default example :: Arbitrary a => Gen a
-    example = arbitrary
-
-instance Example a => Example (Maybe a) where
-    example = oneof [return Nothing, Just <$> example]
-
-instance Example a => Example [a] where
-    example = listOf example
-
-instance Example Int where
-    example = arbitrarySizedBoundedIntegral `suchThat` (> 0)
-
-instance Example Bool where
-    example = choose (False, True)
-
-instance Example T.Text where
-    example = return "Mary had a little lamb"
-
-instance Example Binary where
-    example = return $ Binary $ B.pack "lots of 1s and 0s"
-
-instance Example Value where
-    example = return $ String "an example JSON value"
-
-
 -- Inject and project UTC Values from Text values
 
 mkUTC :: UTCTime -> Value
@@ -321,16 +286,14 @@ parseUTC_ :: String -> Maybe UTCTime
 parseUTC_ s = listToMaybe $ catMaybes $
             map (\fmt->parseTime defaultTimeLocale fmt s) utcFormats
 
-instance Example UTCTime where
-    example = return $ fromJustNote dg $ parseUTC_ "2013-06-09T15:52:30Z"
-      where
-        dg = "Data.API.Types.Example-UTCTime"
 
+-- | Binary data is represented in JSON format as a base64-encoded
+-- string
 newtype Binary = Binary { _Binary :: B.ByteString }
     deriving (Show,Eq,Ord)
 
 instance ToJSON Binary where
-    toJSON = mkBinary
+    toJSON = String . b2t . B64.encode . _Binary
 
 instance FromJSON Binary where
     parseJSON = withBinary "Binary" return
@@ -340,11 +303,6 @@ instance QC.Arbitrary T.Text where
 
 instance QC.Arbitrary Binary where
     arbitrary = Binary <$> B.pack <$> QC.arbitrary
-
--- Inject and project binary Values from Text values using the base64 codec
-
-mkBinary :: Binary -> Value
-mkBinary = String . b2t . B64.encode . _Binary
 
 withBinary :: String -> (Binary->Parser a) -> Value -> Parser a
 withBinary lab f = withText lab g

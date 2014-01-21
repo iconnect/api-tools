@@ -11,7 +11,7 @@ import           Data.API.TH
 import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.Tools.Enum
-import           Data.API.Types hiding (withUTC, withBinary)
+import           Data.API.Types hiding (withUTC)
 
 import           Data.Aeson hiding (withText, withBool)
 import           Control.Applicative
@@ -42,7 +42,7 @@ gen_sn_to as sn = mkInstanceIfNotExists ''ToJSON [ConT $ rep_type_nm as]
 
     ine = case snType sn of
             BTstring -> ConE 'String
-            BTbinary -> VarE 'mkBinary
+            BTbinary -> VarE 'toJSON
             BTbool   -> ConE 'Bool
             BTint    -> VarE 'mkInt
             BTutc    -> VarE 'mkUTC

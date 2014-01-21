@@ -1,7 +1,10 @@
+{-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 module Data.API.Tools.Example
-    ( exampleTool
+    ( Example(..)
+    , exampleTool
     ) where
 
 import           Data.API.TH
@@ -9,9 +12,50 @@ import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.Types
 
+import           Control.Applicative
 import           Data.Aeson
+import qualified Data.ByteString.Char8          as B
+import           Data.Time
 import           Language.Haskell.TH.Syntax
+import           Safe
 import           Test.QuickCheck                as QC
+import qualified Data.Text                      as T
+
+
+-- | the Example class is used to generate a documentation-friendly
+--   example for each type in the model
+
+class Example a where
+    example :: Gen a
+    default example :: Arbitrary a => Gen a
+    example = arbitrary
+
+instance Example a => Example (Maybe a) where
+    example = oneof [return Nothing, Just <$> example]
+
+instance Example a => Example [a] where
+    example = listOf example
+
+instance Example Int where
+    example = arbitrarySizedBoundedIntegral `suchThat` (> 0)
+
+instance Example Bool where
+    example = choose (False, True)
+
+instance Example T.Text where
+    example = return "Mary had a little lamb"
+
+instance Example Binary where
+    example = return $ Binary $ B.pack "lots of 1s and 0s"
+
+instance Example Value where
+    example = return $ String "an example JSON value"
+
+instance Example UTCTime where
+    example = return $ fromJustNote dg $ parseUTC_ "2013-06-09T15:52:30Z"
+      where
+        dg = "Data.API.Types.Example-UTCTime"
+
 
 
 exampleTool :: String -> APITool
