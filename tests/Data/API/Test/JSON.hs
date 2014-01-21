@@ -6,8 +6,10 @@ module Data.API.Test.JSON
     ( jsonTests
     ) where
 
+import           Data.API.API.Gen
 import           Data.API.JSON
 import           Data.API.Tools
+import           Data.API.Test.Gen (exampleSimpleTests, example2SimpleTests)
 import           Data.API.Test.MigrationData
 
 import qualified Data.Aeson               as JS
@@ -15,6 +17,7 @@ import qualified Data.HashMap.Strict      as HMap
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
+import           Test.Tasty.QuickCheck
 
 
 $(generate startSchema)
@@ -68,4 +71,9 @@ jsonTests :: TestTree
 jsonTests = testGroup "JSON"
   [ testCase  "Basic value decoding"  basicValueDecoding
   , testGroup "Decoding invalid data" errorDecoding
+  , testGroup "Round-trip tests"
+      [ testGroup "example"  $ map (uncurry testProperty) exampleSimpleTests
+      , testGroup "example2" $ map (uncurry testProperty) example2SimpleTests
+      , testGroup "api"      $ map (uncurry testProperty) apiAPISimpleTests
+      ]
   ]
