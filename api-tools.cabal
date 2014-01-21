@@ -1,0 +1,173 @@
+Name:                api-tools
+Version:             0.1
+Synopsis:            DSL for generating API boilerplate and docs
+Description:         api-tools provides a compact DSL for describing an API.
+                     It uses Template Haskell to generate the
+                     corresponding data types and assorted tools for
+                     working with it, including Aeson and QuickCheck
+                     instances for converting between JSON and the
+                     generated types and writing unit tests.
+Homepage:            http://github.com/iconnect/api-tools
+License:             BSD3
+License-file:        LICENSE
+Author:              Chris Dornan
+Maintainer:          chrisd@irisconnect.co.uk
+Copyright:           (c) Iris Connect 2013-2014
+Category:            Network, Web, Cloud, Distributed Computing
+Build-type:          Simple
+
+Cabal-version:       >=1.10
+
+Source-repository head
+  type: git
+  location: https://github.com/iconnect/api-tools.git
+
+Library
+  Hs-Source-Dirs:    src
+
+  Exposed-modules:
+        Data.API.API
+        Data.API.API.DSL
+        Data.API.API.Gen
+        Data.API.Changes
+        Data.API.Doc.Call
+        Data.API.Doc.Dir
+        Data.API.Doc.Subst
+        Data.API.Doc.Types
+        Data.API.JSON
+        Data.API.Markdown
+        Data.API.Parse
+        Data.API.Tools
+        Data.API.Tools.Combinators
+        Data.API.Tools.Datatypes
+        Data.API.Tools.Enum
+        Data.API.Tools.Example
+        Data.API.Tools.JSON
+        Data.API.Tools.JSONTests
+        Data.API.Tools.Lens
+        Data.API.Tools.QuickCheck
+        Data.API.Tools.SafeCopy
+        Data.API.Types
+
+  Other-modules:
+        Data.API.Scan
+        Data.API.TH
+
+  Build-depends:
+        Cabal                >= 1.9.2       ,
+        QuickCheck           >= 2.5.1,
+        aeson                >= 0.6.2,
+        aeson-pretty         <= 0.7         ,
+        array                >= 0.4,
+        attoparsec           >= 0.10.4,
+        base                 == 4.*,
+        base64-bytestring    == 1.0.*,
+        bytestring           >= 0.9     && < 0.11,
+        case-insensitive     >= 1.0,
+        containers           >= 0.4,
+        lens                 >= 3.8.7,
+        old-locale           >= 1.0.0.4,
+        regex-compat         >= 0.95        ,
+        safe                 >= 0.3.3,
+        safecopy             >= 0.8.1,
+        time                 >= 1.4,
+        template-haskell     >= 2.7,
+        text                 >= 0.11,
+        unordered-containers >= 0.2.3.0     ,
+        vector               >= 0.10.0.1
+
+  Build-tools:
+        alex,
+        happy
+
+  GHC-Options:
+        -Wall
+        -fwarn-tabs
+
+  Default-Language: Haskell2010
+
+
+Executable migration-tool
+  Hs-Source-Dirs:    main
+
+  Main-is:    Data/API/MigrationTool.hs
+
+  Build-depends:
+        api-tools            >= 0.1,
+        Cabal                >= 1.9.2       ,
+        QuickCheck           >= 2.5.1,
+        aeson                >= 0.6.2,
+        aeson-pretty         <= 0.7         ,
+        array                >= 0.4,
+        attoparsec           >= 0.10.4,
+        base                 == 4.*,
+        base64-bytestring    == 1.0.*,
+        bytestring           >= 0.9     && < 0.11,
+        case-insensitive     >= 1.0,
+        containers           >= 0.4,
+        lens                 >= 3.8.7,
+        old-locale           >= 1.0.0.4,
+        regex-compat         >= 0.95        ,
+        safe                 >= 0.3.3,
+        safecopy             >= 0.8.1,
+        time                 >= 1.4,
+        template-haskell     >= 2.7,
+        text                 >= 0.11,
+        unordered-containers >= 0.2.3.0     ,
+        vector               >= 0.10.0.1
+
+  GHC-Options:
+        -main-is Data.API.MigrationTool
+        -Wall
+        -fwarn-tabs
+
+  Default-Language: Haskell2010
+
+
+Test-Suite test-api-tools
+  Hs-Source-Dirs:    tests
+
+  Type:       exitcode-stdio-1.0
+
+  Main-is:    Data/API/Test/Main.hs
+
+  Other-modules:
+        Data.API.Test.DSL
+        Data.API.Test.Gen
+        Data.API.Test.JSON
+        Data.API.Test.Migration
+        Data.API.Test.MigrationData
+
+  Build-depends:
+        api-tools            >= 0.1,
+        Cabal                >= 1.9.2       ,
+        QuickCheck           >= 2.5.1,
+        aeson                >= 0.6.2,
+        aeson-pretty         <= 0.7         ,
+        array                >= 0.4,
+        attoparsec           >= 0.10.4,
+        base                 == 4.*,
+        base64-bytestring    == 1.0.*,
+        bytestring           >= 0.9     && < 0.11,
+        case-insensitive     >= 1.0,
+        containers           >= 0.4,
+        lens                 >= 3.8.7,
+        old-locale           >= 1.0.0.4,
+        regex-compat         >= 0.95        ,
+        safe                 >= 0.3.3,
+        safecopy             >= 0.8.1,
+        tasty                >= 0.3         ,
+        tasty-hunit          >= 0.2         ,
+        tasty-quickcheck     >= 0.3         ,
+        time                 >= 1.4,
+        template-haskell     >= 2.7,
+        text                 >= 0.11,
+        unordered-containers >= 0.2.3.0     ,
+        vector               >= 0.10.0.1
+
+  GHC-Options:
+        -main-is Data.API.Test.Main
+        -Wall
+        -fwarn-tabs
+
+  Default-Language: Haskell2010
