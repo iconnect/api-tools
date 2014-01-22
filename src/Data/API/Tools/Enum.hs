@@ -50,16 +50,16 @@ text_enum_nm :: APINode -> Name
 text_enum_nm an = mkName $ "_text_" ++ (_TypeName $ anName an)
 
 gen_se_tx :: APINode -> SpecEnum -> Q [Dec]
-gen_se_tx as se = simpleD (text_enum_nm as)
-                          [t| $tc -> T.Text |]
-                          bdy
+gen_se_tx as se = simpleSigD (text_enum_nm as)
+                             [t| $tc -> T.Text |]
+                             bdy
   where
     tc  = conT $ rep_type_nm as
 
     bdy  = lamCaseE [ match (pt fnm) (bd fnm) []
                     | (fnm,_) <- seAlts se ]
 
-    pt fnm = conP (pref_con_nm as fnm) []
+    pt fnm = nodeAltConP as fnm []
 
     bd fnm = normalB $ stringE $ _FieldName fnm
 
@@ -75,9 +75,9 @@ map_enum_nm :: APINode -> Name
 map_enum_nm  an = mkName $ "_map_"  ++ (_TypeName $ anName an)
 
 gen_se_mp :: APINode -> Q [Dec]
-gen_se_mp as = simpleD (map_enum_nm as)
-                       [t| Map.Map T.Text $tc |]
-                       [e| genTextMap $(varE $ text_enum_nm as) |]
+gen_se_mp as = simpleSigD (map_enum_nm as)
+                          [t| Map.Map T.Text $tc |]
+                          [e| genTextMap $(varE $ text_enum_nm as) |]
   where
     tc  = conT $ rep_type_nm as
 

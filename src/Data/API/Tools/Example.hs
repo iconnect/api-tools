@@ -70,13 +70,12 @@ instance Example UTCTime where
 -- > samples = [("Foo", fmap toJSON (example :: Gen Foo)), ... ]
 
 samplesTool :: Name -> APITool
-samplesTool nm api' = simpleD nm [t| [(String, Gen Value)] |]
-                              (listE [ gen_sample nd | ThNode nd <- api' ])
+samplesTool nm api' = simpleSigD nm [t| [(String, Gen Value)] |]
+                                 (listE [ gen_sample nd | ThNode nd <- api' ])
   where
     gen_sample :: APINode -> ExpQ
-    gen_sample an = [e| ($str, fmap toJSON (example :: Gen $tc)) |]
+    gen_sample an = [e| ($str, fmap toJSON (example :: Gen $(nodeT an))) |]
       where
-        tc  = conT $ type_nm an
         str = stringE $ _TypeName $ anName an
 
 
@@ -91,38 +90,27 @@ exampleTool = apiNodeTool $ apiSpecTool gen_sn_ex gen_sr_ex gen_su_ex gen_se_ex 
 -- 'arbitrary'.  Like 'Arbitrary', if a regular expression filter is
 -- applied the instance must be defined manually.
 gen_sn_ex :: APINode -> SpecNewtype -> Q [Dec]
-gen_sn_ex as sn = case snFilter sn of
-                               Nothing          -> inst bdy
+gen_sn_ex an sn = case snFilter sn of
                                Just (FtrStrg _) -> return []
-                               Just _           -> inst $ VarE 'QC.arbitrary
+                               Just _           -> inst [e| QC.arbitrary |]
+                               Nothing          -> inst [e| fmap $(nodeConE an) example |]
   where
-    inst e = mkInstanceIfNotExists ''Example [ConT tn]
-                 [FunD 'example [Clause [] (NormalB e) []]]
-
-    bdy  = AppE (AppE (VarE 'fmap) $ ConE $ rep_type_nm as) $
-                           VarE 'example
-
-    tn     = rep_type_nm as
+    inst e = optionalInstanceD ''Example [nodeRepT an] [simpleD 'example e]
 
 
 -- | Generate an 'Example' instance for a record:
 --
 -- > instance Example Foo where
--- >     example = sized $ \ x -> Foo (resize (x/2) example) ... (resize (x/2) example)
+-- >     example = sized $ \ x -> Foo (resize (x `div` 2) example) ... (resize (x `div` 2) example)
 
 gen_sr_ex :: APINode -> SpecRecord -> Q [Dec]
-gen_sr_ex as sr = mkInstanceIfNotExists ''Example [ConT tn] [FunD 'example [cl]]
+gen_sr_ex an sr = optionalInstanceD ''Example [nodeRepT an] [simpleD 'example bdy]
   where
-    cl    = Clause [] bdy []
-
-    bdy   = NormalB $ AppE (VarE 'QC.sized) $ LamE [VarP x_nm] $
-                app (ConE tn) $
-                replicate (length $ srFields sr) $
-                VarE 'QC.resize
-                         `AppE` (VarE 'div `AppE` VarE x_nm `AppE` LitE (IntegerL 2))
-                         `AppE` VarE 'example
-
-    tn    = rep_type_nm as
+    bdy   = do x <- newName "x"
+               appE (varE 'QC.sized) $ lamE [varP x] $
+                 applicativeE (nodeConE an) $
+                 replicate (length $ srFields sr) $
+                 [e| QC.resize ($(varE x) `div` 2) example |]
 
 
 -- | Generate an 'Example' instance for a union:
@@ -131,20 +119,13 @@ gen_sr_ex as sr = mkInstanceIfNotExists ''Example [ConT tn] [FunD 'example [cl]]
 -- >     example = oneOf [ fmap Bar example, fmap Baz example ]
 
 gen_su_ex :: APINode -> SpecUnion -> Q [Dec]
-gen_su_ex as su = mkInstanceIfNotExists ''Example [ConT tn] [FunD 'example [cl]]
+gen_su_ex an su = optionalInstanceD ''Example [nodeRepT an] [simpleD 'example bdy]
   where
-    cl  = Clause [] bdy []
+    bdy | null (suFields su) = nodeConE an
+        | otherwise          = [e| oneof $(listE alts) |]
 
-    bdy = NormalB $ if null ks then emp else prp
-
-    emp = ConE tn
-
-    prp = AppE (VarE 'oneof) $
-                ListE [ VarE 'fmap `AppE` ConE k `AppE` VarE 'example | k<- ks ]
-
-    tn    = rep_type_nm as
-
-    ks  = map (pref_con_nm as) $ map fst $ suFields su
+    alts = [ [e| fmap $(nodeAltConE an k) example |]
+           | (k,_) <- suFields su ]
 
 
 -- | Generate an 'Example' instance for an enumeration, with no
@@ -154,6 +135,4 @@ gen_su_ex as su = mkInstanceIfNotExists ''Example [ConT tn] [FunD 'example [cl]]
 -- > instance Example Foo
 
 gen_se_ex :: APINode -> SpecEnum -> Q [Dec]
-gen_se_ex as _ = mkInstanceIfNotExists ''Example [ConT tn] []
-  where
-    tn    = rep_type_nm as
+gen_se_ex an _ = optionalInstanceD ''Example [nodeRepT an] []

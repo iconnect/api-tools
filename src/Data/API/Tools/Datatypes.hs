@@ -3,9 +3,15 @@ module Data.API.Tools.Datatypes
     ( datatypesTool
     , type_nm
     , rep_type_nm
-    , newtype_prj_nm
     , pref_con_nm
     , pref_field_nm
+    , nodeT
+    , nodeRepT
+    , nodeConE
+    , nodeFieldE
+    , nodeAltConE
+    , nodeAltConP
+    , newtypeProjectionE
     ) where
 
 import           Data.API.Tools.Combinators
@@ -168,3 +174,32 @@ pref_con_nm :: APINode -> FieldName -> Name
 pref_con_nm as fnm = mkName $ pre ++ _FieldName fnm
   where
     pre = map toUpper (CI.original $ anPrefix as) ++ "_"
+
+
+-- | The type corresponding to an API node
+nodeT :: APINode -> TypeQ
+nodeT = conT . type_nm
+
+-- | The representation type corresponding to an API node
+nodeRepT :: APINode -> TypeQ
+nodeRepT = conT . rep_type_nm
+
+-- | The constructor for a newtype or record API node
+nodeConE :: APINode -> ExpQ
+nodeConE = conE . rep_type_nm
+
+-- | A record field in an API node, as an expression
+nodeFieldE :: APINode -> FieldName -> ExpQ
+nodeFieldE an fnm = varE $ pref_field_nm an fnm
+
+-- | A prefixed constructor for a union or enum, as an expression
+nodeAltConE :: APINode -> FieldName -> ExpQ
+nodeAltConE an fn = conE $ pref_con_nm an fn
+
+-- | A prefixed constructor for a union or enum, as a pattern
+nodeAltConP :: APINode -> FieldName -> [PatQ] -> PatQ
+nodeAltConP an fn = conP (pref_con_nm an fn)
+
+-- | The projection function from a newtype API node, as an epxression
+newtypeProjectionE :: APINode -> ExpQ
+newtypeProjectionE = varE . newtype_prj_nm

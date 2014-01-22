@@ -18,7 +18,7 @@ import           Control.Applicative
 import qualified Data.Map                       as Map
 import qualified Data.Text                      as T
 import           Data.Time
-import           Language.Haskell.TH.Syntax
+import           Language.Haskell.TH
 
 
 -- | Tool to generate 'ToJSON' and 'FromJSONWithErrs' instances for
@@ -47,17 +47,17 @@ instance FromJSONWithErrs JobId where
 -}
 
 gen_sn_to :: APINode -> SpecNewtype -> Q [Dec]
-gen_sn_to as sn = mkInstanceIfNotExists ''ToJSON [ConT $ rep_type_nm as]
-                      [FunD 'toJSON [Clause [] bdy []]]
+gen_sn_to an sn = optionalInstanceD ''ToJSON [nodeRepT an]
+                      [simpleD 'toJSON bdy]
   where
-    bdy = NormalB $ VarE '(.) `AppE` ine `AppE` VarE (newtype_prj_nm as)
+    bdy = [e| $ine . $(newtypeProjectionE an) |]
 
     ine = case snType sn of
-            BTstring -> ConE 'String
-            BTbinary -> VarE 'toJSON
-            BTbool   -> ConE 'Bool
-            BTint    -> VarE 'mkInt
-            BTutc    -> VarE 'mkUTC
+            BTstring -> [e| String |]
+            BTbinary -> [e| toJSON |]
+            BTbool   -> [e| Bool   |]
+            BTint    -> [e| mkInt  |]
+            BTutc    -> [e| mkUTC  |]
 
 gen_sn_fm :: APINode -> SpecNewtype -> Q [Dec]
 gen_sn_fm as sn = mk_FromJSON_instances (rep_type_nm as) [Clause [] bdy []]
@@ -108,30 +108,24 @@ instance FromJSONWithErrs JobSpecId where
      parseJSONWithErrs v          = failWith $ expectedObject val
 
 instance ToJSON JobSpecId where
-     toJSON jsi@(JobSpecId _ _ _ _) =
+     toJSON = \ x ->
         object
-            [ "Id"         .= jsiId         jsi
-            , "Input"      .= jsiInput      jsi
-            , "Output"     .= jsiOutput     jsi
-            , "PipelineId" .= jsiPipelineId jsi
+            [ "Id"         .= jsiId         x
+            , "Input"      .= jsiInput      x
+            , "Output"     .= jsiOutput     x
+            , "PipelineId" .= jsiPipelineId x
             ]
 -}
 
 gen_sr_to :: APINode -> SpecRecord -> Q [Dec]
-gen_sr_to as sr = mkInstanceIfNotExists ''ToJSON [ConT $ rep_type_nm as] [fd]
+gen_sr_to an sr = do
+    x <- newName "x"
+    optionalInstanceD ''ToJSON [nodeRepT an] [simpleD 'toJSON (bdy x)]
   where
-    fd  = FunD 'toJSON [cl]
-
-    cl  = Clause [VarP x_nm] bdy []
-
-    bdy = NormalB $ AppE (VarE 'object) $
-            ListE [ AppE (AppE (VarE '(.=))
-                         (LitE $ StringL $ _FieldName fn)) $
-                                AppE (VarE $ pre fn) (VarE x_nm) | fn<-fns ]
-
-    pre = pref_field_nm as
-
-    fns = map fst $ srFields sr
+    bdy x = lamE [varP x] $
+            varE 'object `appE`
+            listE [ [e| $(fieldNameE fn) .= $(nodeFieldE an fn) $(varE x) |]
+                  | (fn, _) <- srFields sr ]
 
 gen_sr_fm :: APINode -> SpecRecord -> Q [Dec]
 gen_sr_fm as sr = mk_FromJSON_instances (rep_type_nm as) [cl,cl']
@@ -149,7 +143,7 @@ gen_sr_fm as sr = mk_FromJSON_instances (rep_type_nm as) [cl,cl']
 {-
 instance ToJSON Foo where
     toJSON (Bar x) = object [ "x" .= x ]
-    toJSON (Baz y) = object [ "y" .= y ]
+    toJSON (Baz x) = object [ "y" .= x ]
 
 instance FromJSONWithErrs Foo where
     parseJSONWithErrs (Object v) = alternatives (failWith $ MissingAlt ["x", "y"])
@@ -160,19 +154,14 @@ instance FromJSONWithErrs Foo where
 -}
 
 gen_su_to :: APINode -> SpecUnion -> Q [Dec]
-gen_su_to as su = mkInstanceIfNotExists ''ToJSON [ConT $ rep_type_nm as] [fd]
+gen_su_to an su = optionalInstanceD ''ToJSON [nodeRepT an] [funD 'toJSON cls]
   where
-    fd     = FunD 'toJSON $ map cl fns
+    cls      = map (cl . fst) (suFields su)
 
-    cl  fn = Clause [ConP (pre fn) [VarP x_nm]] (bdy fn) []
+    cl  fn   = do x <- newName "x"
+                  clause [nodeAltConP an fn [varP x]] (bdy fn x) []
 
-    bdy fn = NormalB $ AppE (VarE 'object) $
-                ListE [ AppE (AppE (VarE '(.=))
-                         (LitE $ StringL $ _FieldName fn)) (VarE x_nm) ]
-
-    pre    = pref_con_nm as
-
-    fns    = map fst $ suFields su
+    bdy fn x = normalB [e| object [ $(fieldNameE fn) .= $(varE x) ] |]
 
 gen_su_fm :: APINode -> SpecUnion -> Q [Dec]
 gen_su_fm as su = mk_FromJSON_instances (rep_type_nm as) [cl,cl']
@@ -201,12 +190,9 @@ instance FromJSONWithErrs FrameRate where
 -}
 
 gen_se_to :: APINode -> SpecEnum -> Q [Dec]
-gen_se_to as _se = mkInstanceIfNotExists ''ToJSON [ConT $ rep_type_nm as] [FunD 'toJSON [cl]]
+gen_se_to an _se = optionalInstanceD ''ToJSON [nodeRepT an] [simpleD 'toJSON bdy]
   where
-    cl  = Clause [] bdy []
-
-    bdy = NormalB $ AppE (AppE (VarE '(.)) (ConE 'String)) $
-                VarE $ text_enum_nm as
+    bdy = [e| String . $(varE (text_enum_nm an)) |]
 
 gen_se_fm :: APINode -> SpecEnum -> Q [Dec]
 gen_se_fm as _se = mk_FromJSON_instances (rep_type_nm as) [Clause [] bdy []]
@@ -231,17 +217,11 @@ gen_in an = case anConvert an of
 
 gen_pr :: APINode -> Q [Dec]
 gen_pr an = case anConvert an of
-  Just (_, prj_fn) -> mkInstanceIfNotExists ''ToJSON [ConT $ type_nm an] [fd]
+  Nothing          -> return []
+  Just (_, prj_fn) -> optionalInstanceD ''ToJSON [nodeT an] [simpleD 'toJSON bdy]
    where
-    fd     = FunD 'toJSON [cl]
-
-    cl     = Clause [] bdy []
-
-    bdy    = NormalB $ ap2 (VarE '(.)) (VarE 'toJSON) (VarE prj_nm)
-
-    prj_nm = mkName $ _FieldName prj_fn
-
-  Nothing-> return []
+    bdy = [e| toJSON . $prj |]
+    prj = varE $ mkName $ _FieldName prj_fn
 
 
 ap2 :: Exp -> Exp -> Exp -> Exp
@@ -275,3 +255,7 @@ mk_FromJSON_instances :: Name -> [Clause] -> Q [Dec]
 mk_FromJSON_instances nm cls =
     mkInstanceIfNotExists ''FromJSONWithErrs [ConT nm]
         [FunD 'parseJSONWithErrs cls]
+
+
+fieldNameE :: FieldName -> ExpQ
+fieldNameE = stringE . _FieldName
