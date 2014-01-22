@@ -20,8 +20,12 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 
 
-$(generate startSchema)
-$(generateInstances startSchema)
+$(generate         startSchema)
+$(generateAPITools startSchema
+                   [ enumTool
+                   , jsonTool
+                   , quickCheckTool
+                   ])
 
 -- | Test that literals are decoded correctly, including the dubious
 -- use of strings for numbers and numbers for booleans, and missing

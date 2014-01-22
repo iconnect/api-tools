@@ -128,9 +128,12 @@ migrateFailureTest (s, start, end, clog, db, expected) =
                                                              ++ indent (ppLines err)
 
 
-$(generate          startSchema)
-$(generateInstances startSchema)
-$(generateTools     startSchema)
+$(generate         startSchema)
+$(generateAPITools startSchema
+                   [ enumTool
+                   , jsonTool
+                   , quickCheckTool
+                   ])
 
 validMigrationProperty :: DatabaseSnapshot -> P.Result
 validMigrationProperty db =

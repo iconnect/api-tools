@@ -15,11 +15,6 @@
 module Data.API.Tools
     ( generate
     , generateAPITools
-
-    , generateInstances
-    , generateTools
-    , generateSamples
-    , generateTests
     , generateMigrationKinds
 
       -- * Individual tools
@@ -51,30 +46,15 @@ import           Language.Haskell.TH
 
 -- | Generate the datatypes corresponding to an API.
 generate :: API -> Q [Dec]
-generate = generateAPITools [datatypesTool]
+generate api = generateAPITools api [datatypesTool]
 
 -- | Apply a list of tools to an 'API', generating TH declarations.
 -- See the individual tool descriptions for details.  Note that
 -- 'generate' must be called first, and some tools have dependencies,
 -- which must be included in the same or a preceding call to
 -- 'generateAPITools'.
-generateAPITools :: [APITool] -> API -> Q [Dec]
-generateAPITools tools api = concat <$> mapM ($ api) tools
-
-
-
-generateInstances :: API -> Q [Dec]
-generateInstances = generateAPITools [enumTool, jsonTool, quickCheckTool]
-
-generateTools :: API -> Q [Dec]
-generateTools = generateAPITools [lensTool, safeCopyTool]
-
-generateSamples :: API -> String -> Q [Dec]
-generateSamples api nm_s = generateAPITools [exampleTool, samplesTool (mkName nm_s)] api
-
-generateTests :: API -> String -> Q [Dec]
-generateTests api nm_s = generateAPITools [jsonTestsTool (mkName nm_s)] api
-
+generateAPITools :: API -> [APITool] -> Q [Dec]
+generateAPITools api tools = concat <$> mapM ($ api) tools
 
 -- | Generate enumeration datatypes corresponding to the custom
 -- migrations used in an API migration changelog.

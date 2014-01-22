@@ -11,7 +11,17 @@ module Data.API.API.Gen where
 import           Data.API.API.DSL
 import           Data.API.Tools
 
-$(generate          apiAPI)
-$(generateInstances apiAPI)
-$(generateTools     apiAPI)
-$(generateTests     apiAPI "apiAPISimpleTests")
+import           Language.Haskell.TH
+
+$(generate         apiAPI)
+
+$(generateAPITools apiAPI
+                   [ enumTool
+                   , jsonTool
+                   , quickCheckTool
+                   , lensTool
+                   , safeCopyTool
+                   , exampleTool
+                   , samplesTool   (mkName "apiAPISamples")
+                   , jsonTestsTool (mkName "apiAPISimpleTests")
+                   ])

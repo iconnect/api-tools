@@ -14,8 +14,9 @@ import           Control.Applicative
 import           Language.Haskell.TH
 import           Test.QuickCheck
 
-$(generate DSL.example)
-$(generateAPITools [ enumTool
+$(generate         DSL.example)
+$(generateAPITools DSL.example
+                   [ enumTool
                    , jsonTool
                    , quickCheckTool
                    , lensTool
@@ -23,7 +24,7 @@ $(generateAPITools [ enumTool
                    , exampleTool
                    , samplesTool   (mkName "exampleSamples")
                    , jsonTestsTool (mkName "exampleSimpleTests")
-                   ] DSL.example)
+                   ])
 
 $(generate      example2)
 
@@ -88,7 +89,8 @@ prj_enum :: ENUM -> REP__ENUM
 prj_enum (ENUM False) = ENM_e1
 prj_enum (ENUM True ) = ENM_e2
 
-$(generateAPITools [ enumTool
+$(generateAPITools example2
+                   [ enumTool
                    , jsonTool
                    , quickCheckTool
                    , lensTool
@@ -96,4 +98,4 @@ $(generateAPITools [ enumTool
                    , exampleTool
                    , samplesTool   (mkName "example2Samples")
                    , jsonTestsTool (mkName "example2SimpleTests")
-                   ] example2)
+                   ])
