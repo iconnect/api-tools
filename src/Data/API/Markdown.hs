@@ -1,13 +1,24 @@
 {-# LANGUAGE RecordWildCards            #-}
 
--- Generate API documentation for API (nodes)
+-- | This module generates Markdown-formatted documentation for an
+-- API, like this:
+--
+-- > ###Foo
+-- >
+-- > a test defn
+-- >
+-- > JSON Type : **union object** (Haskell prefix is 'foo')
+-- >
+-- > | Alternative | Type    | Comment
+-- > | ----------- | ------- | -----------
+-- > | _`Baz`_     | boolean | just a bool
+-- > | _`Qux`_     | integer | just an int
 
 module Data.API.Markdown
     ( markdown
     , MarkdownMethods(..)
     , defaultMarkdownMethods
     , thing
-    , node
     ) where
 
 import           Data.API.Types
@@ -17,19 +28,6 @@ import           Text.Printf
 import           Control.Applicative
 import           Control.Lens
 
-
-{-
- ###Foo
-
-a test defn
-
-JSON Type : **union object** (Haskell prefix is 'foo')
-
-|Alternative | Type    | Comment
-|----------- | ------- | -------
-|_`Baz`_     | boolean | just a bool
-|_`Qux`_     | integer | just an int
--}
 
 data MarkdownMethods
     = MDM
@@ -47,9 +45,11 @@ defaultMarkdownMethods =
         , mdmFieldDefault   = \ _ _ -> Nothing
         }
 
+-- | Create human-readable API documentation in Markdown format
 markdown :: MarkdownMethods -> API -> MDComment
 markdown mdm ths = foldr (thing mdm) "" ths
 
+-- | Document a single API comment or node in Markdown format
 thing :: MarkdownMethods -> Thing -> MDComment  -> MDComment
 thing mdm th tl_md =
     case th of
