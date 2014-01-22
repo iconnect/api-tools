@@ -13,7 +13,7 @@ import           Data.API.Types
 
 import           Control.Applicative
 import           Data.Time
-import           Language.Haskell.TH.Syntax
+import           Language.Haskell.TH
 import           Safe
 import           Test.QuickCheck                as QC
 
@@ -23,119 +23,88 @@ quickCheckTool :: APITool
 quickCheckTool = apiNodeTool $ apiSpecTool gen_sn_ab gen_sr_ab gen_su_ab gen_se_ab (const emptyTool)
 
 
--- | Generate an Arbitrary instance for a newtype that respects its
+-- | Generate an 'Arbitrary' instance for a newtype that respects its
 -- filter.  We don't try to generate arbitrary data matching a regular
 -- expression, however: instances must be supplied manually.  When
--- generating arbitrary integers, use arbitraryBoundedIntegral rather
--- than arbitrary (the latter tends to generate non-unique values).
+-- generating arbitrary integers, use 'arbitraryBoundedIntegral'
+-- rather than 'arbitrary' (the latter tends to generate non-unique
+-- values).
 gen_sn_ab :: APINode -> SpecNewtype -> Q [Dec]
-gen_sn_ab as sn = case snFilter sn of
-    Nothing -> case snType sn of
-                 BTint -> mk_instance $ VarE 'QC.arbitraryBoundedIntegral
-                 _     -> mk_instance $ VarE 'arbitrary
+gen_sn_ab an sn = case snFilter sn of
+    Nothing | snType sn == BTint    -> mk_instance [e| QC.arbitraryBoundedIntegral |]
+            | otherwise             -> mk_instance [e| arbitrary |]
+    Just (FtrIntg ir) -> mk_instance [e| arbitraryIntRange ir |]
+    Just (FtrUTC ur)  -> mk_instance [e| arbitraryUTCRange ur |]
     Just (FtrStrg _)                -> return []
-    Just (FtrIntg (IntRange lo hi)) -> mk_instance $ arbitrary_IntRange lo hi
-    Just (FtrUTC (UTCRange lo hi))  -> mk_instance $ arbitrary_UTCRange lo hi
   where
-    mk_instance arb = mkInstanceIfNotExists ''Arbitrary [ConT tn]
-                          [FunD 'arbitrary [Clause [] (bdy arb) []]]
+    mk_instance arb = optionalInstanceD ''Arbitrary [nodeRepT an]
+                          [simpleD 'arbitrary [e| fmap $(nodeConE an) $arb |]]
 
-    tn  = rep_type_nm as
 
-    bdy arb = NormalB $ VarE 'fmap `AppE` ConE tn `AppE` arb
-
-    arbitrary_IntRange lo hi = arbitrary_range liftInt 'choose_int_fr
-                                   'choose_int_to 'choose_int_fr_to lo hi
-
-    arbitrary_UTCRange lo hi = arbitrary_range liftUTC 'choose_time_fr
-                                   'choose_time_to 'choose_time_fr_to lo hi
-
-    arbitrary_range _ _   _   _ Nothing   Nothing   = VarE 'QC.arbitrary
-    arbitrary_range l cfr _   _ (Just lo)  Nothing  = VarE cfr `AppE` l lo
-    arbitrary_range l _   cto _ Nothing   (Just hi) = VarE cto `AppE` l hi
-    arbitrary_range l _   _   c (Just lo) (Just hi) = VarE c `AppE` l lo `AppE` l hi
-
-    liftInt i = LitE $ IntegerL $ toInteger i
-
-    liftUTC u = AppE (VarE 'fromJustNote `AppE` LitE (StringL "gen_sn_sb")) $
-                AppE (VarE 'parseUTC_) $
-                LitE $ StringL $ mkUTC_ u
-
+-- | Generate an 'Arbitrary' instance for a record:
+--
+-- > instance Arbitrary Foo where
+-- >     arbitrary = sized $ \ x -> Foo <$> resize (x `div` 2) arbitrary <*> ... <*> resize (x `div` 2) arbitrary
 
 gen_sr_ab :: APINode -> SpecRecord -> Q [Dec]
-gen_sr_ab as sr = mkInstanceIfNotExists ''QC.Arbitrary [ConT tn] [FunD 'arbitrary [cl]]
+gen_sr_ab an sr = optionalInstanceD ''QC.Arbitrary [nodeRepT an] [simpleD 'arbitrary bdy]
   where
-    cl    = Clause [] bdy []
-
     -- Reduce size of fields to avoid generating massive test data
     -- by giving an arbitrary implementation like this:
     --   sized (\ x -> JobSpecId <$> resize (x `div` 2) arbitrary <*> ...)
-    bdy   = NormalB $ AppE (VarE 'QC.sized) $ LamE [VarP x_nm] $
-                app (ConE tn) $
-                replicate (length $ srFields sr) $
-                VarE 'QC.resize
-                         `AppE` (VarE 'div `AppE` VarE x_nm `AppE` LitE (IntegerL 2))
-                         `AppE` VarE 'arbitrary
+    bdy   = do x <- newName "x"
+               appE (varE 'QC.sized) $ lamE [varP x] $
+                 applicativeE (nodeConE an) $
+                 replicate (length $ srFields sr) $
+                 [e| QC.resize ($(varE x) `div` 2) arbitrary |]
 
-    tn    = rep_type_nm as
 
+-- | Generate an 'Arbitrary' instance for a union:
+--
+-- > instance Arbitrary Foo where
+-- >     arbitrary = oneOf [ fmap Bar arbitrary, fmap Baz arbitrary ]
 
 gen_su_ab :: APINode -> SpecUnion -> Q [Dec]
-gen_su_ab as su = mkInstanceIfNotExists ''QC.Arbitrary [ConT tn] [FunD 'arbitrary [cl]]
+gen_su_ab an su = optionalInstanceD ''QC.Arbitrary [nodeRepT an] [simpleD 'arbitrary bdy]
   where
-    cl  = Clause [] bdy []
+    bdy | null (suFields su) = nodeConE an
+        | otherwise          = [e| oneof $(listE alts) |]
 
-    bdy = NormalB $ if null ks then emp else prp
+    alts = [ [e| fmap $(nodeAltConE an k) arbitrary |]
+           | (k, _) <- suFields su ]
 
-    emp = ConE tn
 
-    prp = AppE (VarE 'oneof) $
-                ListE [ VarE 'fmap `AppE` ConE k `AppE` VarE 'arbitrary | k<- ks ]
-
-    tn  = rep_type_nm as
-    ks  = map (pref_con_nm as) $ map fst $ suFields su
-
+-- | Generate an 'Arbitrary' instance for an enumeration:
+--
+-- > instance Arbitrary Foo where
+-- >     arbitrary = elements [Bar, Baz]
 
 gen_se_ab :: APINode -> SpecEnum -> Q [Dec]
-gen_se_ab as se = mkInstanceIfNotExists ''QC.Arbitrary [ConT tn] [FunD 'arbitrary [cl]]
+gen_se_ab an se = optionalInstanceD ''QC.Arbitrary [nodeRepT an] [simpleD 'arbitrary bdy]
   where
-    cl  = Clause [] bdy []
+    bdy | null ks   = nodeConE an
+        | otherwise = varE 'elements `appE` listE ks
 
-    bdy = NormalB $ if null ks then emp else prp
-
-    emp = ConE tn
-
-    prp = AppE (VarE 'elements) $ ListE [ ConE k | k<- ks ]
-
-    tn  = rep_type_nm as
-
-    ks  = map (pref_con_nm as . fst) $ seAlts se
+    ks  = map (nodeAltConE an . fst) $ seAlts se
 
 
+-- | Generate an arbitrary 'Int' in a given range.
+arbitraryIntRange :: IntRange -> Gen Int
+arbitraryIntRange (IntRange (Just lo) Nothing  ) = QC.choose (lo, maxBound)
+arbitraryIntRange (IntRange Nothing   (Just hi)) = QC.choose (minBound, hi)
+arbitraryIntRange (IntRange (Just lo) (Just hi)) = QC.choose (lo, hi)
+arbitraryIntRange (IntRange Nothing   Nothing  ) = QC.arbitrary
 
-choose_int_fr :: Int -> QC.Gen Int
-choose_int_fr lo = QC.choose (lo, maxBound)
-
-choose_int_to :: Int -> QC.Gen Int
-choose_int_to hi = QC.choose (minBound, hi)
-
-choose_int_fr_to :: Int -> Int -> QC.Gen Int
-choose_int_fr_to lo hi = QC.choose (lo, hi)
-
-
+-- | Generate an arbitrary 'UTCTime' in a given range.
 -- TODO: we might want to generate a broader range of sample times,
--- rather than just the extrema
-choose_time_fr :: UTCTime -> QC.Gen UTCTime
-choose_time_fr lo = pure lo
+-- rather than just the extrema.
+arbitraryUTCRange :: UTCRange -> Gen UTCTime
+arbitraryUTCRange (UTCRange (Just lo) Nothing  ) = pure lo
+arbitraryUTCRange (UTCRange Nothing   (Just hi)) = pure hi
+arbitraryUTCRange (UTCRange (Just lo) (Just hi)) = QC.elements [lo, hi]
+arbitraryUTCRange (UTCRange Nothing   Nothing  ) = QC.arbitrary
 
-choose_time_to :: UTCTime -> QC.Gen UTCTime
-choose_time_to hi = pure hi
-
-choose_time_fr_to :: UTCTime -> UTCTime -> QC.Gen UTCTime
-choose_time_fr_to lo hi = QC.elements [lo, hi]
-
-
-
+-- TODO: use a more arbitrary instance (quickcheck-instances?)
 instance QC.Arbitrary UTCTime where
     arbitrary = QC.elements
         [ mk "2010-01-01T00:00:00Z"

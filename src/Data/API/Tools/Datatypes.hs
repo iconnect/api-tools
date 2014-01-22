@@ -3,8 +3,6 @@ module Data.API.Tools.Datatypes
     ( datatypesTool
     , type_nm
     , rep_type_nm
-    , pref_con_nm
-    , pref_field_nm
     , nodeT
     , nodeRepT
     , nodeConE

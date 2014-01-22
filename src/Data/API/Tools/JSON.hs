@@ -164,20 +164,21 @@ gen_su_to an su = optionalInstanceD ''ToJSON [nodeRepT an] [funD 'toJSON cls]
     bdy fn x = normalB [e| object [ $(fieldNameE fn) .= $(varE x) ] |]
 
 gen_su_fm :: APINode -> SpecUnion -> Q [Dec]
-gen_su_fm as su = mk_FromJSON_instances (rep_type_nm as) [cl,cl']
+gen_su_fm an su = optionalInstanceD ''FromJSONWithErrs [nodeRepT an]
+                      [funD 'parseJSONWithErrs [cl,cl']]
   where
-    cl   = Clause [ConP 'Object [VarP x_nm]] (NormalB bdy) []
-    bdy  = AppE (AppE (VarE 'alternatives) $
-                (AppE (VarE 'failWith) $ AppE (ConE 'MissingAlt) $
-                          ListE [ LitE $ StringL $ _FieldName fn | fn<- fns ])) $
-                ListE
-                [ AppE (AppE (VarE 'fmap) (ConE $ pref_con_nm as fn)) $
-                        AppE (AppE (VarE '(.::)) (VarE x_nm)) $
-                             LitE $ StringL $ _FieldName fn | fn<-fns ]
+    cl   = clause [conP 'Object [varP x_nm]] (normalB bdy) []
+    bdy  = [e| alternatives (failWith $ MissingAlt $ss) $alts |]
+
+    alt fn = [e| fmap $(nodeAltConE an fn) ($(varE x_nm) .:: $(fieldNameE fn)) |]
+
+    alts = listE $ map alt fns
+    ss   = listE $ map fieldNameE fns
+
     fns  = map fst $ suFields su
 
-    cl'  = Clause [VarP x_nm] (NormalB bdy') []
-    bdy' = AppE (VarE 'failWith) $ AppE (VarE 'expectedObject) $ VarE x_nm
+    cl'  = clause [varP x_nm] (normalB bdy') []
+    bdy' = [e| failWith (expectedObject $(varE x_nm)) |]
 
 
 

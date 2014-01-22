@@ -54,6 +54,8 @@ import           System.Locale
 import           Test.QuickCheck                as QC
 import           Control.Applicative
 import qualified Data.ByteString.Base64         as B64
+import           Language.Haskell.TH
+import           Language.Haskell.TH.Syntax
 import           Text.Regex
 
 
@@ -138,12 +140,23 @@ data IntRange
         }
     deriving (Eq, Show)
 
+instance Lift IntRange where
+    lift (IntRange lo hi) = [e| IntRange lo hi |]
+
 data UTCRange
     = UTCRange
         { ur_lo :: Maybe UTCTime
         , ur_hi :: Maybe UTCTime
         }
     deriving (Eq, Show)
+
+instance Lift UTCRange where
+    lift (UTCRange lo hi) = [e| UTCRange $(liftMaybeUTCTime lo) $(liftMaybeUTCTime hi) |]
+
+liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
+liftMaybeUTCTime Nothing  = [e| Nothing |]
+liftMaybeUTCTime (Just u) = [e| parseUTC_ $(stringE (mkUTC_ u)) |]
+
 
 data RegEx =
     RegEx

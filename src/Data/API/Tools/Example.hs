@@ -101,7 +101,7 @@ gen_sn_ex an sn = case snFilter sn of
 -- | Generate an 'Example' instance for a record:
 --
 -- > instance Example Foo where
--- >     example = sized $ \ x -> Foo (resize (x `div` 2) example) ... (resize (x `div` 2) example)
+-- >     example = sized $ \ x -> Foo <$> resize (x `div` 2) example <*> ... <*> resize (x `div` 2) example
 
 gen_sr_ex :: APINode -> SpecRecord -> Q [Dec]
 gen_sr_ex an sr = optionalInstanceD ''Example [nodeRepT an] [simpleD 'example bdy]
