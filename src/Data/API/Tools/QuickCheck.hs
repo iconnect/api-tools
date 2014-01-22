@@ -18,6 +18,7 @@ import           Safe
 import           Test.QuickCheck                as QC
 
 
+-- | Tool to generate 'Arbitrary' instances for generated types.
 quickCheckTool :: APITool
 quickCheckTool = apiNodeTool $ apiSpecTool gen_sn_ab gen_sr_ab gen_su_ab gen_se_ab (const emptyTool)
 

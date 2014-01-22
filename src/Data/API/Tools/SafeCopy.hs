@@ -12,11 +12,9 @@ import           Data.API.Types
 import           Data.SafeCopy
 
 
+-- | Tool to derive 'SafeCopy' instances for generated types.  At
+-- present, this derives only base version instances.
 safeCopyTool :: APITool
-safeCopyTool = apiDataTypeTool safeCopyNodeTool
-
-safeCopyNodeTool :: APINodeTool
-safeCopyNodeTool an = deriveSafeCopy 0 'base $ rep_type_nm an
-
+safeCopyTool = apiDataTypeTool $ deriveSafeCopy 0 'base . rep_type_nm
 
 $(deriveSafeCopy 0 'base ''Binary)

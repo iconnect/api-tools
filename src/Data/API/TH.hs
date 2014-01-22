@@ -4,6 +4,8 @@ module Data.API.TH
     ( app
     , mkInstanceIfNotExists
     , x_nm
+    , funSigD
+    , simpleD
     ) where
 
 import           Control.Applicative
@@ -38,3 +40,12 @@ mkInstanceIfNotExists c ts ds = do
 
 x_nm :: Name
 x_nm = mkName "x"
+
+
+-- | Construct a TH function with a type signature
+funSigD :: Name -> TypeQ -> [ClauseQ] -> Q [Dec]
+funSigD n t cs = (\ x y -> [x,y]) <$> sigD n t <*> funD n cs
+
+-- | Construct a simple TH definition with a type signature
+simpleD :: Name -> TypeQ -> ExpQ -> Q [Dec]
+simpleD n t e = funSigD n t [clause [] (normalB e) []]

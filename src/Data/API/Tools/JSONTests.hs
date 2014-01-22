@@ -15,12 +15,11 @@ import           Language.Haskell.TH
 import           Test.QuickCheck
 
 
--- | Generate a list of tests of type [(String, Property)] and bind it
--- to the given string
-jsonTestsTool :: String -> APITool
-jsonTestsTool s api = return [sig, props]
+-- | Tool to generate a list of tests of type @[('String', 'Property')]@
+-- with the given name.  This depends on 'jsonTool' and 'quickCheckTool'.
+jsonTestsTool :: Name -> APITool
+jsonTestsTool nm api = return [sig, props]
   where
-    nm    = mkName s
     sig   = SigD nm $ ListT `AppT` (TupleT 2 `AppT` ConT ''String `AppT` ConT ''Property)
     props = FunD nm [Clause [] (NormalB bdy) []]
     bdy   = ListE $ map generateProp [ an | ThNode an <- api ]

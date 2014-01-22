@@ -1,8 +1,11 @@
 {-# LANGUAGE TemplateHaskell            #-}
+
+-- | A tool to generate maps to and from 'Text' values corresponding
+-- to inhabitants of enumerated types
 module Data.API.Tools.Enum
     ( enumTool
-    , txt_nm
-    , map_nm
+    , text_enum_nm
+    , map_enum_nm
     ) where
 
 import           Data.API.TH
@@ -16,44 +19,67 @@ import qualified Data.Map                       as Map
 import           Language.Haskell.TH
 
 
+-- | Tool to generate the maps between enumerations and 'Text' strings
+-- named by 'text_enum_nm' and 'map_enum_nm'.
 enumTool :: APITool
 enumTool = apiNodeTool enumNodeTool
 
 enumNodeTool :: APINodeTool
-enumNodeTool an | SpEnum se <- anSpec an = (++) <$> gen_se_tx an se <*> gen_se_mp an se
+enumNodeTool an | SpEnum se <- anSpec an = (++) <$> gen_se_tx an se <*> gen_se_mp an
                 | otherwise              = return []
 
 
+-- | For an enum type @E@, name a function @_text_E :: E -> 'Text'@
+-- that gives a string corresponding to the inhabitant of the type.
+-- For example, we generate something like this:
+--
+-- >   _text_FrameRate :: FrameRate -> T.Text
+-- >   _text_FrameRate fr =
+-- >           case fr of
+-- >             FRauto    -> "auto"
+-- >             FR10      -> "10"
+-- >             FR15      -> "15"
+-- >             FR23_97   -> "23.97"
+-- >             FR24      -> "24"
+-- >             FR25      -> "25"
+-- >             FR29_97   -> "29.97"
+-- >             FR30      -> "30"
+-- >             FR60      -> "60"
+
+text_enum_nm :: APINode -> Name
+text_enum_nm an = mkName $ "_text_" ++ (_TypeName $ anName an)
+
 gen_se_tx :: APINode -> SpecEnum -> Q [Dec]
-gen_se_tx as se = return [ SigD (txt_nm as) $ AppT (AppT ArrowT $ ConT tnm) $ ConT ''T.Text
-                         , FunD (txt_nm as) [Clause [VarP x_nm] bdy []] ]
+gen_se_tx as se = simpleD (text_enum_nm as)
+                          [t| $tc -> T.Text |]
+                          bdy
   where
-    tnm = rep_type_nm as
+    tc  = conT $ rep_type_nm as
 
-    bdy    = NormalB $
-                CaseE (VarE x_nm) [ Match (pt fnm) (bd fnm) [] | fnm<-fnms ]
+    bdy  = lamCaseE [ match (pt fnm) (bd fnm) []
+                    | (fnm,_) <- seAlts se ]
 
-    fnms   = map fst $ seAlts se
+    pt fnm = conP (pref_con_nm as fnm) []
 
-    pt fnm = ConP (pref_con_nm as fnm) []
-
-    bd fnm = NormalB $ LitE $ StringL $ _FieldName fnm
+    bd fnm = normalB $ stringE $ _FieldName fnm
 
 
-gen_se_mp :: APINode -> SpecEnum -> Q [Dec]
-gen_se_mp as _se = return [ SigD (map_nm as) $
-                                AppT (AppT (ConT ''Map.Map) $ ConT ''T.Text) $ ConT tnm
-                          , FunD (map_nm as) [Clause [] bdy []] ]
+
+-- | For an enum type @E@, name a map from 'Text' values to
+-- inhabitants of the type, for example:
+--
+-- > _map_FrameRate :: Map Text FrameRate
+-- > _map_FrameRate = genTextMap _text_FrameRate
+
+map_enum_nm :: APINode -> Name
+map_enum_nm  an = mkName $ "_map_"  ++ (_TypeName $ anName an)
+
+gen_se_mp :: APINode -> Q [Dec]
+gen_se_mp as = simpleD (map_enum_nm as)
+                       [t| Map.Map T.Text $tc |]
+                       [e| genTextMap $(varE $ text_enum_nm as) |]
   where
-    tnm = rep_type_nm as
-
-    bdy    = NormalB $ AppE (VarE 'genTextMap) (VarE $ txt_nm as)
-
+    tc  = conT $ rep_type_nm as
 
 genTextMap :: (Ord a,Bounded a,Enum a) => (a->T.Text) -> Map.Map T.Text a
 genTextMap f = Map.fromList [ (f x,x) | x<-[minBound..maxBound] ]
-
-
-txt_nm, map_nm :: APINode -> Name
-txt_nm         an = mkName $ "_text_" ++ (_TypeName $ anName an)
-map_nm         an = mkName $ "_map_"  ++ (_TypeName $ anName an)

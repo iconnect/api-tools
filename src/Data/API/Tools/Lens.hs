@@ -11,6 +11,7 @@ import           Data.API.Types
 import           Control.Lens
 
 
+-- | Tool to make lenses for fields in generated types.
 lensTool :: APITool
 lensTool = apiDataTypeTool (makeLenses . rep_type_nm)
 
