@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE QuasiQuotes          #-}
 
@@ -6,11 +7,15 @@
 
 module Data.API.Tools.JSONTests
     ( jsonTestsTool
+    , prop_decodesTo
+    , prop_resultsMatchRoundtrip
     ) where
 
 import           Data.API.JSON
 import           Data.API.Tools.Combinators
 import           Data.API.Types
+
+import qualified Data.Aeson                     as JS
 import           Language.Haskell.TH
 import           Test.QuickCheck
 
@@ -34,3 +39,19 @@ generateProp an = TupE [ LitE $ StringL ty
   where
     ty = _TypeName $ anName an
     ty_nm = mkName ty
+
+
+-- | QuickCheck property that a 'Value' decodes to an expected Haskell
+-- value, using 'fromJSONWithErrs'
+prop_decodesTo :: forall a . (Eq a, FromJSONWithErrs a)
+               => JS.Value -> a -> Bool
+prop_decodesTo v x = case fromJSONWithErrs v :: Either [(JSONError, Position)] a of
+                       Right y | x == y -> True
+                       _                -> False
+
+-- | QuickCheck property that Haskell values can be encoded with
+-- 'toJSON' and decoded with 'fromJSONWithErrs' to get the original
+-- value
+prop_resultsMatchRoundtrip :: forall a . (Eq a, JS.ToJSON a, FromJSONWithErrs a )
+                           => a -> Bool
+prop_resultsMatchRoundtrip x = prop_decodesTo (JS.toJSON x) x

@@ -9,6 +9,7 @@ module Data.API.Test.JSON
 import           Data.API.API.Gen
 import           Data.API.JSON
 import           Data.API.Tools
+import           Data.API.Tools.JSONTests
 import           Data.API.Test.Gen (exampleSimpleTests, example2SimpleTests)
 import           Data.API.Test.MigrationData
 

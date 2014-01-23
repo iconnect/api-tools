@@ -1,23 +1,34 @@
+{-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
-
+-- | This module defines a JSON parser, like Aeson's 'FromJSON', but
+-- with more detailed error-reporting capabilities.  In particular, it
+-- reports errors in a structured format, and can report multiple
+-- independent errors rather than stopping on the first one
+-- encountered.
 module Data.API.JSON
-    ( JSONError(..)
+    ( -- * Representation of JSON parsing errors
+      JSONError(..)
     , Expected(..)
     , FormatExpected(..)
-    , prettyJSONError
-    , prettyStep
-    , prettyJSONErrorPositions
     , Position
     , Step(..)
+    , prettyJSONErrorPositions
+    , prettyJSONError
+    , prettyStep
+
+      -- * Parser with multiple error support
     , ParserWithErrs
+    , runParserWithErrsTop
+
+      -- * FromJSON class with multiple error support
     , FromJSONWithErrs(..)
-    , promoteFromJSON
     , fromJSONWithErrs
     , decodeWithErrs
+
+      -- * ParserWithErrs combinators
     , failWith
     , expectedArray
     , expectedBool
@@ -37,7 +48,6 @@ module Data.API.JSON
     , withField
     , (.:.)
     , (.::)
-    , prop_decodesTo, prop_resultsMatchRoundtrip
     ) where
 
 import           Data.API.Types
@@ -67,6 +77,7 @@ import           Text.Regex
 -- Representation of JSON parsing errors and positions
 --
 
+-- | Represents an error that can be encountered while parsing
 data JSONError = Expected  Expected       String JS.Value
                | BadFormat FormatExpected String T.Text
                | MissingField
@@ -79,6 +90,8 @@ data JSONError = Expected  Expected       String JS.Value
                | SyntaxError String
   deriving (Eq, Show)
 
+-- | JSON type expected at a particular position, when a value of a
+-- different type was encountered
 data Expected = ExpArray
               | ExpBool
               | ExpInt
@@ -86,6 +99,7 @@ data Expected = ExpArray
               | ExpString
   deriving (Eq, Show)
 
+-- | Special format expected of a string
 data FormatExpected = FmtBinary
                     | FmtUTC
                     | FmtOther
@@ -102,6 +116,7 @@ expectedString = Expected ExpString   "String"
 badFormat :: String -> T.Text -> JSONError
 badFormat = BadFormat FmtOther
 
+-- | Human-readable description of a JSON parse error
 prettyJSONError :: JSONError -> String
 prettyJSONError (Expected _ s v)      = "When expecting " ++ s ++ ", encountered "
                                         ++ x ++ " instead"
@@ -135,19 +150,33 @@ type Position = [Step]
 data Step = InField T.Text | InElem Int
   deriving (Eq, Show)
 
+-- | Human-readable description of a single step in a position
 prettyStep :: Step -> String
 prettyStep (InField f) = "  in the field " ++ show f
 prettyStep (InElem i)  = "  in array index " ++ show i
 
+-- | Human-readable presentation of a list of parse errors with their
+-- positions
 prettyJSONErrorPositions :: [(JSONError, Position)] -> String
 prettyJSONErrorPositions xs = unlines $ concatMap help xs
   where
     help (e, pos) = prettyJSONError e : map prettyStep pos
 
+
 ----------------------------------------
 -- Parser with multiple error support
 --
 
+-- | Like 'Parser', but keeping track of locations within the JSON
+-- structure and able to report multiple errors.
+--
+-- Careful! The 'Monad' instance does not agree with the 'Applicative'
+-- instance in all circumstances, and you should use the 'Applicative'
+-- instance where possible.  In particular:
+--
+--    * @pf \<*\> ps@ returns errors from both arguments
+--
+--    * @pf \`ap\` ps@  returns errors from @pf@ only
 newtype ParserWithErrs a = ParserWithErrs {
     runParserWithErrs :: Position -> Either [(JSONError, Position)] a }
   deriving Functor
@@ -167,11 +196,6 @@ instance Alternative ParserWithErrs where
                                         Right v -> Right v
                                         Left  _ -> runParserWithErrs py z
 
--- | Careful! This Monad instance does not agree with the Applicative
--- instance in all circumstances, and you should use the Applicative
--- instance where possible. In particular:
---     pf <*> ps  returns errors from both arguments
---     pf `ap` ps returns errors from pf only
 instance Monad ParserWithErrs where
   return   = pure
   px >>= f = ParserWithErrs $ \ z ->
@@ -188,8 +212,23 @@ runParserWithErrsTop p = runParserWithErrs p []
 -- FromJSON class with multiple error support
 --
 
+-- | Like 'FromJSON', but keeping track of multiple errors and their
+-- positions.  Moreover, this class is more liberal in accepting
+-- invalid inputs:
+--
+-- * a string like @\"3\"@ is accepted as an integer; and
+--
+-- * the integers @0@ and @1@ are accepted as booleans.
+
 class FromJSONWithErrs a where
+  -- | Parse a JSON value with structured error-reporting support.  If
+  -- this method is omitted, 'fromJSON' will be used instead: note
+  -- that this will result in less precise errors.
   parseJSONWithErrs :: JS.Value -> ParserWithErrs a
+  default parseJSONWithErrs :: JS.FromJSON a => JS.Value -> ParserWithErrs a
+  parseJSONWithErrs v = case JS.fromJSON v of
+                      JS.Error e   -> failWith $ SyntaxError e
+                      JS.Success a -> pure a
 
 instance FromJSONWithErrs JS.Value where
   parseJSONWithErrs = pure
@@ -226,15 +265,15 @@ instance FromJSONWithErrs UTCTime where
 instance FromJSONWithErrs Version where
   parseJSONWithErrs = withVersion "Version" pure
 
-promoteFromJSON :: JS.FromJSON a => (JS.Value -> JSONError)
-                -> JS.Value -> ParserWithErrs a
-promoteFromJSON f v = case JS.fromJSON v of
-                      JS.Error _   -> failWith $ f v
-                      JS.Success a -> pure a
 
+-- | Run the JSON parser on a value to produce a result or a list of
+-- errors with their positions.  This should not be used inside an
+-- implementation of 'parseJSONWithErrs' as it will not pass on the
+-- current position.
 fromJSONWithErrs :: FromJSONWithErrs a => JS.Value -> Either [(JSONError, Position)] a
 fromJSONWithErrs = runParserWithErrsTop . parseJSONWithErrs
 
+-- | Decode a 'ByteString' and run the JSON parser
 decodeWithErrs :: FromJSONWithErrs a => BL.ByteString -> Either [(JSONError, Position)] a
 decodeWithErrs x = case JS.eitherDecode x of
                      Left e  -> Left [(SyntaxError e, [])]
@@ -402,16 +441,6 @@ m .:. k = withField k parseJSONWithErrs m
 (.::) :: FromJSONWithErrs a => JS.Object -> T.Text -> ParserWithErrs a
 m .:: k = withStrictField k parseJSONWithErrs m
 
-
-prop_decodesTo :: forall a . (Eq a, FromJSONWithErrs a)
-               => JS.Value -> a -> Bool
-prop_decodesTo v x = case fromJSONWithErrs v :: Either [(JSONError, Position)] a of
-                       Right y | x == y -> True
-                       _                -> False
-
-prop_resultsMatchRoundtrip :: forall a . (Eq a, JS.ToJSON a, FromJSONWithErrs a )
-                           => a -> Bool
-prop_resultsMatchRoundtrip x = prop_decodesTo (JS.toJSON x) x
 
 deriveJSON defaultOptions ''JSONError
 deriveJSON defaultOptions ''Expected
