@@ -9,9 +9,11 @@ module Data.API.Test.Migration
     ) where
 
 import           Data.API.Changes
+import           Data.API.PP
 import           Data.API.Tools
 import           Data.API.Test.MigrationData
 import           Data.API.Types
+import           Data.API.Utils
 
 import qualified Data.Aeson               as JS
 import qualified Data.Aeson.Encode.Pretty as JS
@@ -139,7 +141,7 @@ validMigrationProperty :: DatabaseSnapshot -> P.Result
 validMigrationProperty db =
     case migrateDataDump (startSchema, startVersion) (endSchema, endVersion)
                          changelog testMigration root_ CheckStartAndEnd (JS.toJSON db) of
-    Right (v, []) -> case dataMatchesNormAPI root_ (apiNormalForm endSchema) v of
+    Right (v, []) -> case dataMatchesAPI root_ endSchema v of
         Right _   -> succeeded
         Left  err -> failedBecause ("end data does not match API: "
                                     ++ prettyValueErrorPosition err)

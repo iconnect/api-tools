@@ -1,6 +1,3 @@
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE TemplateHaskell            #-}
-
 -- | This module provides an interface for generating TH declarations
 -- from an 'API'.  To use it, splice in a call to 'generate' followed
 -- by one or more calls to 'generateAPITools', like so:
@@ -15,7 +12,6 @@
 module Data.API.Tools
     ( generate
     , generateAPITools
-    , generateMigrationKinds
 
       -- * Individual tools
     , enumTool
@@ -38,9 +34,7 @@ import           Data.API.Tools.Lens
 import           Data.API.Tools.QuickCheck
 import           Data.API.Tools.SafeCopy
 import           Data.API.Types
-import           Data.API.Changes
 import           Control.Applicative
-import qualified Data.Set                       as Set
 import           Language.Haskell.TH
 
 
@@ -55,29 +49,3 @@ generate api = generateAPITools api [datatypesTool]
 -- 'generateAPITools'.
 generateAPITools :: API -> [APITool] -> Q [Dec]
 generateAPITools api tools = concat <$> mapM ($ api) tools
-
--- | Generate enumeration datatypes corresponding to the custom
--- migrations used in an API migration changelog.
-generateMigrationKinds :: APIChangelog -> String -> String -> String -> Q [Dec]
-generateMigrationKinds changes all_nm rec_nm fld_nm = do
-    guardNoDups (all_tags `Set.intersection` rec_tags)
-    guardNoDups (all_tags `Set.intersection` fld_tags)
-    guardNoDups (rec_tags `Set.intersection` fld_tags)
-
-    return [ DataD [] (mkName all_nm) [] (cons all_nm all_tags) derivs
-           , DataD [] (mkName rec_nm) [] (cons rec_nm rec_tags) derivs
-           , DataD [] (mkName fld_nm) [] (cons fld_nm fld_tags) derivs ]
-  where
-    (all_tags, rec_tags, fld_tags) = changelogTags changes
-
-    guardNoDups xs
-      | Set.null xs = return ()
-      | otherwise   = fail $ "generateMigrationKinds: duplicate custom migrations in changelog: "
-                             ++ show (Set.toList xs)
-
-    -- List of constructors must not be empty, otherwise GHC can't
-    -- derive Read/Show instances (see GHC Trac #7401)
-    cons s xs | not (Set.null xs) = map (\ x -> NormalC (mkName x) []) (Set.toList xs)
-              | otherwise         = [NormalC (mkName $ "No" ++ s) []]
-
-    derivs = [''Read, ''Show]

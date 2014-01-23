@@ -4,6 +4,8 @@ module Data.API.Utils
     , mkUTC_
     , parseUTC'
     , parseUTC_
+    , (?!)
+    , (?!?)
     ) where
 
 import           Data.Aeson
@@ -40,3 +42,14 @@ parseUTC' t = parseUTC_ $ T.unpack t
 parseUTC_ :: String -> Maybe UTCTime
 parseUTC_ s = listToMaybe $ catMaybes $
             map (\fmt->parseTime defaultTimeLocale fmt s) utcFormats
+
+
+-- | The \"oh noes!\" operator.
+--
+(?!) :: Maybe a -> e -> Either e a
+Nothing ?! e = Left  e
+Just x  ?! _ = Right x
+
+(?!?) :: Either e a -> (e -> e') -> Either e' a
+Left  e ?!? f = Left  (f e)
+Right x ?!? _ = Right x

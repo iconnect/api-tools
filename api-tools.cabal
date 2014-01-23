@@ -36,6 +36,7 @@ Library
         Data.API.JSON
         Data.API.Markdown
         Data.API.Parse
+        Data.API.PP
         Data.API.Tools
         Data.API.Tools.Combinators
         Data.API.Tools.Datatypes
