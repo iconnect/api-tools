@@ -40,7 +40,8 @@ module Data.API.JSON
     , prop_decodesTo, prop_resultsMatchRoundtrip
     ) where
 
-import           Data.API.Types hiding (withUTC)
+import           Data.API.Types
+import           Data.API.Utils
 
 import           Control.Applicative
 import qualified Data.Aeson                     as JS

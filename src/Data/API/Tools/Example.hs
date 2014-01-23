@@ -13,6 +13,7 @@ import           Data.API.TH
 import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.Types
+import           Data.API.Utils
 
 import           Control.Applicative
 import           Data.Aeson

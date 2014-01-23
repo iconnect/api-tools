@@ -27,30 +27,21 @@ module Data.API.Types
     , IntRange(..)
     , UTCRange(..)
     , RegEx(..)
-    , mkRegEx
-    , mkRegEx'
-    , mkUTC
-    , mkUTC'
-    , mkUTC_
-    , withUTC
-    , parseUTC'
-    , parseUTC_
-    , utcFormat
-    , utcFormats
     , Binary(..)
     , defaultValueAsJsValue
     ) where
 
+import           Data.API.Utils
+
 import qualified Data.CaseInsensitive           as CI
 import           Data.String
 import           Data.Time
-import           Data.Maybe
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Aeson.TH
 import qualified Data.Text                      as T
+import qualified Data.Text.Encoding             as T
 import qualified Data.ByteString.Char8          as B
-import           System.Locale
 import           Test.QuickCheck                as QC
 import           Control.Applicative
 import qualified Data.ByteString.Base64         as B64
@@ -167,9 +158,6 @@ data RegEx =
 mkRegEx :: T.Text -> RegEx
 mkRegEx txt = RegEx txt $ mkRegexWithOpts (T.unpack txt) False True
 
-mkRegEx' :: String -> RegEx
-mkRegEx' s = RegEx (T.pack s) $ mkRegexWithOpts s False True
-
 instance ToJSON RegEx where
     toJSON RegEx{..} = String re_text
 
@@ -178,6 +166,7 @@ instance FromJSON RegEx where
 
 instance Show RegEx where
     show = T.unpack . re_text
+
 
 -- | SpecRecord is your classsic product type.
 
@@ -244,7 +233,9 @@ data DefaultValue
     | DefValUtc    UTCTime
     deriving (Eq, Show)
 
--- | Convert a default value to an Aeson Value
+-- | Convert a default value to an Aeson 'Value'.  This differs from
+-- 'toJSON' as it will not round-trip with 'fromJSON': UTC default
+-- values are turned into strings.
 defaultValueAsJsValue :: DefaultValue -> Value
 defaultValueAsJsValue  DefValList                = toJSON ([] :: [()])
 defaultValueAsJsValue  DefValMaybe               = Null
@@ -254,49 +245,13 @@ defaultValueAsJsValue (DefValInt    n)           = Number (fromIntegral n)
 defaultValueAsJsValue (DefValUtc    t)           = mkUTC t
 
 
--- Inject and project UTC Values from Text values
-
-mkUTC :: UTCTime -> Value
-mkUTC = String . mkUTC'
-
-withUTC :: String -> (UTCTime->Parser a) -> Value -> Parser a
-withUTC lab f = withText lab g
-  where
-    g t = maybe (typeMismatch lab (String t)) f $ parseUTC' t
-
-utcFormat :: String
-utcFormat =               "%Y-%m-%dT%H:%M:%SZ"
-
-utcFormats :: [String]
-utcFormats =
-                        [ "%Y-%m-%dT%H:%M:%S%z"
-                        , "%Y-%m-%dT%H:%M:%S%Z"
-                        , "%Y-%m-%dT%H:%M%Z"
-                        , "%Y-%m-%dT%H:%M:%S%QZ"
-                        , utcFormat
-                        ]
-
-mkUTC' :: UTCTime -> T.Text
-mkUTC' = T.pack . mkUTC_
-
-mkUTC_ :: UTCTime -> String
-mkUTC_ utct = formatTime defaultTimeLocale utcFormat utct
-
-parseUTC' :: T.Text -> Maybe UTCTime
-parseUTC' t = parseUTC_ $ T.unpack t
-
-parseUTC_ :: String -> Maybe UTCTime
-parseUTC_ s = listToMaybe $ catMaybes $
-            map (\fmt->parseTime defaultTimeLocale fmt s) utcFormats
-
-
 -- | Binary data is represented in JSON format as a base64-encoded
 -- string
 newtype Binary = Binary { _Binary :: B.ByteString }
     deriving (Show,Eq,Ord)
 
 instance ToJSON Binary where
-    toJSON = String . b2t . B64.encode . _Binary
+    toJSON = String . T.decodeLatin1 . B64.encode . _Binary
 
 instance FromJSON Binary where
     parseJSON = withBinary "Binary" return
@@ -311,15 +266,9 @@ withBinary :: String -> (Binary->Parser a) -> Value -> Parser a
 withBinary lab f = withText lab g
   where
     g t =
-        case B64.decode $ t2b t of
+        case B64.decode $ T.encodeUtf8 t of
           Left  _  -> typeMismatch lab (String t)
           Right bs -> f $ Binary bs
-
-b2t :: B.ByteString -> T.Text
-b2t = T.pack . B.unpack
-
-t2b :: T.Text -> B.ByteString
-t2b = B.pack . T.unpack
 
 
 deriveJSON defaultOptions ''Thing

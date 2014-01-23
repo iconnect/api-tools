@@ -9,6 +9,8 @@ module Data.API.Scan
     ) where
 
 import           Data.API.Types
+import           Data.API.Utils
+
 import           Data.Char
 import           Data.Time
 import           Safe

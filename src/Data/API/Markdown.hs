@@ -22,6 +22,8 @@ module Data.API.Markdown
     ) where
 
 import           Data.API.Types
+import           Data.API.Utils
+
 import qualified Data.CaseInsensitive       as CI
 import           Data.Char
 import           Text.Printf

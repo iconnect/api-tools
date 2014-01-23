@@ -13,7 +13,7 @@ module Data.API.Tools.Datatypes
     ) where
 
 import           Data.API.Tools.Combinators
-import           Data.API.Types hiding (withUTC)
+import           Data.API.Types
 
 import           Data.Aeson
 import qualified Data.CaseInsensitive           as CI

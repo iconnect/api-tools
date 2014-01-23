@@ -11,13 +11,13 @@ import           Data.API.TH
 import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.Tools.Enum
-import           Data.API.Types hiding (withUTC)
+import           Data.API.Types
+import           Data.API.Utils
 
 import           Data.Aeson hiding (withText, withBool)
 import           Control.Applicative
 import qualified Data.Map                       as Map
 import qualified Data.Text                      as T
-import           Data.Time
 import           Language.Haskell.TH
 
 
@@ -90,9 +90,9 @@ gen_sn_fm as sn = mk_FromJSON_instances (rep_type_nm as) [Clause [] bdy []]
 
     wth_u =
         case snFilter sn of
-          Just (FtrUTC(UTCRange Nothing   (Just hi))) -> AppE (VarE 'with_utc_to)    (LitE $ StringL $ utc_lit hi)
-          Just (FtrUTC(UTCRange (Just lo) Nothing  )) -> AppE (VarE 'with_utc_fr)    (LitE $ StringL $ utc_lit lo)
-          Just (FtrUTC(UTCRange (Just lo) (Just hi))) -> ap2  (VarE 'with_utc_fr_to) (LitE $ StringL $ utc_lit lo) (LitE $ StringL $ utc_lit hi)
+          Just (FtrUTC(UTCRange Nothing   (Just hi))) -> AppE (VarE 'with_utc_to)    (LitE $ StringL $ mkUTC_ hi)
+          Just (FtrUTC(UTCRange (Just lo) Nothing  )) -> AppE (VarE 'with_utc_fr)    (LitE $ StringL $ mkUTC_ lo)
+          Just (FtrUTC(UTCRange (Just lo) (Just hi))) -> ap2  (VarE 'with_utc_fr_to) (LitE $ StringL $ mkUTC_ lo) (LitE $ StringL $ mkUTC_ hi)
           _                                            -> VarE 'withUTC
 
 
@@ -227,10 +227,6 @@ gen_pr an = case anConvert an of
 
 ap2 :: Exp -> Exp -> Exp -> Exp
 ap2 f e e' = AppE (AppE f e) e'
-
-
-utc_lit :: UTCTime -> String
-utc_lit = mkUTC_
 
 
 alternatives :: Alternative t => t a -> [t a] -> t a

@@ -47,6 +47,7 @@ Library
         Data.API.Tools.QuickCheck
         Data.API.Tools.SafeCopy
         Data.API.Types
+        Data.API.Utils
 
   Other-modules:
         Data.API.API.DSL
