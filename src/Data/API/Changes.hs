@@ -955,6 +955,7 @@ compatibleDefaultValue _   (TyMaybe _) DefValMaybe = True
 compatibleDefaultValue api (TyMaybe ty)    defval  = compatibleDefaultValue api ty defval
 compatibleDefaultValue _   (TyBasic bt)    defval  =
     compatibleBasicDefaultValue bt defval
+compatibleDefaultValue _   TyJSON          _       = True
 compatibleDefaultValue env (TyName tname)  defval  =
     case Map.lookup tname env of
       Just (NTypeSynonym t) -> compatibleDefaultValue env t defval
