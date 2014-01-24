@@ -670,7 +670,7 @@ applyAPIChangeToAPI root _ (ChAddField tname fname ftype mb_defval) api = do
   recinfo <- expectRecordType tinfo                ?! TypeWrongKind tname TKRecord
   guard (not (Map.member fname recinfo))           ?! FieldExists tname TKRecord fname
   typeIsValid ftype api                            ?!? TypeMalformed ftype
-  case mb_defval of
+  case mb_defval <|> defaultValueForType ftype of
     Just defval -> guard (compatibleDefaultValue api ftype defval)
                                                    ?! FieldBadDefaultValue tname fname ftype defval
     Nothing     -> guard (not (typeUsedInApiTable root tname api))
@@ -826,11 +826,11 @@ updateTypeAt upds alter (UpdateNamed tname) v p = case Map.lookup tname upds of
 applyChangeToData :: APIChange -> CustomMigrationsTagged
                   -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 
-applyChangeToData (ChAddField _tname fname _ftype (Just defval)) _ =
-    let newFieldValue = defaultValueAsJsValue defval
-    in withObject (\ v _ -> pure $ HMap.insert (fieldKey fname) newFieldValue v)
-applyChangeToData (ChAddField tname fname _ftype Nothing) _ =
-    \ _ p -> Left (InvalidAPI (DefaultMissing tname fname), p)
+applyChangeToData (ChAddField tname fname ftype mb_defval) _ =
+  case mb_defval <|> defaultValueForType ftype of
+    Just defval -> let newFieldValue = defaultValueAsJsValue defval
+                   in withObject (\ v _ -> pure $ HMap.insert (fieldKey fname) newFieldValue v)
+    Nothing     -> \ _ p -> Left (InvalidAPI (DefaultMissing tname fname), p)
 
 applyChangeToData (ChDeleteField _ fname) _ =
     withObject (\ v _ -> pure $ HMap.delete (fieldKey fname) v)
@@ -974,6 +974,15 @@ compatibleBasicDefaultValue BTbool   (DefValBool _)   = True
 compatibleBasicDefaultValue BTint    (DefValInt _)    = True
 compatibleBasicDefaultValue BTutc    (DefValUtc _)    = True
 compatibleBasicDefaultValue _         _                = False
+
+-- | Check if there is a "default" default value for a field of the
+-- given type: list and maybe have @[]@ and @nothing@ respectively.
+-- Note that type synonyms do not preserve defaults, since we do not
+-- have access to the entire API.
+defaultValueForType :: APIType -> Maybe DefaultValue
+defaultValueForType (TyList  _) = Just DefValList
+defaultValueForType (TyMaybe _) = Just DefValMaybe
+defaultValueForType _           = Nothing
 
 
 -------------------------------------------

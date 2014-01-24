@@ -127,6 +127,8 @@ fooPrefix :: Foo
         en   :: AnEnum
         un   :: AUnion
         c    :: string
+        nolist  :: [string]
+        nomaybe :: ? string
 
 barPrefix :: RenamedBar
     = record
@@ -160,6 +162,12 @@ duplicaterecursive :: DuplicateRecursive
         new        :: string
 
 changes
+
+version "2.6"
+  // add fields with implicit default values
+  changed record Foo
+    field added nolist  :: [string]
+    field added nomaybe :: ? string
 
 version "2.5"
   // schema-changing custom record migration
@@ -311,7 +319,7 @@ changes
 version "3.1"
   // Adding a table without a default
   changed record DatabaseSnapshot
-    field added badtable :: ? [Nested]
+    field added badtable :: Nested
 
 version "3.0"
   // Renaming to an existing val
@@ -581,7 +589,7 @@ version "0.1"
 
 startData, endData :: JS.Value
 Just startData = JS.decode "{ \"foo\": [ {\"id\": 42, \"nest\": { \"id\": 3 }, \"en\": \"foo\", \"un\": { \"bar\": { \"id\": 43 } }, \"quux\": null } ], \"bar\": [ { \"id\": 4 } ], \"recur\": [{ \"id\": 9, \"recur\": { \"id\": 8, \"recur\": null} }] }"
-Just endData = JS.decode "{ \"foo\": [ {\"id\":42, \"nest\": { \"id\": 3, \"new\": \"hello\" }, \"c\": \"foobar42\", \"en\": \"foofoo\", \"un\": { \"barbar\": { \"id\": 43 } } } ], \"boz\": [], \"bar2\": [ {\"id\": 4 } ], \"recur\": [{ \"renamed_id\": 9, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": { \"renamed_id\": 8, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": null} }], \"recur2\": [{ \"renamed_id\": 9, \"new\": \"hello\", \"recur\": { \"renamed_id\": 8, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": null} }] }"
+Just endData = JS.decode "{ \"foo\": [ {\"id\":42, \"nest\": { \"id\": 3, \"new\": \"hello\" }, \"c\": \"foobar42\", \"en\": \"foofoo\", \"un\": { \"barbar\": { \"id\": 43 } }, \"nolist\": [], \"nomaybe\": null } ], \"boz\": [], \"bar2\": [ {\"id\": 4 } ], \"recur\": [{ \"renamed_id\": 9, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": { \"renamed_id\": 8, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": null} }], \"recur2\": [{ \"renamed_id\": 9, \"new\": \"hello\", \"recur\": { \"renamed_id\": 8, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": null} }] }"
 
 startVersion, endVersion :: Version
 startVersion = changelogStartVersion changelog
