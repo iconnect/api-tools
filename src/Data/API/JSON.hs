@@ -250,6 +250,9 @@ instance FromJSONWithErrs a => FromJSONWithErrs [a] where
 instance FromJSONWithErrs Int where
   parseJSONWithErrs = withInt "Int" pure
 
+instance FromJSONWithErrs Integer where
+  parseJSONWithErrs = withInt "Integer" pure
+
 instance FromJSONWithErrs Bool where
   parseJSONWithErrs = withBool "Bool" pure
 
@@ -329,7 +332,7 @@ with_int_fr_to lo hi dg f = withInt dg g
 
 -- It's contrary to my principles, but I'll accept a string containing
 -- a number instead of an actual number...
-withInt :: String -> (Int -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
+withInt :: Num n => String -> (n -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
 withInt _ f (JS.Number (I n)) = f (fromInteger n)
 withInt _ f (JS.String s)
   | Right (I n) <- parseOnly (number <* endOfInput) s = f (fromInteger n)
