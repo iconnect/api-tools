@@ -454,12 +454,8 @@ data APITableChange
 -- type in the API must be updated
 findUpdatePos :: TypeName -> NormAPI -> Map TypeName UpdateDeclPos
 findUpdatePos tname api = Map.alter (Just . UpdateHere) tname $
-                          fromSet findDecl deps
+                          Map.fromSet findDecl deps
   where
-    -- TODO: upgrade to Map.fromSet in containers-0.5
-    fromSet :: Ord k => (k -> a) -> Set k -> Map k a
-    fromSet f = Map.fromList . map (\ k -> (k, f k)) . Set.toList
-
     -- The set of types that depend on the type being updated
     deps :: Set TypeName
     deps = transitiveSped api (Set.singleton tname)
@@ -908,11 +904,15 @@ withObjectMatchingFields :: Map FieldName a
                          -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 withObjectMatchingFields m f (JS.Object obj) p = do
     zs <- matchMaps (Map.mapKeys fieldKey m) (hmapToMap obj) ?!? toErr
-    obj' <- mapM (\ (k, (ty, val)) -> (,) k <$> (f ty val (InField k : p))) zs
-    return $ JS.Object $ HMap.fromList obj'
+    obj' <- Map.traverseWithKey (\ k (ty, val) -> (f ty val (InField k : p))) zs
+    return $ JS.Object $ mapToHMap obj'
   where
     toErr (k, Left _)  = (JSONError MissingField, InField k : p)
     toErr (k, Right _) = (JSONError UnexpectedField, InField k : p)
+
+    hmapToMap = Map.fromList . HMap.toList
+
+    mapToHMap = HMap.fromList . Map.toList
 
 withObjectMatchingFields _ _ v p = Left (JSONError $ expectedObject v, p)
 
@@ -1041,17 +1041,13 @@ diffMaps m1 m2 = Map.filter different $ mergeMaps m1 m2
     different _            = True
 
 -- Attempts to match the keys of the maps to produce a map from keys
--- to pairs, represented as a list until we have traverseWithKey from
--- more recent vesions of containers.
-matchMaps :: Ord k => Map k a -> Map k b -> Either (k, Either a b) [(k, (a, b))]
-matchMaps m1 m2 = mapM (uncurry win) $ Map.toList $ mergeMaps m1 m2
+-- to pairs.
+matchMaps :: Ord k => Map k a -> Map k b -> Either (k, Either a b) (Map k (a, b))
+matchMaps m1 m2 = Map.traverseWithKey win $ mergeMaps m1 m2
   where
-    win k (InBoth x y)    = return (k, (x, y))
+    win _ (InBoth x y)    = return (x, y)
     win k (OnlyInLeft x)  = Left (k, Left x)
     win k (OnlyInRight x) = Left (k, Right x)
-
-hmapToMap :: Ord k => HMap.HashMap k a -> Map.Map k a
-hmapToMap = Map.fromList . HMap.toList
 
 
 -------------------------------------
