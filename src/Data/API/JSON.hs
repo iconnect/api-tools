@@ -37,13 +37,14 @@ module Data.API.JSON
     , expectedString
     , badFormat
     , withInt
-    , with_int_fr, with_int_to, with_int_fr_to
+    , withNum
+    , withIntRange
     , withBinary
     , withBool
     , withText
-    , with_txt_re
+    , withRegEx
     , withUTC
-    , with_utc_fr, with_utc_to, with_utc_fr_to
+    , withUTCRange
     , withVersion
     , withField
     , (.:.)
@@ -86,7 +87,7 @@ data JSONError = Expected  Expected       String JS.Value
                | UnexpectedEnumVal [T.Text] T.Text
                | IntRangeError String Int IntRange
                | UTCRangeError String UTCTime UTCRange
-               | RegexError String T.Text String
+               | RegexError String T.Text RegEx
                | SyntaxError String
   deriving (Eq, Show)
 
@@ -138,7 +139,7 @@ prettyJSONError (UnexpectedEnumVal xs t) = "Unexpected enum value " ++ show t
                                            ++ T.unpack (T.intercalate ", " xs)
 prettyJSONError (IntRangeError s i r) = s ++ ": " ++ show i ++ " not in range " ++ show r
 prettyJSONError (UTCRangeError s u r) = s ++ ": " ++ show u ++ " not in range " ++ show r
-prettyJSONError (RegexError s _ t)    = s ++ ": failed to match RE: " ++ t
+prettyJSONError (RegexError s _ t)    = s ++ ": failed to match RE: " ++ show t
 prettyJSONError (SyntaxError e)       = "JSON syntax error: " ++ e
 
 -- | A position inside a JSON value is a list of steps, ordered
@@ -251,7 +252,7 @@ instance FromJSONWithErrs Int where
   parseJSONWithErrs = withInt "Int" pure
 
 instance FromJSONWithErrs Integer where
-  parseJSONWithErrs = withInt "Integer" pure
+  parseJSONWithErrs = withNum "Integer" pure
 
 instance FromJSONWithErrs Bool where
   parseJSONWithErrs = withBool "Bool" pure
@@ -305,38 +306,28 @@ modifyTopError f p = ParserWithErrs $ \ z -> case runParserWithErrs p z of
                            | otherwise = x
 
 
-with_int_fr    :: Int -> String -> (Int -> ParserWithErrs a)
-               -> JS.Value -> ParserWithErrs a
-with_int_to    :: Int -> String -> (Int -> ParserWithErrs a)
-               -> JS.Value -> ParserWithErrs a
-with_int_fr_to :: Int -> Int -> String -> (Int -> ParserWithErrs a)
-               -> JS.Value -> ParserWithErrs a
-
-with_int_fr lo dg f = withInt dg g
-  where
-    g i = case i>=lo of
-            True  -> f i
-            False -> failWith $ IntRangeError dg i $ IntRange (Just lo) Nothing
-
-with_int_to hi dg f = withInt dg g
-  where
-    g i = case i<=hi of
-            True  -> f i
-            False -> failWith $ IntRangeError dg i $ IntRange Nothing (Just hi)
-
-with_int_fr_to lo hi dg f = withInt dg g
-  where
-    g i = case lo<=i && i<=hi of
-            True  -> f i
-            False -> failWith $ IntRangeError dg i $ IntRange (Just lo) (Just hi)
-
 -- It's contrary to my principles, but I'll accept a string containing
 -- a number instead of an actual number...
-withInt :: Num n => String -> (n -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
-withInt _ f (JS.Number (I n)) = f (fromInteger n)
-withInt _ f (JS.String s)
+withInt :: String -> (Int -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
+withInt = withNum
+
+withNum :: Num n => String -> (n -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
+withNum _ f (JS.Number (I n)) = f (fromInteger n)
+withNum _ f (JS.String s)
   | Right (I n) <- parseOnly (number <* endOfInput) s = f (fromInteger n)
-withInt s _ v = failWith $ Expected ExpInt s v
+withNum s _ v = failWith $ Expected ExpInt s v
+
+withIntRange :: IntRange -> String -> (Int -> ParserWithErrs a)
+             -> JS.Value -> ParserWithErrs a
+withIntRange ir dg f = withInt dg g
+  where
+    g i | i `inIntRange` ir = f i
+        | otherwise         = failWith $ IntRangeError dg i ir
+
+    _ `inIntRange` IntRange Nothing   Nothing   = True
+    i `inIntRange` IntRange (Just lo) Nothing   = lo <= i
+    i `inIntRange` IntRange Nothing   (Just hi) = i <= hi
+    i `inIntRange` IntRange (Just lo) (Just hi) = lo <= i && i <= hi
 
 withBinary :: String -> (Binary -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
 withBinary lab f = withText lab g
@@ -359,15 +350,13 @@ withText :: String -> (T.Text -> ParserWithErrs a)
 withText _ f (JS.String t) = f t
 withText s _ v             = failWith $ Expected ExpString s v
 
-with_txt_re    :: String -> String -> (T.Text -> ParserWithErrs a)
+withRegEx :: RegEx -> String -> (T.Text -> ParserWithErrs a)
                -> JS.Value -> ParserWithErrs a
-with_txt_re re_s dg f = withText dg g
+withRegEx re dg f = withText dg g
   where
-    g txt = case matchRegex re $ T.unpack txt of
+    g txt = case matchRegex (re_regex re) $ T.unpack txt of
               Just _  -> f txt
-              Nothing -> failWith $ RegexError dg txt re_s
-
-    re = mkRegexWithOpts re_s False True
+              Nothing -> failWith $ RegexError dg txt re
 
 withUTC :: String -> (UTCTime -> ParserWithErrs a)
         -> JS.Value -> ParserWithErrs a
@@ -375,43 +364,17 @@ withUTC lab f = withText lab g
   where
     g t = maybe (failWith $ BadFormat FmtUTC lab t) f $ parseUTC' t
 
-with_utc_fr    :: String -> String -> (UTCTime -> ParserWithErrs a)
+withUTCRange :: UTCRange -> String -> (UTCTime -> ParserWithErrs a)
                -> JS.Value -> ParserWithErrs a
-with_utc_to    :: String -> String -> (UTCTime -> ParserWithErrs a)
-               -> JS.Value -> ParserWithErrs a
-with_utc_fr_to :: String -> String -> String -> (UTCTime -> ParserWithErrs a)
-               -> JS.Value -> ParserWithErrs a
-
-with_utc_fr lo_s dg f = withUTC dg g
+withUTCRange ur dg f = withUTC dg g
   where
-    g u = case u>=lo of
-            True  -> f u
-            False -> failWith $ UTCRangeError dg u $ UTCRange (Just lo) Nothing
+    g u | u `inUTCRange` ur = f u
+        | otherwise         = failWith $ UTCRangeError dg u ur
 
-    lo   = maybe err id $ parseUTC_ lo_s
-
-    err  = error "with_utc_fr: bad UTC format"
-
-with_utc_to hi_s dg f = withUTC dg g
-  where
-    g u = case u<=hi of
-            True  -> f u
-            False -> failWith $ UTCRangeError dg u $ UTCRange Nothing (Just hi)
-
-    hi   = maybe err id $ parseUTC_ hi_s
-
-    err  = error "with_utc_fr: bad UTC format"
-
-with_utc_fr_to lo_s hi_s dg f = withUTC dg g
-  where
-    g u = case lo<=u && u<=hi of
-            True  -> f u
-            False -> failWith $ UTCRangeError dg u $ UTCRange (Just lo) (Just hi)
-
-    lo   = maybe err id $ parseUTC_ lo_s
-    hi   = maybe err id $ parseUTC_ hi_s
-
-    err  = error "with_utc_fr: bad UTC format"
+    _ `inUTCRange` UTCRange Nothing   Nothing   = True
+    u `inUTCRange` UTCRange (Just lo) Nothing   = lo <= u
+    u `inUTCRange` UTCRange Nothing   (Just hi) = u <= hi
+    u `inUTCRange` UTCRange (Just lo) (Just hi) = lo <= u && u <= hi
 
 withVersion :: String -> (Version -> ParserWithErrs a)
             -> JS.Value -> ParserWithErrs a

@@ -164,9 +164,14 @@ instance ToJSON RegEx where
 instance FromJSON RegEx where
     parseJSON = withText "RegEx" (return . mkRegEx)
 
+instance Eq RegEx where
+    r == s = re_text r == re_text s
+
 instance Show RegEx where
     show = T.unpack . re_text
 
+instance Lift RegEx where
+    lift re = [e| mkRegEx $(stringE (T.unpack (re_text re))) |]
 
 -- | SpecRecord is your classsic product type.
 
