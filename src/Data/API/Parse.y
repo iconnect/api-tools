@@ -191,11 +191,7 @@ Type
     | json                              { TyJSON                            }
 
 MayBasicLit :: { Maybe DefaultValue }
-    : strlit                            { Just $ DefValString (T.pack $1)   }
-    | true                              { Just $ DefValBool   (True     )   }
-    | false                             { Just $ DefValBool   (False    )   }
-    | intlit                            { Just $ DefValInt    $1            }
-    | utclit                            { Just $ DefValUtc    $1            }
+    : DefaultValue                      { Just $1                           }
     |                                   { Nothing                           }
 
 BasicType :: { BasicType }

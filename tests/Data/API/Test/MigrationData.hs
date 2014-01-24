@@ -48,8 +48,8 @@ another_union :: AnotherUnion
 
 dbs :: DatabaseSnapshot
     = record
-        foo   :: ? [Foo]
-        bar   :: ? [Bar]
+        foo   :: ? [Foo]        nothing
+        bar   :: ? [Bar]        []
         recur :: ? [Recursive]
 
 fooPrefix :: Foo
