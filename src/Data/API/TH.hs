@@ -54,8 +54,11 @@ applicativeE ke es0 =
 mkInstanceIfNotExists :: Name -> [Type] -> [Dec] -> Q [Dec]
 mkInstanceIfNotExists c ts ds = do
     exists <- isInstance c ts
-    if exists then return []
+    if exists then do reportWarning msg
+                      return []
               else return [InstanceD [] (foldl AppT (ConT c) ts) ds]
+  where
+    msg = "instance " ++ pprint c ++ " " ++ pprint ts ++ " already exists, so it was not generated"
 
 -- | Add an instance declaration for a class, if such an instance does
 -- not already exist
