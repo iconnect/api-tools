@@ -27,7 +27,11 @@ import           Language.Haskell.TH
 
 -- | Tool to generate datatypes and type synonyms corresponding to an API
 datatypesTool :: APITool
-datatypesTool = apiNodeTool $ apiSpecTool gen_sn_dt gen_sr_dt gen_su_dt gen_se_dt gen_sy
+datatypesTool = apiNodeTool $ apiSpecTool (simpleTool $ uncurry gen_sn_dt)
+                                          (simpleTool $ uncurry gen_sr_dt)
+                                          (simpleTool $ uncurry gen_su_dt)
+                                          (simpleTool $ uncurry gen_se_dt)
+                                          (simpleTool $ uncurry gen_sy)
 
 
 -- | Generate a type synonym definition

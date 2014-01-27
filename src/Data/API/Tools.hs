@@ -13,6 +13,11 @@ module Data.API.Tools
     ( generate
     , generateAPITools
 
+      -- * Tool settings
+    , generateAPIToolsWith
+    , defaultToolSettings
+    , warnOnOmittedInstance
+
       -- * Individual tools
     , enumTool
     , exampleTool
@@ -34,7 +39,9 @@ import           Data.API.Tools.Lens
 import           Data.API.Tools.QuickCheck
 import           Data.API.Tools.SafeCopy
 import           Data.API.Types
+
 import           Control.Applicative
+import           Data.Monoid
 import           Language.Haskell.TH
 
 
@@ -48,4 +55,9 @@ generate api = generateAPITools api [datatypesTool]
 -- which must be included in the same or a preceding call to
 -- 'generateAPITools'.
 generateAPITools :: API -> [APITool] -> Q [Dec]
-generateAPITools api tools = concat <$> mapM ($ api) tools
+generateAPITools = generateAPIToolsWith defaultToolSettings
+
+-- | Apply a list of tools to an 'API', generating TH declarations.
+-- This form allows the 'ToolSettings' to be overridden.
+generateAPIToolsWith :: ToolSettings -> API -> [APITool] -> Q [Dec]
+generateAPIToolsWith ts api tools = runTool (mconcat tools) ts api

@@ -13,20 +13,18 @@ import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.Types
 
-import           Control.Applicative
 import qualified Data.Text                      as T
 import qualified Data.Map                       as Map
+import           Data.Monoid
 import           Language.Haskell.TH
 
 
 -- | Tool to generate the maps between enumerations and 'Text' strings
 -- named by 'text_enum_nm' and 'map_enum_nm'.
 enumTool :: APITool
-enumTool = apiNodeTool enumNodeTool
-
-enumNodeTool :: APINodeTool
-enumNodeTool an | SpEnum se <- anSpec an = (++) <$> gen_se_tx an se <*> gen_se_mp an
-                | otherwise              = return []
+enumTool = apiNodeTool $ apiSpecTool mempty mempty mempty enum mempty
+  where
+    enum = simpleTool (uncurry gen_se_tx) <> simpleTool (gen_se_mp . fst)
 
 
 -- | For an enum type @E@, name a function @_text_E :: E -> 'Text'@

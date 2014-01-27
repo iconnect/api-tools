@@ -8,7 +8,10 @@ module Data.API.TH
     , simpleSigD
     ) where
 
+import           Data.API.Tools.Combinators
+
 import           Control.Applicative
+import           Control.Monad
 import           Language.Haskell.TH
 
 
@@ -31,12 +34,12 @@ applicativeE ke es0 =
 
 -- | Add an instance declaration for a class, if such an instance does
 -- not already exist
-optionalInstanceD :: Name -> [TypeQ] -> [DecQ] -> Q [Dec]
-optionalInstanceD c tqs dqs = do
+optionalInstanceD :: ToolSettings -> Name -> [TypeQ] -> [DecQ] -> Q [Dec]
+optionalInstanceD stgs c tqs dqs = do
     ts <- sequence tqs
     ds <- sequence dqs
     exists <- isInstance c ts
-    if exists then do reportWarning $ msg ts
+    if exists then do when (warnOnOmittedInstance stgs) $ reportWarning $ msg ts
                       return []
               else return [InstanceD [] (foldl AppT (ConT c) ts) ds]
   where

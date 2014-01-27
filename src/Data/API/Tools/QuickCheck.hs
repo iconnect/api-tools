@@ -13,6 +13,7 @@ import           Data.API.Types
 import           Data.API.Utils
 
 import           Control.Applicative
+import           Data.Monoid
 import           Data.Time
 import           Language.Haskell.TH
 import           Safe
@@ -21,7 +22,7 @@ import           Test.QuickCheck                as QC
 
 -- | Tool to generate 'Arbitrary' instances for generated types.
 quickCheckTool :: APITool
-quickCheckTool = apiNodeTool $ apiSpecTool gen_sn_ab gen_sr_ab gen_su_ab gen_se_ab (const emptyTool)
+quickCheckTool = apiNodeTool $ apiSpecTool gen_sn_ab gen_sr_ab gen_su_ab gen_se_ab mempty
 
 
 -- | Generate an 'Arbitrary' instance for a newtype that respects its
@@ -30,16 +31,16 @@ quickCheckTool = apiNodeTool $ apiSpecTool gen_sn_ab gen_sr_ab gen_su_ab gen_se_
 -- generating arbitrary integers, use 'arbitraryBoundedIntegral'
 -- rather than 'arbitrary' (the latter tends to generate non-unique
 -- values).
-gen_sn_ab :: APINode -> SpecNewtype -> Q [Dec]
-gen_sn_ab an sn = case snFilter sn of
-    Nothing | snType sn == BTint    -> mk_instance [e| QC.arbitraryBoundedIntegral |]
-            | otherwise             -> mk_instance [e| arbitrary |]
-    Just (FtrIntg ir) -> mk_instance [e| arbitraryIntRange ir |]
-    Just (FtrUTC ur)  -> mk_instance [e| arbitraryUTCRange ur |]
+gen_sn_ab :: Tool (APINode, SpecNewtype)
+gen_sn_ab = mkTool $ \ ts (an, sn) -> case snFilter sn of
+    Nothing | snType sn == BTint    -> mk_instance ts an [e| QC.arbitraryBoundedIntegral |]
+            | otherwise             -> mk_instance ts an [e| arbitrary |]
+    Just (FtrIntg ir)               -> mk_instance ts an [e| arbitraryIntRange ir |]
+    Just (FtrUTC ur)                -> mk_instance ts an [e| arbitraryUTCRange ur |]
     Just (FtrStrg _)                -> return []
   where
-    mk_instance arb = optionalInstanceD ''Arbitrary [nodeRepT an]
-                          [simpleD 'arbitrary [e| fmap $(nodeConE an) $arb |]]
+    mk_instance ts an arb = optionalInstanceD ts ''Arbitrary [nodeRepT an]
+                                [simpleD 'arbitrary [e| fmap $(nodeConE an) $arb |]]
 
 
 -- | Generate an 'Arbitrary' instance for a record:
@@ -47,17 +48,18 @@ gen_sn_ab an sn = case snFilter sn of
 -- > instance Arbitrary Foo where
 -- >     arbitrary = sized $ \ x -> Foo <$> resize (x `div` 2) arbitrary <*> ... <*> resize (x `div` 2) arbitrary
 
-gen_sr_ab :: APINode -> SpecRecord -> Q [Dec]
-gen_sr_ab an sr = optionalInstanceD ''QC.Arbitrary [nodeRepT an] [simpleD 'arbitrary bdy]
+gen_sr_ab :: Tool (APINode, SpecRecord)
+gen_sr_ab = mkTool $ \ ts (an, sr) -> optionalInstanceD ts ''QC.Arbitrary [nodeRepT an]
+                                          [simpleD 'arbitrary (bdy an sr)]
   where
     -- Reduce size of fields to avoid generating massive test data
     -- by giving an arbitrary implementation like this:
     --   sized (\ x -> JobSpecId <$> resize (x `div` 2) arbitrary <*> ...)
-    bdy   = do x <- newName "x"
-               appE (varE 'QC.sized) $ lamE [varP x] $
-                 applicativeE (nodeConE an) $
-                 replicate (length $ srFields sr) $
-                 [e| QC.resize ($(varE x) `div` 2) arbitrary |]
+    bdy an sr = do x <- newName "x"
+                   appE (varE 'QC.sized) $ lamE [varP x] $
+                     applicativeE (nodeConE an) $
+                     replicate (length $ srFields sr) $
+                     [e| QC.resize ($(varE x) `div` 2) arbitrary |]
 
 
 -- | Generate an 'Arbitrary' instance for a union:
@@ -65,14 +67,15 @@ gen_sr_ab an sr = optionalInstanceD ''QC.Arbitrary [nodeRepT an] [simpleD 'arbit
 -- > instance Arbitrary Foo where
 -- >     arbitrary = oneOf [ fmap Bar arbitrary, fmap Baz arbitrary ]
 
-gen_su_ab :: APINode -> SpecUnion -> Q [Dec]
-gen_su_ab an su = optionalInstanceD ''QC.Arbitrary [nodeRepT an] [simpleD 'arbitrary bdy]
+gen_su_ab :: Tool (APINode, SpecUnion)
+gen_su_ab = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''QC.Arbitrary [nodeRepT an]
+                                          [simpleD 'arbitrary (bdy an su)]
   where
-    bdy | null (suFields su) = nodeConE an
-        | otherwise          = [e| oneof $(listE alts) |]
-
-    alts = [ [e| fmap $(nodeAltConE an k) arbitrary |]
-           | (k, _) <- suFields su ]
+    bdy an su | null (suFields su) = nodeConE an
+              | otherwise          = [e| oneof $(listE alts) |]
+      where
+        alts = [ [e| fmap $(nodeAltConE an k) arbitrary |]
+               | (k, _) <- suFields su ]
 
 
 -- | Generate an 'Arbitrary' instance for an enumeration:
@@ -80,13 +83,14 @@ gen_su_ab an su = optionalInstanceD ''QC.Arbitrary [nodeRepT an] [simpleD 'arbit
 -- > instance Arbitrary Foo where
 -- >     arbitrary = elements [Bar, Baz]
 
-gen_se_ab :: APINode -> SpecEnum -> Q [Dec]
-gen_se_ab an se = optionalInstanceD ''QC.Arbitrary [nodeRepT an] [simpleD 'arbitrary bdy]
+gen_se_ab :: Tool (APINode, SpecEnum)
+gen_se_ab = mkTool $ \ ts (an, se) -> optionalInstanceD ts ''QC.Arbitrary [nodeRepT an]
+                                          [simpleD 'arbitrary (bdy an se)]
   where
-    bdy | null ks   = nodeConE an
-        | otherwise = varE 'elements `appE` listE ks
-
-    ks  = map (nodeAltConE an . fst) $ seAlts se
+    bdy an se | null ks   = nodeConE an
+              | otherwise = varE 'elements `appE` listE ks
+      where
+        ks = map (nodeAltConE an . fst) $ seAlts se
 
 
 -- | Generate an arbitrary 'Int' in a given range.
