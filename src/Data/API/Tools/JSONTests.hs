@@ -25,7 +25,7 @@ import           Test.QuickCheck
 -- | Tool to generate a list of tests of type @[('String', 'Property')]@
 -- with the given name.  This depends on 'jsonTool' and 'quickCheckTool'.
 jsonTestsTool :: Name -> APITool
-jsonTestsTool nm = mkTool $ \ ts api -> simpleSigD nm [t| [(String, Property)] |] (props api)
+jsonTestsTool nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Property)] |] (props api)
   where
     props api = listE $ map generateProp [ an | ThNode an <- api ]
 

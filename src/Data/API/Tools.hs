@@ -40,7 +40,6 @@ import           Data.API.Tools.QuickCheck
 import           Data.API.Tools.SafeCopy
 import           Data.API.Types
 
-import           Control.Applicative
 import           Data.Monoid
 import           Language.Haskell.TH
 
