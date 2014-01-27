@@ -10,7 +10,7 @@ Description:         api-tools provides a compact DSL for describing an API.
 Homepage:            http://github.com/iconnect/api-tools
 License:             BSD3
 License-file:        LICENSE
-Author:              Chris Dornan
+Author:              Chris Dornan and Adam Gundry
 Maintainer:          chrisd@irisconnect.co.uk
 Copyright:           (c) Iris Connect 2013-2014
 Category:            Network, Web, Cloud, Distributed Computing
