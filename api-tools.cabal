@@ -1,5 +1,5 @@
 Name:                api-tools
-Version:             0.1
+Version:             0.1.1
 Synopsis:            DSL for generating API boilerplate and docs
 Description:         api-tools provides a compact DSL for describing an API.
                      It uses Template Haskell to generate the
@@ -91,7 +91,7 @@ Executable migration-tool
   Main-is:    Data/API/MigrationTool.hs
 
   Build-depends:
-        api-tools            >= 0.1,
+        api-tools            == 0.1.1,
         Cabal                >= 1.9.2       ,
         QuickCheck           >= 2.5.1,
         aeson                >= 0.6.2,
@@ -137,7 +137,7 @@ Test-Suite test-api-tools
         Data.API.Test.MigrationData
 
   Build-depends:
-        api-tools            >= 0.1,
+        api-tools            == 0.1.1,
         Cabal                >= 1.9.2       ,
         QuickCheck           >= 2.5.1,
         aeson                >= 0.6.2,
