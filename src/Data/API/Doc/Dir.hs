@@ -12,6 +12,8 @@ import           Data.Ord
 import           Data.Char
 
 
+-- | Generate a web page documenting all the 'Call's in a web
+-- application
 dirHtml :: DocInfo -> Dict -> [Call] -> String
 dirHtml di dct cls = concat
     [ container_open                 dct

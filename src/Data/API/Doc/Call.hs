@@ -12,6 +12,7 @@ import           Data.List
 import           Data.Ord
 
 
+-- | Generate a web page documenting a 'Call'
 callHtml :: DocInfo -> Dict -> Call -> String
 callHtml di dct0 call@Call{..} = concat
     [ container_open            dct
