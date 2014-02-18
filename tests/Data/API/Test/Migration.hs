@@ -98,7 +98,7 @@ basicMigrationTest :: Assertion
 basicMigrationTest = do
     assertMatchesAPI "Start data does not match start API" startSchema startData
     assertMatchesAPI "End data does not match end API"     endSchema   endData
-    case migrateDataDump (startSchema, startVersion) (endSchema, endVersion)
+    case migrateDataDump (startSchema, startVersion) (endSchema, DevVersion)
                          changelog testMigration root_ CheckAll startData of
       Right (v, []) | endData == v -> return ()
                     | otherwise    -> assertFailure $ "expected:\n"
@@ -111,7 +111,7 @@ basicMigrationTest = do
 applyFailureTest :: (Version, Version, ApplyFailure) -> Test.TestTree
 applyFailureTest (ver, ver', expected) =
     testCase (showVersion ver ++ " -> " ++ showVersion ver') $
-          case migrateDataDump (startSchema, ver) (endSchema, ver')
+          case migrateDataDump (startSchema, ver) (endSchema, Release ver')
                                badChangelog testMigration root_ CheckAll startData of
             Right _ -> assertFailure $ "Successful migration!"
             Left (ValidateFailure (ChangelogEntryInvalid _ _ err))
@@ -139,7 +139,7 @@ $(generateAPITools startSchema
 
 validMigrationProperty :: DatabaseSnapshot -> P.Result
 validMigrationProperty db =
-    case migrateDataDump (startSchema, startVersion) (endSchema, endVersion)
+    case migrateDataDump (startSchema, startVersion) (endSchema, DevVersion)
                          changelog testMigration root_ CheckStartAndEnd (JS.toJSON db) of
     Right (v, []) -> case dataMatchesAPI root_ endSchema v of
         Right _   -> succeeded

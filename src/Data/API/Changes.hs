@@ -15,6 +15,8 @@ module Data.API.Changes
     , APIChangelog(..)
     , APIWithChangelog
     , APIChange(..)
+    , VersionExtra(..)
+    , showVersionExtra
     , changelogStartVersion
     , changelogVersion
 
@@ -69,6 +71,7 @@ import           Data.Version
 import           Data.Time
 import           Data.List
 import           Language.Haskell.TH
+import           Safe
 
 
 -------------------------
@@ -85,7 +88,7 @@ import           Language.Haskell.TH
 
 migrateDataDump :: (Read db, Read rec, Read fld)
                 => (API, Version)               -- ^ Starting schema and version
-                -> (API, Version)               -- ^ Ending schema and version
+                -> (API, VersionExtra)          -- ^ Ending schema and version
                 -> APIChangelog                 -- ^ Log of changes, containing both versions
                 -> CustomMigrations db rec fld  -- ^ Custom migration functions
                 -> TypeName                     -- ^ Name of the dataset's type
@@ -117,7 +120,7 @@ type APIWithChangelog = (API, APIChangelog)
 -- descending order (according to the 'Ord' 'Version' instance).
 data APIChangelog =
      -- | The changes from the previous version up to this version.
-     ChangesUpTo Version [APIChange] APIChangelog
+     ChangesUpTo VersionExtra [APIChange] APIChangelog
      -- | The initial version
    | ChangesStart Version
     deriving (Eq, Show)
@@ -207,32 +210,46 @@ validateAfter chks _                  = chks >= CheckAll
 -- Changelog utils
 --
 
+-- | Represents either a released version (with a version number) or
+-- the version under development, which is newer than any release
+data VersionExtra = Release Version
+                  | DevVersion
+  deriving (Eq, Ord, Show)
+
+showVersionExtra :: VersionExtra -> String
+showVersionExtra (Release v) = showVersion v
+showVersionExtra DevVersion  = "development"
+
+instance PP VersionExtra where
+  pp = showVersionExtra
+
+
 -- | The earliest version in the changelog
 changelogStartVersion :: APIChangelog -> Version
 changelogStartVersion (ChangesStart v) = v
 changelogStartVersion (ChangesUpTo _ _ clog) = changelogStartVersion clog
 
 -- | The latest version in the changelog
-changelogVersion :: APIChangelog -> Version
-changelogVersion (ChangesStart v)     = v
+changelogVersion :: APIChangelog -> VersionExtra
+changelogVersion (ChangesStart v)     = Release v
 changelogVersion (ChangesUpTo  v _ _) = v
 
 -- | Changelog in order starting from oldest version up to newest.
 -- Entries are @(from, to, changes-oldest-first)@.
-viewChangelogReverse :: APIChangelog -> [(Version, Version, [APIChange])]
+viewChangelogReverse :: APIChangelog -> [(VersionExtra, VersionExtra, [APIChange])]
 viewChangelogReverse clog =
   reverse [ (v,v',reverse cs) | (v',v,cs) <- viewChangelog clog ]
 
 -- | Changelog in order as written, with latest version at the beginning, going
 -- back to older versions. Entries are @(to, from, changes-latest-first)@.
-viewChangelog :: APIChangelog -> [(Version, Version, [APIChange])]
+viewChangelog :: APIChangelog -> [(VersionExtra, VersionExtra, [APIChange])]
 viewChangelog (ChangesStart _)          = []
 viewChangelog (ChangesUpTo v' cs older) = (v', v, cs) : viewChangelog older
                                            where v = changelogVersion older
 
 -- | Is the changelog in the correct order? If not, return a pair of
 -- out-of-order versions.
-isChangelogOrdered :: APIChangelog -> Either (Version, Version) ()
+isChangelogOrdered :: APIChangelog -> Either (VersionExtra, VersionExtra) ()
 isChangelogOrdered changelog =
     case find (\ (v', v, _) -> v' <= v) (viewChangelog changelog) of
       Nothing         -> return ()
@@ -490,13 +507,13 @@ findUpdatePos tname api = Map.alter (Just . UpdateHere) tname $
 -- | Errors that may be discovered when validating a changelog
 data ValidateFailure
         -- | the changelog must be in descending order of versions
-    = ChangelogOutOfOrder { vfLaterVersion   :: Version
-                          , vfEarlierVersion :: Version }
+    = ChangelogOutOfOrder { vfLaterVersion   :: VersionExtra
+                          , vfEarlierVersion :: VersionExtra }
         -- | forbid migrating from one version to an earlier version
-    | CannotDowngrade { vfFromVersion :: Version
-                      , vfToVersion   :: Version }
+    | CannotDowngrade { vfFromVersion :: VersionExtra
+                      , vfToVersion   :: VersionExtra }
         -- | an API uses types that are not declared
-    | ApiInvalid { vfInvalidVersion      :: Version
+    | ApiInvalid { vfInvalidVersion      :: VersionExtra
                  , vfMissingDeclarations :: Set TypeName }
         -- | changelog entry does not apply
     | ChangelogEntryInvalid { vfSuccessfullyApplied :: [APITableChange]
@@ -504,8 +521,8 @@ data ValidateFailure
                             , vfApplyFailure        :: ApplyFailure }
         -- | changelog is incomplete
         --   (ie all entries apply ok but result isn't the target api)
-    | ChangelogIncomplete { vfChangelogVersion :: Version
-                          , vfTargetVersion    :: Version
+    | ChangelogIncomplete { vfChangelogVersion :: VersionExtra
+                          , vfTargetVersion    :: VersionExtra
                           , vfDifferences      :: Map TypeName (MergeResult NormTypeDecl NormTypeDecl) }
   deriving (Eq, Show)
 
@@ -548,7 +565,7 @@ data TypeKind = TKRecord | TKUnion | TKEnum
 -- one version to another.
 validateChanges :: (Read db, Read rec, Read fld)
                 => (API, Version)              -- ^ Starting schema and version
-                -> (API, Version)              -- ^ Ending schema and version
+                -> (API, VersionExtra)         -- ^ Ending schema and version
                 -> APIChangelog                -- ^ Changelog to be validated
                 -> CustomMigrations db rec fld -- ^ Custom migration functions
                 -> TypeName                    -- ^ Name of the dataset's type
@@ -561,7 +578,7 @@ validateChanges (api,ver) (api',ver') clog custom root chks = snd <$>
 -- migration tags and returns the list of 'APITableChange's to apply
 -- to the dataset.
 validateChanges' :: (API, Version)         -- ^ Starting schema and version
-                 -> (API, Version)         -- ^ Ending schema and version
+                 -> (API, VersionExtra)    -- ^ Ending schema and version
                  -> APIChangelog           -- ^ Changelog to be validated
                  -> CustomMigrationsTagged -- ^ Custom migration functions
                  -> TypeName               -- ^ Name of the dataset's type
@@ -569,12 +586,12 @@ validateChanges' :: (API, Version)         -- ^ Starting schema and version
                  -> Either ValidateFailure ([APITableChange], [ValidateWarning])
 validateChanges' (api,ver) (api',ver') clog custom root chks = do
   -- select changes by version from log
-  (changes, verEnd) <- selectChanges clog ver ver'
+  (changes, verEnd) <- selectChanges clog (Release ver) ver'
   -- take norm of start and end api,
   let apiStart  = apiNormalForm api
       apiTarget = apiNormalForm api'
   -- check start and end APIs are well formed.
-  apiInvariant apiStart  ?!? ApiInvalid ver
+  apiInvariant apiStart  ?!? ApiInvalid (Release ver)
   apiInvariant apiTarget ?!? ApiInvalid ver'
    -- check expected end api
   (apiEnd, changes') <- applyAPIChangesToAPI root custom chks changes apiStart
@@ -582,8 +599,8 @@ validateChanges' (api,ver) (api',ver') clog custom root chks = do
   guard (apiEnd == apiTarget) ?! ChangelogIncomplete verEnd ver' (diffMaps apiEnd apiTarget)
   return (changes', [])
 
-selectChanges :: APIChangelog -> Version -> Version
-              -> Either ValidateFailure ([APIChange], Version)
+selectChanges :: APIChangelog -> VersionExtra -> VersionExtra
+              -> Either ValidateFailure ([APIChange], VersionExtra)
 selectChanges clog ver ver'
   | ver' == ver = return ([], ver')
   | ver' >  ver = do
@@ -591,9 +608,9 @@ selectChanges clog ver ver'
       let withinRange = takeWhile (\ (_, v, _) -> v <= ver') $
                             dropWhile (\ (_, v, _) -> v <= ver) $
                                 viewChangelogReverse clog
-          endVer = case withinRange of
-                     []            -> ver
-                     ((_, v, _):_) -> v
+          endVer = case lastMay withinRange of
+                     Nothing        -> ver
+                     Just (_, v, _) -> v
       return ([ c | (_,_, cs) <- withinRange, c <- cs ], endVer)
 
   | otherwise = Left (CannotDowngrade ver ver')
@@ -1154,7 +1171,7 @@ instance PPLines ValidateFailure where
              else []
   ppLines (ChangelogIncomplete ver ver' diffs) =
       ("Changelog incomplete! Differences between log version ("
-           ++ showVersion ver ++ ") and latest version (" ++ showVersion ver' ++ "):")
+           ++ showVersionExtra ver ++ ") and latest version (" ++ showVersionExtra ver' ++ "):")
       : indent (concatMap (uncurry ppDiff) $ Map.toList diffs)
 
 instance PPLines APITableChange where

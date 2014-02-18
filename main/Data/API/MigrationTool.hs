@@ -43,9 +43,8 @@ migrate startApiFile endApiFile
     (startApi, startChangelog) <- readApiFile startApiFile
     (endApi, endChangelog)     <- readApiFile endApiFile
     inData                     <- readJsonFile inDataFile
-    let startApiVer = changelogVersion startChangelog
-        endApiVer   = changelogVersion endChangelog
-    case migrateDataDump (startApi, startApiVer) (endApi, endApiVer)
+    let Release startApiVer = changelogVersion startChangelog
+    case migrateDataDump (startApi, startApiVer) (endApi, DevVersion)
                          endChangelog customMigrations root CheckAll inData of
       Left err                  -> do
         hPutStrLn stderr (prettyMigrateFailure err)

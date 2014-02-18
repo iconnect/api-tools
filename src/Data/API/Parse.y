@@ -218,12 +218,15 @@ TypeName :: { TypeName }
 
 APIChangelog :: { APIChangelog }
 APIChangelog
-    : version Version Changes ';' APIChangelog { ChangesUpTo $2 $3 $5       }
+    : version VersionExtra Changes ';' APIChangelog { ChangesUpTo $2 $3 $5  }
     | version Version                          { ChangesStart $2            }
-    | Comments ';' APIChangelog                 { $3                         }
+    | Comments ';' APIChangelog                { $3                         }
 
 Version :: { V.Version }
     : strlit                            { parseVer $1                       }
+
+VersionExtra :: { VersionExtra }
+    : strlit                            { parseVersionExtra $1              }
 
 Changes :: { [APIChange] }
     : RChanges                          { concat (reverse $1)               }
@@ -339,6 +342,11 @@ parseVer :: String -> V.Version
 parseVer x = case simpleParse x of
                  Just v -> v
                  Nothing -> error $ "Syntax error while parsing version " ++ x
+
+parseVersionExtra :: String -> VersionExtra
+parseVersionExtra "development" = DevVersion
+parseVersionExtra s             = Release $ parseVer s
+
 
 api :: QuasiQuoter
 api =

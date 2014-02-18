@@ -161,7 +161,14 @@ duplicaterecursive :: DuplicateRecursive
         recur      :: ? Recursive
         new        :: string
 
+new :: New
+    = basic integer
+
 changes
+
+version "development"
+  // changes since last release
+  added New basic integer
 
 version "2.6"
   // add fields with implicit default values
@@ -521,7 +528,7 @@ expectedApplyFailures = map toVersions $
 
 type MigrateFailureTest = ( String
                           , (API, Version)  -- Start version
-                          , (API, Version)  -- End version
+                          , (API, VersionExtra)  -- End version
                           , APIChangelog
                           , JS.Value
                           , MigrateFailure -> Bool )
@@ -530,15 +537,15 @@ expectedMigrateFailures :: [MigrateFailureTest]
 expectedMigrateFailures =
   [ ( "Out of order"
     , (startSchema, ver "0.1")
-    , (endSchema, ver "0.2")
+    , (endSchema, verRelease "0.2")
     , outOfOrder
     , startData
-    , (== ValidateFailure (ChangelogOutOfOrder (ver "0.1") (ver "0.2")))
+    , (== ValidateFailure (ChangelogOutOfOrder (verRelease "0.1") (verRelease "0.2")))
     )
 
   , ("Incomplete"
     , (startSchema, ver "0.1")
-    , (endSchema, ver "2.5")
+    , (endSchema, verRelease "2.5")
     , incomplete
     , startData
     , \ err -> case err of
@@ -548,15 +555,15 @@ expectedMigrateFailures =
 
   , ( "Downgrade"
     , (startSchema, ver "0.2")
-    , (startSchema, ver "0.1")
+    , (startSchema, verRelease "0.1")
     , changelog
     , startData
-    , (== ValidateFailure (CannotDowngrade (ver "0.2") (ver "0.1")))
+    , (== ValidateFailure (CannotDowngrade (verRelease "0.2") (verRelease "0.1")))
     )
 
   , ("Bad custom migration"
     , (startSchema, ver "0.1")
-    , (startSchema, ver "0.2")
+    , (startSchema, verRelease "0.2")
     , badCustomMigration
     , startData
     , \ err -> case err of
@@ -567,6 +574,7 @@ expectedMigrateFailures =
   where
     ver s | Just v <- simpleParse s = v
           | otherwise = error $ "expectedValidateFailures: bad version " ++ show s
+    verRelease s = Release $ ver s
 
     outOfOrder = snd [apiWithChangelog|
 changes
@@ -591,9 +599,8 @@ startData, endData :: JS.Value
 Just startData = JS.decode "{ \"foo\": [ {\"id\": 42, \"nest\": { \"id\": 3 }, \"en\": \"foo\", \"un\": { \"bar\": { \"id\": 43 } }, \"quux\": null } ], \"bar\": [ { \"id\": 4 } ], \"recur\": [{ \"id\": 9, \"recur\": { \"id\": 8, \"recur\": null} }] }"
 Just endData = JS.decode "{ \"foo\": [ {\"id\":42, \"nest\": { \"id\": 3, \"new\": \"hello\" }, \"c\": \"foobar42\", \"en\": \"foofoo\", \"un\": { \"barbar\": { \"id\": 43 } }, \"nolist\": [], \"nomaybe\": null } ], \"boz\": [], \"bar2\": [ {\"id\": 4 } ], \"recur\": [{ \"renamed_id\": 9, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": { \"renamed_id\": 8, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": null} }], \"recur2\": [{ \"renamed_id\": 9, \"new\": \"hello\", \"recur\": { \"renamed_id\": 8, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": null} }] }"
 
-startVersion, endVersion :: Version
+startVersion :: Version
 startVersion = changelogStartVersion changelog
-endVersion   = changelogVersion changelog
 
 root_ :: TypeName
 root_ = TypeName "DatabaseSnapshot"
