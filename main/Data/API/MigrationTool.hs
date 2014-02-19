@@ -31,10 +31,14 @@ main = do
       ["reformat", file1, file2] ->
        reformatJSON file1 file2
 
-      ["changes", file] ->
-       changes file
+      ["parse", file] ->
+       parse file
 
-      _ -> putStrLn "--migrate start.api end.api start.json end.json" >> return ()
+      _ -> do putStrLn "Usage: migration-tool migrate  start.api end.api start.json end.json"
+              putStrLn "       migration-tool compare  file1.json file2.json"
+              putStrLn "       migration-tool reformat input.json output.json"
+              putStrLn "       migration-tool parse    schema.api"
+              return ()
 
 migrate :: FilePath -> FilePath -> FilePath -> FilePath -> IO ()
 migrate startApiFile endApiFile
@@ -88,7 +92,7 @@ reformatJSON file1 file2 = do
   js <- readJsonFile file1
   writeJsonFile file2 (js :: JS.Value)
 
-changes :: FilePath -> IO ()
-changes file = do
+parse :: FilePath -> IO ()
+parse file = do
   s <- readFile file
-  print (parseAPI s)
+  print (parseAPIWithChangelog s)
