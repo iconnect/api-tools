@@ -26,10 +26,7 @@ Library
         Data.API.API.Gen
         Data.API.Changes
         Data.API.Doc
-        Data.API.Doc.Call
-        Data.API.Doc.Dir
         Data.API.Doc.Subst
-        Data.API.Doc.Types
         Data.API.JSON
         Data.API.Markdown
         Data.API.Parse
@@ -50,6 +47,9 @@ Library
 
   Other-modules:
         Data.API.API.DSL
+        Data.API.Doc.Call
+        Data.API.Doc.Dir
+        Data.API.Doc.Types
         Data.API.Scan
         Data.API.TH
 

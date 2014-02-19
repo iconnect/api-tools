@@ -13,7 +13,6 @@ module Data.API.Doc.Types
     , Sample(..)
     , Body(..)
     , DocInfo(..)
-    , htmlBody
     , renderAPIType
     , renderBodyType
     , mk_link
@@ -94,10 +93,6 @@ data DocInfo
         , doc_info_type_url :: TypeName -> URL
           -- ^ URL for documentation of an API type
         }
-
-
-htmlBody :: Body t
-htmlBody = OtherBody "html"
 
 renderBodyType :: DocInfo -> Body APIType -> String
 renderBodyType _  EmptyBody     = "empty"

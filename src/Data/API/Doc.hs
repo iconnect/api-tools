@@ -11,6 +11,9 @@ module Data.API.Doc
     , URL
     , HTTPMethod
     , StatusCode
+    , renderAPIType
+    , renderBodyType
+    , mk_link
     ) where
 
 import           Data.API.Doc.Call
