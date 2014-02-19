@@ -234,6 +234,28 @@ with the changelog fragment above would give
 > data RecordMigration   = MigrateWidgetRecord  | ...
 > data FieldMigration    = MigrateFooField      | ...
 
+Calls to 'migrateDataDump' should include a suitable
+'CustomMigrations' record, which includes functions to perform the
+migrations on the underlying data, represented as an Aeson 'Value'.
+For example, suppose the @foo@ field of the @Widget@ record previously
+contained a boolean: a suitable 'fieldMigration' implementation might be:
+
+> fieldMigration :: FieldMigration -> Value -> Either ValueError Value
+> fieldMigration MigrateFooField (Bool b) = Right $ toJSON $ show b
+> fieldMigration MigrateFooField v        = Left  $ CustomMigrationError "oops" v
+> ...
+
+A field migration may change the type of the field by listing the new
+type in the changelog.  Whole-database and individual-record
+migrations may describe the changes they make to the schema in the
+'databaseMigrationSchema' and 'recordMigrationSchema' fields of the
+'CustomMigrations' record.
+
+In order to check that custom migrations result in data that matches
+the schema, the 'DataChecks' parameter of 'migrateDataDump' can be set
+to 'CheckCustom' or 'CheckAll'.  This will validate the data against
+the schema after calling the custom migration code.
+
 -}
 
 {- $docs
