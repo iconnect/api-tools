@@ -50,6 +50,7 @@ module Data.API.Changes
     ) where
 
 import           Data.API.JSON
+import           Data.API.NormalForm
 import           Data.API.PP
 import           Data.API.Types
 import           Data.API.Utils
@@ -275,172 +276,6 @@ changeTags (ChCustomAll t)         = (Set.singleton t, Set.empty, Set.empty)
 changeTags _                       = (Set.empty, Set.empty, Set.empty)
 
 
-------------------------------------------
--- Comparing APIs: canonical/normal form
---
-
--- | The API type has too much extra info for us to be able to simply compare
--- them with @(==)@. Our strategy is to strip out ancillary information and
--- normalise into a canonical form, and then we can use a simple @(==)@ compare.
---
--- Our normalised API discards most of the details of each type, keeping
--- just essential information about each type. We discard order of types and
--- fields, so we can use just associative maps.
---
-type NormAPI = Map TypeName NormTypeDecl
-
--- | The normal or canonical form for a type declaration, an 'APINode'.
--- Equality of the normal form indicates equivalence of APIs.
---
--- We track all types.
---
-data NormTypeDecl
-    = NRecordType  NormRecordType
-    | NUnionType   NormUnionType
-    | NEnumType    NormEnumType
-    | NTypeSynonym APIType
-    | NNewtype     BasicType
-  deriving (Eq, Show)
-
--- | The canonical form of a record type is a map from fields to
--- values; similarly a union is a map from fields to alternatives and
--- an enum is a set of values.
-type NormRecordType = Map FieldName APIType
-type NormUnionType  = Map FieldName APIType
-type NormEnumType   = Set FieldName
-
-
--- | Compute the normal form of an API, discarding extraneous information.
-apiNormalForm :: API -> NormAPI
-apiNormalForm api =
-    Map.fromList
-      [ (name, declNF spec)
-      | ThNode (APINode {anName = name, anSpec = spec}) <- api ]
-
--- | Compute the normal form of a single type declaration.
-declNF :: Spec -> NormTypeDecl
-declNF (SpRecord (SpecRecord fields)) = NRecordType $ Map.fromList
-                                          [ (fname, ftType ftype)
-                                          | (fname, ftype) <- fields ]
-declNF (SpUnion (SpecUnion alts))     = NUnionType $ Map.fromList
-                                          [ (fname, ftype)
-                                          | (fname, (ftype, _)) <- alts ]
-declNF (SpEnum (SpecEnum elems))      = NEnumType $ Set.fromList
-                                          [ fname | (fname, _) <- elems ]
-declNF (SpSynonym t)                  = NTypeSynonym t
-declNF (SpNewtype (SpecNewtype bt _)) = NNewtype bt
-
-
--------------------------
--- Type decl/expr utils
---
-
-typeDelcsFreeVars :: NormAPI -> Set TypeName
-typeDelcsFreeVars = Set.unions . map typeDelcFreeVars . Map.elems
-
-typeDelcFreeVars :: NormTypeDecl -> Set TypeName
-typeDelcFreeVars (NRecordType fields) = Set.unions . map typeFreeVars
-                                                   . Map.elems $ fields
-typeDelcFreeVars (NUnionType  alts)   = Set.unions . map typeFreeVars
-                                                   . Map.elems $ alts
-typeDelcFreeVars (NEnumType _)        = Set.empty
-typeDelcFreeVars (NTypeSynonym t)     = typeFreeVars t
-typeDelcFreeVars (NNewtype _)         = Set.empty
-
-typeFreeVars :: APIType -> Set TypeName
-typeFreeVars (TyList  t) = typeFreeVars t
-typeFreeVars (TyMaybe t) = typeFreeVars t
-typeFreeVars (TyName  n) = Set.singleton n
-typeFreeVars (TyBasic _) = Set.empty
-typeFreeVars  TyJSON     = Set.empty
-
-mapTypeDeclFreeVars :: (TypeName -> APIType) -> NormTypeDecl -> NormTypeDecl
-mapTypeDeclFreeVars f   (NRecordType fields) = NRecordType (Map.map (mapTypeFreeVars f) fields)
-mapTypeDeclFreeVars f   (NUnionType  alts)   = NUnionType (Map.map (mapTypeFreeVars f) alts)
-mapTypeDeclFreeVars _ d@(NEnumType _)        = d
-mapTypeDeclFreeVars f   (NTypeSynonym t)     = NTypeSynonym (mapTypeFreeVars f t)
-mapTypeDeclFreeVars _ d@(NNewtype _)         = d
-
-mapTypeFreeVars :: (TypeName -> APIType) -> APIType -> APIType
-mapTypeFreeVars f (TyList  t)   = TyList (mapTypeFreeVars f t)
-mapTypeFreeVars f (TyMaybe t)   = TyMaybe (mapTypeFreeVars f t)
-mapTypeFreeVars f (TyName  n)   = f n
-mapTypeFreeVars _ t@(TyBasic _) = t
-mapTypeFreeVars _ t@TyJSON      = t
-
-
-typeDeclaredInApi :: TypeName -> NormAPI -> Bool
-typeDeclaredInApi tname api = Map.member tname api
-
--- | Check if a type is used anywhere in the API
-typeUsedInApi :: TypeName -> NormAPI -> Bool
-typeUsedInApi tname api = tname `Set.member` typeDelcsFreeVars api
-
--- | Check if a type is used anywhere in the database (possibly in a
--- transitive dependency of the root).
-typeUsedInApiTable :: TypeName -> TypeName -> NormAPI -> Bool
-typeUsedInApiTable root tname api =
-    tname == root || tname `Set.member` transitiveDeps api (Set.singleton root)
-
--- | Compute the transitive dependencies of a set of types
-transitiveDeps :: NormAPI -> Set TypeName -> Set TypeName
-transitiveDeps api = transitiveClosure $ \ s ->
-                         typeDelcsFreeVars $
-                         Map.filterWithKey (\ x _ -> x `Set.member` s) api
-
--- | Compute the set of types that depend (transitively) on the given types
-transitiveSped :: NormAPI -> Set TypeName -> Set TypeName
-transitiveSped api = transitiveClosure $ \ s ->
-                         Map.keysSet $
-                         Map.filter (intersects s . typeDelcFreeVars) api
-  where
-    intersects s1 s2 = not $ Set.null $ s1 `Set.intersection` s2
-
--- | Compute the transitive closure of a relation.  Relations are
--- represented as functions that takes a set of elements to the set of
--- related elements.
-transitiveClosure :: Ord a => (Set a -> Set a) -> Set a -> Set a
-transitiveClosure rel x = findUsed x0 x0
-  where
-    x0 = rel x
-
-    findUsed seen old
-      | Set.null new = seen
-      | otherwise    = findUsed (seen `Set.union` new) new
-      where
-        new = rel old `Set.difference` seen
-
-renameTypeUses :: TypeName -> TypeName -> NormAPI -> NormAPI
-renameTypeUses tname tname' = Map.map (mapTypeDeclFreeVars rename)
-  where
-    rename tn | tn == tname = TyName tname'
-              | otherwise   = TyName tn
-
-typeIsValid :: APIType -> NormAPI -> Either (Set TypeName) ()
-typeIsValid t api
-    | typeVars `Set.isSubsetOf` declaredTypes = return ()
-    | otherwise = Left (typeVars Set.\\ declaredTypes)
-  where
-    typeVars      = typeFreeVars t
-    declaredTypes = Map.keysSet api
-
-declIsValid :: NormTypeDecl -> NormAPI -> Either (Set TypeName) ()
-declIsValid decl api
-    | declVars `Set.isSubsetOf` declaredTypes = return ()
-    | otherwise = Left (declVars Set.\\ declaredTypes)
-  where
-    declVars      = typeDelcFreeVars decl
-    declaredTypes = Map.keysSet api
-
-apiInvariant :: NormAPI -> Either (Set TypeName) ()
-apiInvariant api
-  | usedTypes `Set.isSubsetOf` declaredTypes = return ()
-  | otherwise = Left (usedTypes Set.\\ declaredTypes)
-  where
-    usedTypes     = typeDelcsFreeVars api
-    declaredTypes = Map.keysSet api
-
-
 --------------------------------
 -- Representing update positions
 --
@@ -475,7 +310,7 @@ findUpdatePos tname api = Map.alter (Just . UpdateHere) tname $
   where
     -- The set of types that depend on the type being updated
     deps :: Set TypeName
-    deps = transitiveSped api (Set.singleton tname)
+    deps = transitiveReverseDeps api (Set.singleton tname)
 
     findDecl :: TypeName -> UpdateDeclPos
     findDecl tname' = findDecl' $
@@ -690,7 +525,7 @@ applyAPIChangeToAPI root _ (ChAddField tname fname ftype mb_defval) api = do
   case mb_defval <|> defaultValueForType ftype of
     Just defval -> guard (compatibleDefaultValue api ftype defval)
                                                    ?! FieldBadDefaultValue tname fname ftype defval
-    Nothing     -> guard (not (typeUsedInApiTable root tname api))
+    Nothing     -> guard (not (typeUsedInTransitiveDep root tname api))
                                                    ?! DefaultMissing tname fname
   let tinfo' = NRecordType (Map.insert fname ftype recinfo)
   return (Map.insert tname tinfo' api, findUpdatePos tname api)
@@ -729,7 +564,7 @@ applyAPIChangeToAPI _ _ (ChAddUnionAlt tname fname ftype) api = do
 applyAPIChangeToAPI root _ (ChDeleteUnionAlt tname fname) api = do
   tinfo     <- lookupType tname api
   unioninfo <- expectUnionType tinfo         ?! TypeWrongKind tname TKUnion
-  guard (not (typeUsedInApiTable root tname api)) ?! TypeInUse tname
+  guard (not (typeUsedInTransitiveDep root tname api)) ?! TypeInUse tname
   guard (Map.member fname unioninfo)         ?! FieldDoesNotExist tname TKUnion fname
   let tinfo' = NUnionType (Map.delete fname unioninfo)
   return (Map.insert tname tinfo' api, Map.empty)
@@ -753,7 +588,7 @@ applyAPIChangeToAPI _ _ (ChAddEnumVal tname fname) api = do
 applyAPIChangeToAPI root _ (ChDeleteEnumVal tname fname) api = do
   tinfo    <- lookupType tname api
   enuminfo <- expectEnumType tinfo          ?! TypeWrongKind tname TKEnum
-  guard (not (typeUsedInApiTable root tname api)) ?! TypeInUse tname
+  guard (not (typeUsedInTransitiveDep root tname api)) ?! TypeInUse tname
   guard (Set.member fname enuminfo)         ?! FieldDoesNotExist tname TKEnum fname
   let tinfo' = NEnumType (Set.delete fname enuminfo)
   return (Map.insert tname tinfo' api, Map.empty)
@@ -1137,18 +972,6 @@ instance PPLines APIChange where
                                       , "  alternative renamed " ++ pp f ++ " to " ++ pp f']
   ppLines (ChCustomRecord t c)      = ["changed record " ++ pp t ++ " migration " ++ pp c]
   ppLines (ChCustomAll c)           = ["migration " ++ pp c]
-
-instance PPLines NormTypeDecl where
-  ppLines (NRecordType flds) = "record" : map (\ (f, ty) -> "  " ++ pp f
-                                                            ++ " :: " ++ pp ty)
-                                              (Map.toList flds)
-  ppLines (NUnionType alts)  = "union"  : map (\ (f, ty) -> "  " ++ pp f
-                                                            ++ " :: " ++ pp ty)
-                                              (Map.toList alts)
-  ppLines (NEnumType vals)   = "enum"   : map (\ v -> "  " ++ pp v)
-                                              (Set.toList vals)
-  ppLines (NTypeSynonym t)   = [pp t]
-  ppLines (NNewtype b)       = ["basic " ++ pp b]
 
 instance PPLines MigrateFailure where
   ppLines (ValidateFailure x) = ppLines x

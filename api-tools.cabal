@@ -29,6 +29,7 @@ Library
         Data.API.Doc.Subst
         Data.API.JSON
         Data.API.Markdown
+        Data.API.NormalForm
         Data.API.Parse
         Data.API.PP
         Data.API.Tools
