@@ -42,6 +42,7 @@ Library
         Data.API.Tools.Lens
         Data.API.Tools.QuickCheck
         Data.API.Tools.SafeCopy
+        Data.API.Tools.Traversal
         Data.API.Tutorial
         Data.API.Types
         Data.API.Utils
