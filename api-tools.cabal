@@ -29,6 +29,7 @@ Library
         Data.API.Doc.Subst
         Data.API.JSON
         Data.API.Markdown
+        Data.API.NormalForm
         Data.API.Parse
         Data.API.PP
         Data.API.Tools
@@ -41,6 +42,7 @@ Library
         Data.API.Tools.Lens
         Data.API.Tools.QuickCheck
         Data.API.Tools.SafeCopy
+        Data.API.Tools.Traversal
         Data.API.Tutorial
         Data.API.Types
         Data.API.Utils

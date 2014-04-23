@@ -10,6 +10,7 @@ module Data.API.Tools.Combinators
     , simpleTool
     , mkTool
     , contramapTool
+    , readTool
     , subTools
     , apiNodeTool
     , apiDataTypeTool
@@ -69,6 +70,10 @@ mkTool = Tool
 -- | 'Tool' is a contravariant functor
 contramapTool :: (a -> b) -> Tool b -> Tool a
 contramapTool f t = Tool $ \ ts a -> runTool t ts (f a)
+
+-- | Make a tool that reads its argument to decide what to do
+readTool :: (a -> Tool a) -> Tool a
+readTool t = mkTool $ \ ts x -> runTool (t x) ts x
 
 -- | Apply a tool that acts on elements of a list to the entire list
 subTools :: Tool a -> Tool [a]
