@@ -1,5 +1,5 @@
 Name:                api-tools
-Version:             0.2
+Version:             0.3
 Synopsis:            DSL for generating API boilerplate and docs
 Description:         api-tools provides a compact DSL for describing an API.
                      It uses Template Haskell to generate the
@@ -11,12 +11,21 @@ Homepage:            http://github.com/iconnect/api-tools
 License:             BSD3
 License-file:        LICENSE
 Author:              Chris Dornan <chrisd@irisconnect.co.uk> and Adam Gundry <adam@well-typed.com>
-Maintainer:          Chris Dornan <chrisd@irisconnect.co.uk>
+Maintainer:          Chris Dornan <chrisd@irisconnect.co.uk> and Adam Gundry <adam@well-typed.com>
 Copyright:           (c) Iris Connect 2013-2014
 Category:            Network, Web, Cloud, Distributed Computing
 Build-type:          Simple
 
 Cabal-version:       >=1.10
+
+Source-Repository head
+  Type:              git
+  Location:          git://github.com/iconnect/api-tools.git
+
+Source-Repository this
+  Type:              git
+  Location:          git://github.com/iconnect/api-tools.git
+  Tag:               0.3
 
 Library
   Hs-Source-Dirs:    src
@@ -95,7 +104,7 @@ Executable migration-tool
   Main-is:    Data/API/MigrationTool.hs
 
   Build-depends:
-        api-tools            == 0.2,
+        api-tools,
         Cabal                >= 1.9.2       ,
         QuickCheck           >= 2.5.1,
         aeson                >= 0.6.2 && < 0.7,
@@ -141,7 +150,7 @@ Test-Suite test-api-tools
         Data.API.Test.MigrationData
 
   Build-depends:
-        api-tools            == 0.2,
+        api-tools,
         Cabal                >= 1.9.2       ,
         QuickCheck           >= 2.5.1,
         aeson                >= 0.6.2 && < 0.7,
