@@ -47,6 +47,7 @@ module Data.API.JSON
     , withUTCRange
     , withVersion
     , withField
+    , withDefaultField
     , (.:.)
     , (.::)
     ) where
@@ -391,6 +392,12 @@ withField k f m = stepInside (InField k) $ modifyTopError treatAsMissing $ f v
     v = fromMaybe JS.Null $ HMap.lookup k m
     treatAsMissing (Expected _ _ JS.Null) = MissingField
     treatAsMissing e                      = e
+
+-- | Look up the value of a field, using a default if it is missing or
+-- null
+withDefaultField :: JS.Value -> T.Text -> (JS.Value -> ParserWithErrs a)
+                 -> JS.Object -> ParserWithErrs a
+withDefaultField x k f m = stepInside (InField k) $ f $ fromMaybe x $ HMap.lookup k m
 
 -- | Look up the value of a field, failing on missing fields
 withStrictField :: T.Text -> (JS.Value -> ParserWithErrs a)

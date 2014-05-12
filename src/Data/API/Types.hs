@@ -39,6 +39,7 @@ import           Data.Time
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Aeson.TH
+import           Data.Maybe
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
 import qualified Data.ByteString.Char8          as B
@@ -144,9 +145,12 @@ data UTCRange
 instance Lift UTCRange where
     lift (UTCRange lo hi) = [e| UTCRange $(liftMaybeUTCTime lo) $(liftMaybeUTCTime hi) |]
 
+liftUTC :: UTCTime -> ExpQ
+liftUTC u = [e| fromMaybe (error "liftUTC") (parseUTC_ $(stringE (mkUTC_ u))) |]
+
 liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
 liftMaybeUTCTime Nothing  = [e| Nothing |]
-liftMaybeUTCTime (Just u) = [e| parseUTC_ $(stringE (mkUTC_ u)) |]
+liftMaybeUTCTime (Just u) = [e| Just $(liftUTC u) |]
 
 
 data RegEx =
@@ -237,6 +241,14 @@ data DefaultValue
     | DefValInt    Int
     | DefValUtc    UTCTime
     deriving (Eq, Show)
+
+instance Lift DefaultValue where
+  lift DefValList       = [e| DefValList     |]
+  lift DefValMaybe      = [e| DefValMaybe    |]
+  lift (DefValString s) = [e| DefValString (T.pack $(lift (T.unpack s))) |]
+  lift (DefValBool   b) = [e| DefValBool b   |]
+  lift (DefValInt    i) = [e| DefValInt i    |]
+  lift (DefValUtc    u) = [e| DefValUtc $(liftUTC u) |]
 
 -- | Convert a default value to an Aeson 'Value'.  This differs from
 -- 'toJSON' as it will not round-trip with 'fromJSON': UTC default

@@ -122,8 +122,10 @@ gen_sr_fm = mkTool $ \ ts (an, sr) -> do
                       [funD 'parseJSONWithErrs [cl an sr x, cl' x]]
   where
     cl an sr x  = clause [conP 'Object [varP x]] (normalB bdy) []
-      where bdy = applicativeE (nodeConE an) [ [e| $(varE x) .:. $(fieldNameE fn) |]
-                                             | (fn, _) <- srFields sr ]
+      where bdy = applicativeE (nodeConE an) $ map project (srFields sr)
+            project (fn, ft) = case ftDefault ft of
+                                 Nothing -> [e| $(varE x) .:. $(fieldNameE fn) |]
+                                 Just v  -> [e| withDefaultField (defaultValueAsJsValue v) $(fieldNameE fn) parseJSONWithErrs $(varE x) |]
 
     cl'  x = clause [varP x] (normalB (bdy' x)) []
     bdy' x = [e| failWith (expectedObject $(varE x)) |]
