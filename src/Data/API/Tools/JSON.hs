@@ -16,6 +16,7 @@ import           Data.API.Utils
 
 import           Data.Aeson hiding (withText, withBool)
 import           Control.Applicative
+import qualified Data.HashMap.Strict            as HMap
 import qualified Data.Map                       as Map
 import           Data.Monoid
 import qualified Data.Text                      as T
@@ -112,6 +113,7 @@ instance FromJSONWithErrs JobSpecId where
             v .: "Input"                            <*>
             v .: "Output"                           <*>
             v .: "PipelineId"
+     parseJSONWithErrs Null       = parseJSONWithErrs (Object HMap.empty)
      parseJSONWithErrs v          = failWith $ expectedObject val
 -}
 
@@ -119,13 +121,16 @@ gen_sr_fm :: Tool (APINode, SpecRecord)
 gen_sr_fm = mkTool $ \ ts (an, sr) -> do
     x <- newName "x"
     optionalInstanceD ts ''FromJSONWithErrs [nodeRepT an]
-                      [funD 'parseJSONWithErrs [cl an sr x, cl' x]]
+                      [funD 'parseJSONWithErrs [cl an sr x, clNull, cl' x]]
   where
     cl an sr x  = clause [conP 'Object [varP x]] (normalB bdy) []
-      where bdy = applicativeE (nodeConE an) $ map project (srFields sr)
-            project (fn, ft) = case ftDefault ft of
-                                 Nothing -> [e| $(varE x) .:. $(fieldNameE fn) |]
-                                 Just v  -> [e| withDefaultField (defaultValueAsJsValue v) $(fieldNameE fn) parseJSONWithErrs $(varE x) |]
+      where
+        bdy = applicativeE (nodeConE an) $ map project (srFields sr)
+        project (fn, ft) = [e| withDefaultField ro (fmap defaultValueAsJsValue mb_dv) $(fieldNameE fn) parseJSONWithErrs $(varE x) |]
+          where ro    = ftReadOnly ft
+                mb_dv = ftDefault ft
+
+    clNull = clause [conP 'Null []] (normalB [e| parseJSONWithErrs (Object HMap.empty) |]) []
 
     cl'  x = clause [varP x] (normalB (bdy' x)) []
     bdy' x = [e| failWith (expectedObject $(varE x)) |]
