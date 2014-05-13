@@ -27,7 +27,7 @@ import qualified Data.Text                as T
 import           Data.Version
 import           Test.Tasty               as Test
 import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck
+import qualified Test.Tasty.QuickCheck    as QC
 import           Test.QuickCheck.Property as P
 
 
@@ -148,7 +148,7 @@ validMigrationProperty db =
     Right (_, ws) -> failedBecause ("migration generated warnings: " ++ show ws)
     Left err      -> failedBecause ("migration failed: " ++ prettyMigrateFailure err)
   where
-    failedBecause e = P.MkResult (Just False) True e False False [] []
+    failedBecause e = failed { reason = e }
 
 
 migrationTests :: TestTree
@@ -156,5 +156,5 @@ migrationTests = testGroup "Migration"
   [ testCase     "Basic migration using sample changelog" basicMigrationTest
   , testGroup    "Invalid changes"    $ map applyFailureTest   expectedApplyFailures
   , testGroup    "Invalid migrations" $ map migrateFailureTest expectedMigrateFailures
-  , testProperty "Valid migrations"     validMigrationProperty
+  , QC.testProperty "Valid migrations" validMigrationProperty
   ]

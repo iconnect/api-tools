@@ -18,7 +18,7 @@ import qualified Data.HashMap.Strict      as HMap
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck
+import qualified Test.Tasty.QuickCheck    as QC
 
 
 $(generate         startSchema)
@@ -51,8 +51,8 @@ basicValueDecoding = sequence_ [ help (JS.String "12")  (12 :: Int) True
 
 -- | Test that the correct errors are generated for bad JSON data
 errorDecoding :: [TestTree]
-errorDecoding = [ help "not enough bytes" ""         (proxy :: Int)
-                      [(SyntaxError "not enough bytes", [])]
+errorDecoding = [ help "not enough input" ""         (proxy :: Int)
+                      [(SyntaxError "not enough input", [])]
                 , help "object for int"   "{}"       (proxy :: Int)
                       [(Expected ExpInt "Int" (JS.Object HMap.empty), [])]
                 , help "missing alt"      "{}"       (proxy :: AUnion)
@@ -77,8 +77,8 @@ jsonTests = testGroup "JSON"
   [ testCase  "Basic value decoding"  basicValueDecoding
   , testGroup "Decoding invalid data" errorDecoding
   , testGroup "Round-trip tests"
-      [ testGroup "example"  $ map (uncurry testProperty) exampleSimpleTests
-      , testGroup "example2" $ map (uncurry testProperty) example2SimpleTests
-      , testGroup "api"      $ map (uncurry testProperty) apiAPISimpleTests
+      [ testGroup "example"  $ map (uncurry QC.testProperty) exampleSimpleTests
+      , testGroup "example2" $ map (uncurry QC.testProperty) example2SimpleTests
+      , testGroup "api"      $ map (uncurry QC.testProperty) apiAPISimpleTests
       ]
   ]
