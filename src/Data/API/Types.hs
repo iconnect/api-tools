@@ -223,6 +223,10 @@ data APIType
     | TyJSON                -- ^ a generic JSON value
     deriving (Eq, Show)
 
+-- | It is sometimes helpful to write a type name directly as a string
+instance IsString APIType where
+  fromString = TyName . fromString
+
 -- | the basic JSON types (N.B., no floating point numbers, yet)
 data BasicType
     = BTstring -- ^ a JSON UTF-8 string
