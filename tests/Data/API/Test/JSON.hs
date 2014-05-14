@@ -57,6 +57,8 @@ errorDecoding = [ help "not enough input" ""         (proxy :: Int)
                       [(Expected ExpInt "Int" (JS.Object HMap.empty), [])]
                 , help "missing alt"      "{}"       (proxy :: AUnion)
                       [(MissingAlt ["bar"], [])]
+                , help "error inside alt" "{\"bar\": {}}" (proxy :: AUnion)
+                      [(MissingField, [InField "id", InField "bar"])]
                 , help "unexpected value" "[\"no\"]" (proxy :: [AnEnum])
                       [(UnexpectedEnumVal ["bar", "foo"] "no", [InElem 0])]
                 , help "missing field"    "{}"       (proxy :: Bar)

@@ -55,6 +55,7 @@ module Data.API.JSON
     , withDefaultField
     , (.:.)
     , (.::)
+    , withUnion
     ) where
 
 import           Data.API.Types
@@ -461,6 +462,20 @@ m .:. k = withField k parseJSONWithErrs m
 -- | Parse the value of a field, failing on missing fields
 (.::) :: FromJSONWithErrs a => JS.Object -> T.Text -> ParserWithErrs a
 m .:: k = withStrictField k parseJSONWithErrs m
+
+
+-- | Match an inhabitant of a disjoint union, which should be an
+-- object with a single field, and call the continuation corresponding
+-- to the field name.
+withUnion :: [(T.Text, JS.Value -> ParserWithErrs a)] -> JS.Value -> ParserWithErrs a
+withUnion xs (JS.Object hs) =
+   case HMap.toList hs of
+      [(k, v)] -> case lookup k xs of
+                    Just c  -> stepInside (InField k) $ c v
+                    Nothing -> failWith $ MissingAlt $ map (T.unpack . fst) xs
+      []       -> failWith $ MissingAlt $ map (T.unpack . fst) xs
+      _:_:_    -> failWith UnexpectedField
+withUnion _ val = failWith $ Expected ExpObject "Union" val
 
 
 deriveJSON defaultOptions ''JSONError
