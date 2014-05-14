@@ -43,20 +43,20 @@ testDatabaseMigration DuplicateRecursive x = do
     recur <- HMap.lookup "recur" x ?! CustomMigrationError "missing recur" (JS.Object x)
     return $ HMap.insert "recur2" recur x
 
-testDatabaseMigrationSchema :: TestDatabaseMigration -> NormAPI -> Maybe NormAPI
-testDatabaseMigrationSchema DuplicateBar _ = Nothing
+testDatabaseMigrationSchema :: TestDatabaseMigration -> NormAPI -> Either ApplyFailure (Maybe NormAPI)
+testDatabaseMigrationSchema DuplicateBar _ = Right Nothing
 testDatabaseMigrationSchema DuplicateRecursive napi =
     let Just recur = Map.lookup (TypeName "Recursive") napi
         Just (NRecordType dbs) = Map.lookup root_ napi
         dbs' = Map.insert (FieldName "recur2") (TyMaybe (TyList (TyName "DuplicateRecursive"))) dbs
-    in Just $ Map.insert (TypeName "DuplicateRecursive") recur $
-              Map.insert root_ (NRecordType dbs') napi
+    in Right $ Just $ Map.insert (TypeName "DuplicateRecursive") recur $
+                      Map.insert root_ (NRecordType dbs') napi
 
 
 -- Test of a single-record migration: copy the value in the id field
 -- onto the end of the c field
-testRecordMigration :: TestRecordMigration -> JS.Object -> Either ValueError JS.Object
-testRecordMigration CopyIDtoC x = do
+testRecordMigration :: TestRecordMigration -> JS.Value -> Either ValueError JS.Value
+testRecordMigration CopyIDtoC = mkRecordMigration $ \ x -> do
     i <- HMap.lookup "id" x ?! CustomMigrationError "missing id" (JS.Object x)
     b <- HMap.lookup "c" x  ?! CustomMigrationError "missing b" (JS.Object x)
     r <- case (i, b) of
@@ -64,14 +64,14 @@ testRecordMigration CopyIDtoC x = do
             -> return $ JS.String $ t `T.append` T.pack (show j)
         _   -> Left $ CustomMigrationError "bad data" (JS.Object x)
     return $ HMap.insert "c" r x
-testRecordMigration DuplicateNew x = do
+testRecordMigration DuplicateNew = mkRecordMigration $ \ x -> do
     new <- HMap.lookup "new" x ?! CustomMigrationError "missing new" (JS.Object x)
     return $ HMap.insert "newnew" new x
 
-testRecordMigrationSchema :: TestRecordMigration -> NormRecordType -> Maybe NormRecordType
-testRecordMigrationSchema CopyIDtoC _ = Nothing
-testRecordMigrationSchema DuplicateNew r =
-    Just $ Map.insert (FieldName "newnew") (TyBasic BTstring) r
+testRecordMigrationSchema :: TestRecordMigration -> NormTypeDecl -> Either ApplyFailure (Maybe NormTypeDecl)
+testRecordMigrationSchema CopyIDtoC    = noSchemaChanges
+testRecordMigrationSchema DuplicateNew = mkRecordMigrationSchema "Recursive" $ \ r ->
+    return $ Just $ Map.insert (FieldName "newnew") (TyBasic BTstring) r
 
 -- Test of a single-field migration: change the type of the field from
 -- binary to string by base64-decoding the contents
@@ -84,8 +84,10 @@ testFieldMigration ConvertBinaryToString v = Left $ CustomMigrationError "bad da
 
 
 testMigration :: CustomMigrations TestDatabaseMigration TestRecordMigration TestFieldMigration
-testMigration = CustomMigrations testDatabaseMigration testDatabaseMigrationSchema
-                                 testRecordMigration   testRecordMigrationSchema
+testMigration = CustomMigrations testDatabaseMigration
+                                 testDatabaseMigrationSchema
+                                 testRecordMigration
+                                 testRecordMigrationSchema
                                  testFieldMigration
 
 
