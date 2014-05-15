@@ -12,7 +12,7 @@ import           Data.API.Tools
 import           Data.API.Tools.Example
 import           Control.Applicative
 import           Language.Haskell.TH
-import           Test.QuickCheck
+import           Test.QuickCheck                ( Arbitrary(..) )
 
 $(generate         DSL.example)
 $(generateAPITools DSL.example

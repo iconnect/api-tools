@@ -74,12 +74,11 @@ data ChangeTag = None
     deriving (Read, Show)
 
 customMigrations :: CustomMigrations ChangeTag ChangeTag ChangeTag
-customMigrations = CustomMigrations nope (\ _ _ -> Nothing)
-                                    nope (\ _ _ -> Nothing)
-                                    nofld
+customMigrations = CustomMigrations (nope JS.Object) (const noSchemaChanges)
+                                    (nope id)        (const noSchemaChanges)
+                                    (nope id)
   where
-    nope  _ v = Left (CustomMigrationError "No custom migrations defined" (JS.Object v))
-    nofld _ v = Left (CustomMigrationError "No field custom migrations defined" v)
+    nope toVal _ v = Left (CustomMigrationError "No custom migrations defined" (toVal v))
 
 compareJSON :: FilePath -> FilePath -> IO ()
 compareJSON file1 file2 = do

@@ -21,14 +21,19 @@ module Data.API.JSON
 
       -- * Parser with multiple error support
     , ParserWithErrs
+    , ParseFlags(useDefaults, enforceReadOnlyFields)
+    , defaultParseFlags
     , runParserWithErrsTop
 
       -- * FromJSON class with multiple error support
     , FromJSONWithErrs(..)
     , fromJSONWithErrs
+    , fromJSONWithErrs'
     , decodeWithErrs
+    , decodeWithErrs'
 
       -- * ParserWithErrs combinators
+    , withParseFlags
     , failWith
     , expectedArray
     , expectedBool
@@ -47,8 +52,10 @@ module Data.API.JSON
     , withUTCRange
     , withVersion
     , withField
+    , withDefaultField
     , (.:.)
     , (.::)
+    , withUnion
     ) where
 
 import           Data.API.Types
@@ -179,13 +186,13 @@ prettyJSONErrorPositions xs = unlines $ concatMap help xs
 --
 --    * @pf \`ap\` ps@  returns errors from @pf@ only
 newtype ParserWithErrs a = ParserWithErrs {
-    runParserWithErrs :: Position -> Either [(JSONError, Position)] a }
+    runParserWithErrs :: ParseFlags -> Position -> Either [(JSONError, Position)] a }
   deriving Functor
 
 instance Applicative ParserWithErrs where
-  pure x    = ParserWithErrs $ const $ Right x
-  pf <*> ps = ParserWithErrs $ \ z ->
-                  case (runParserWithErrs pf z, runParserWithErrs ps z) of
+  pure x    = ParserWithErrs $ \ _ _ -> Right x
+  pf <*> ps = ParserWithErrs $ \ q z ->
+                  case (runParserWithErrs pf q z, runParserWithErrs ps q z) of
                       (Right f, Right s)  -> Right $ f s
                       (Left es, Right _)  -> Left es
                       (Right _, Left es)  -> Left es
@@ -193,20 +200,38 @@ instance Applicative ParserWithErrs where
 
 instance Alternative ParserWithErrs where
   empty   = failWith $ SyntaxError "No alternative"
-  px <|> py = ParserWithErrs $ \ z -> case runParserWithErrs px z of
+  px <|> py = ParserWithErrs $ \ q z -> case runParserWithErrs px q z of
                                         Right v -> Right v
-                                        Left  _ -> runParserWithErrs py z
+                                        Left  _ -> runParserWithErrs py q z
 
 instance Monad ParserWithErrs where
   return   = pure
-  px >>= f = ParserWithErrs $ \ z ->
-                  case runParserWithErrs px z of
-                    Right x -> runParserWithErrs (f x) z
+  px >>= f = ParserWithErrs $ \ q z ->
+                  case runParserWithErrs px q z of
+                    Right x -> runParserWithErrs (f x) q z
                     Left es -> Left es
   fail     = failWith . SyntaxError
 
-runParserWithErrsTop :: ParserWithErrs a -> Either [(JSONError, Position)] a
-runParserWithErrsTop p = runParserWithErrs p []
+
+-- | Options to modify the behaviour of the JSON parser
+data ParseFlags = ParseFlags
+    { useDefaults           :: Bool
+      -- ^ If true, default values from the schema will be used when a
+      -- field is missing from the JSON data
+    , enforceReadOnlyFields :: Bool
+      -- ^ If true, fields in the schema marked read-only will be
+      -- overwritten with default values
+    }
+
+-- | Use this as a basis for overriding individual fields of the
+-- 'ParseFlags' record, in case more flags are added in the future.
+defaultParseFlags :: ParseFlags
+defaultParseFlags = ParseFlags { useDefaults           = False
+                               , enforceReadOnlyFields = False
+                               }
+
+runParserWithErrsTop :: ParseFlags -> ParserWithErrs a -> Either [(JSONError, Position)] a
+runParserWithErrsTop q p = runParserWithErrs p q []
 
 
 --------------------------------------------------
@@ -246,6 +271,7 @@ instance FromJSONWithErrs a => FromJSONWithErrs [a] where
   parseJSONWithErrs (JS.Array a) = traverse help $ zip (V.toList a) [0..]
     where
       help (x, i) = stepInside (InElem i) $ parseJSONWithErrs x
+  parseJSONWithErrs JS.Null      = pure []
   parseJSONWithErrs v            = failWith $ expectedArray v
 
 instance FromJSONWithErrs Int where
@@ -275,30 +301,45 @@ instance FromJSONWithErrs Version where
 -- implementation of 'parseJSONWithErrs' as it will not pass on the
 -- current position.
 fromJSONWithErrs :: FromJSONWithErrs a => JS.Value -> Either [(JSONError, Position)] a
-fromJSONWithErrs = runParserWithErrsTop . parseJSONWithErrs
+fromJSONWithErrs = fromJSONWithErrs' defaultParseFlags
+
+-- | Run the JSON parser on a value to produce a result or a list of
+-- errors with their positions.  This version allows the 'ParseFlags'
+-- to be specified.
+fromJSONWithErrs' :: FromJSONWithErrs a => ParseFlags -> JS.Value -> Either [(JSONError, Position)] a
+fromJSONWithErrs' q = runParserWithErrsTop q . parseJSONWithErrs
+
 
 -- | Decode a 'ByteString' and run the JSON parser
 decodeWithErrs :: FromJSONWithErrs a => BL.ByteString -> Either [(JSONError, Position)] a
-decodeWithErrs x = case JS.eitherDecode x of
+decodeWithErrs = decodeWithErrs' defaultParseFlags
+
+-- | Decode a 'ByteString' and run the JSON parser, allowing the
+-- 'ParseFlags' to be specified
+decodeWithErrs' :: FromJSONWithErrs a => ParseFlags -> BL.ByteString -> Either [(JSONError, Position)] a
+decodeWithErrs' q x = case JS.eitherDecode x of
                      Left e  -> Left [(SyntaxError e, [])]
-                     Right v -> fromJSONWithErrs v
+                     Right v -> fromJSONWithErrs' q v
 
 
 ---------------------------------
 -- ParserWithErrs combinators
 --
 
+withParseFlags :: (ParseFlags -> ParserWithErrs a) -> ParserWithErrs a
+withParseFlags k = ParserWithErrs $ \ q -> runParserWithErrs (k q) q
+
 failWith :: JSONError -> ParserWithErrs a
-failWith e = ParserWithErrs $ \ z -> Left [(e, z)]
+failWith e = ParserWithErrs $ \ _ z -> Left [(e, z)]
 
 stepInside :: Step -> ParserWithErrs a -> ParserWithErrs a
-stepInside s p = ParserWithErrs $ \ z -> runParserWithErrs p (s:z)
+stepInside s p = ParserWithErrs $ \ q z -> runParserWithErrs p q (s:z)
 
 -- | If this parser returns any errors at the current position, modify
 -- them using the supplied function.
 modifyTopError :: (JSONError -> JSONError)
                -> ParserWithErrs a -> ParserWithErrs a
-modifyTopError f p = ParserWithErrs $ \ z -> case runParserWithErrs p z of
+modifyTopError f p = ParserWithErrs $ \ q z -> case runParserWithErrs p q z of
                                                Left es -> Left $ map (modifyIfAt z) es
                                                r       -> r
   where
@@ -389,8 +430,23 @@ withField :: T.Text -> (JS.Value -> ParserWithErrs a)
 withField k f m = stepInside (InField k) $ modifyTopError treatAsMissing $ f v
   where
     v = fromMaybe JS.Null $ HMap.lookup k m
-    treatAsMissing (Expected _ _ JS.Null) = MissingField
-    treatAsMissing e                      = e
+
+treatAsMissing :: JSONError -> JSONError
+treatAsMissing (Expected _ _ JS.Null) = MissingField
+treatAsMissing e                      = e
+
+-- | Look up the value of a field, which may be read-only or use a
+-- default value (depending on the 'ParseFlags').
+withDefaultField :: Bool -> Maybe JS.Value -> T.Text -> (JS.Value -> ParserWithErrs a)
+                 -> JS.Object -> ParserWithErrs a
+withDefaultField readOnly mb_defVal k f m =
+    stepInside (InField k) $ modifyTopError treatAsMissing $ withParseFlags foo
+  where
+    foo q | readOnly && enforceReadOnlyFields q = f defVal
+          | useDefaults q                       = f $ fromMaybe defVal  $ HMap.lookup k m
+          | otherwise                           = f $ fromMaybe JS.Null $ HMap.lookup k m
+
+    defVal = fromMaybe JS.Null mb_defVal
 
 -- | Look up the value of a field, failing on missing fields
 withStrictField :: T.Text -> (JS.Value -> ParserWithErrs a)
@@ -406,6 +462,20 @@ m .:. k = withField k parseJSONWithErrs m
 -- | Parse the value of a field, failing on missing fields
 (.::) :: FromJSONWithErrs a => JS.Object -> T.Text -> ParserWithErrs a
 m .:: k = withStrictField k parseJSONWithErrs m
+
+
+-- | Match an inhabitant of a disjoint union, which should be an
+-- object with a single field, and call the continuation corresponding
+-- to the field name.
+withUnion :: [(T.Text, JS.Value -> ParserWithErrs a)] -> JS.Value -> ParserWithErrs a
+withUnion xs (JS.Object hs) =
+   case HMap.toList hs of
+      [(k, v)] -> case lookup k xs of
+                    Just c  -> stepInside (InField k) $ c v
+                    Nothing -> failWith $ MissingAlt $ map (T.unpack . fst) xs
+      []       -> failWith $ MissingAlt $ map (T.unpack . fst) xs
+      _:_:_    -> failWith UnexpectedField
+withUnion _ val = failWith $ Expected ExpObject "Union" val
 
 
 deriveJSON defaultOptions ''JSONError

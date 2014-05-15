@@ -16,6 +16,7 @@ import           Data.API.Utils
 
 import           Data.Aeson hiding (withText, withBool)
 import           Control.Applicative
+import qualified Data.HashMap.Strict            as HMap
 import qualified Data.Map                       as Map
 import           Data.Monoid
 import qualified Data.Text                      as T
@@ -112,6 +113,7 @@ instance FromJSONWithErrs JobSpecId where
             v .: "Input"                            <*>
             v .: "Output"                           <*>
             v .: "PipelineId"
+     parseJSONWithErrs Null       = parseJSONWithErrs (Object HMap.empty)
      parseJSONWithErrs v          = failWith $ expectedObject val
 -}
 
@@ -119,11 +121,16 @@ gen_sr_fm :: Tool (APINode, SpecRecord)
 gen_sr_fm = mkTool $ \ ts (an, sr) -> do
     x <- newName "x"
     optionalInstanceD ts ''FromJSONWithErrs [nodeRepT an]
-                      [funD 'parseJSONWithErrs [cl an sr x, cl' x]]
+                      [funD 'parseJSONWithErrs [cl an sr x, clNull, cl' x]]
   where
     cl an sr x  = clause [conP 'Object [varP x]] (normalB bdy) []
-      where bdy = applicativeE (nodeConE an) [ [e| $(varE x) .:. $(fieldNameE fn) |]
-                                             | (fn, _) <- srFields sr ]
+      where
+        bdy = applicativeE (nodeConE an) $ map project (srFields sr)
+        project (fn, ft) = [e| withDefaultField ro (fmap defaultValueAsJsValue mb_dv) $(fieldNameE fn) parseJSONWithErrs $(varE x) |]
+          where ro    = ftReadOnly ft
+                mb_dv = ftDefault ft
+
+    clNull = clause [conP 'Null []] (normalB [e| parseJSONWithErrs (Object HMap.empty) |]) []
 
     cl'  x = clause [varP x] (normalB (bdy' x)) []
     bdy' x = [e| failWith (expectedObject $(varE x)) |]
@@ -148,34 +155,18 @@ gen_su_to = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''ToJSON [nodeRepT an
 
 {-
 instance FromJSONWithErrs Foo where
-    parseJSONWithErrs (Object v) = alternatives (failWith $ MissingAlt ["x", "y"])
-        [ Bar <$> v .:: "x"
-        , Baz <$> v .:: "y"
-        ]
-    parseJSONWithErrs val        = failWith $ expectedObject val
+    parseJSONWithErrs = withUnion [ ("x", fmap Bar . parseJSONWithErrs)
+                                  , ("y", fmap Baz . parseJSONWithErrs) ]
 -}
 
 gen_su_fm :: Tool (APINode, SpecUnion)
-gen_su_fm = mkTool $ \ ts (an, su) -> do
-    x <- newName "x"
+gen_su_fm = mkTool $ \ ts (an, su) ->
     optionalInstanceD ts ''FromJSONWithErrs [nodeRepT an]
-                      [funD 'parseJSONWithErrs (cls an su x)]
+                      [simpleD 'parseJSONWithErrs (bdy an su)]
  where
-  cls an su x = [cl, cl']
-   where
-    cl  = clause [conP 'Object [varP x]] (normalB bdy) []
-    bdy = [e| alternatives (failWith $ MissingAlt $ss) $alts |]
+    bdy an su = varE 'withUnion `appE` listE (map (alt an) (suFields su))
 
-    alt fn = [e| fmap $(nodeAltConE an fn) ($(varE x) .:: $(fieldNameE fn)) |]
-
-    alts = listE $ map alt fns
-    ss   = listE $ map fieldNameE fns
-
-    fns  = map fst $ suFields su
-
-    cl'  = clause [varP x] (normalB bdy') []
-    bdy' = [e| failWith (expectedObject $(varE x)) |]
-
+    alt an (fn, _) = [e| ( $(fieldNameE fn) , fmap $(nodeAltConE an fn) . parseJSONWithErrs ) |]
 
 
 {-

@@ -211,12 +211,12 @@ For more extensive changes to the 'API' that cannot be expressed using
 the primitive changes, /custom/ migrations can be used to migrate data
 between versions.
 
-Custom migrations can be applied to the whole dataset, a single record
+Custom migrations can be applied to the whole dataset, a single type
 or an individual record field, thus:
 
 > version "0.42"
 >   migration MigrateWholeDataset
->   migration record Widget MigrateWidgetRecord
+>   migration record Widget MigrateWidgetType
 >   changed record Widget where
 >     field changed foo :: String migration MigrateFooField
 
@@ -226,12 +226,12 @@ These types should then be used to create a 'CustomMigrations' record,
 which describes how to transform the data (and 'API', if appropriate)
 for each custom migration.  For example,
 
-> $(generateMigrationKinds myChangelog "DatabaseMigration" "RecordMigration" "FieldMigration")
+> $(generateMigrationKinds myChangelog "DatabaseMigration" "TypeMigration" "FieldMigration")
 
 with the changelog fragment above would give
 
 > data DatabaseMigration = MigrateWholeDatabase | ...
-> data RecordMigration   = MigrateWidgetRecord  | ...
+> data TypeMigration     = MigrateWidgetType    | ...
 > data FieldMigration    = MigrateFooField      | ...
 
 Calls to 'migrateDataDump' should include a suitable
@@ -246,9 +246,9 @@ contained a boolean: a suitable 'fieldMigration' implementation might be:
 > ...
 
 A field migration may change the type of the field by listing the new
-type in the changelog.  Whole-database and individual-record
-migrations may describe the changes they make to the schema in the
-'databaseMigrationSchema' and 'recordMigrationSchema' fields of the
+type in the changelog.  Whole-database and individual-type migrations
+may describe the changes they make to the schema in the
+'databaseMigrationSchema' and 'typeMigrationSchema' fields of the
 'CustomMigrations' record.
 
 In order to check that custom migrations result in data that matches

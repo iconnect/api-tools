@@ -242,7 +242,7 @@ Change :: { [APIChange] }
     | changed record TypeName RFieldChanges { map (fldChangeToAPIChange $3)   (reverse $4) }
     | changed union  TypeName RUnionChanges { map (unionChangeToAPIChange $3) (reverse $4) }
     | changed enum   TypeName REnumChanges  { map (enumChangeToAPIChange $3)  (reverse $4) }
-    | migration record TypeName MigrationTag { [ChCustomRecord $3 $4]       }
+    | migration record TypeName MigrationTag { [ChCustomType $3 $4]         }
     | migration MigrationTag             { [ChCustomAll $2]                 }
     | comment                            { []                               }
 
