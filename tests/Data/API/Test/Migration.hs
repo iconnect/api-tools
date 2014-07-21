@@ -17,7 +17,6 @@ import           Data.API.Utils
 
 import qualified Data.Aeson               as JS
 import qualified Data.Aeson.Encode.Pretty as JS
-import           Data.Attoparsec.Number
 import qualified Data.ByteString.Char8    as B
 import qualified Data.ByteString.Base64   as B64
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -60,8 +59,8 @@ testRecordMigration CopyIDtoC = mkRecordMigration $ \ x -> do
     i <- HMap.lookup "id" x ?! CustomMigrationError "missing id" (JS.Object x)
     b <- HMap.lookup "c" x  ?! CustomMigrationError "missing b" (JS.Object x)
     r <- case (i, b) of
-        (JS.Number (I j), JS.String t)
-            -> return $ JS.String $ t `T.append` T.pack (show j)
+        (JS.Number j, JS.String t)
+            -> return $ JS.String $ t `T.append` T.pack (show (round j :: Int))
         _   -> Left $ CustomMigrationError "bad data" (JS.Object x)
     return $ HMap.insert "c" r x
 testRecordMigration DuplicateNew = mkRecordMigration $ \ x -> do
