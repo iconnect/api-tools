@@ -1,0 +1,18 @@
+-*-change-log-*-
+
+0.4.0.1 Adam Gundry <adam@well-typed.com> July 2014
+	* Widen dependency compatibility to support GHC 7.8.3
+
+0.4 Adam Gundry <adam@well-typed.com> May 2014
+	* Support read-only fields and default values in JSON parser
+	* Better error messages when parsing unions
+	* More accurate version bounds in Cabal file
+	* Support custom migrations on non-record types
+	* Add instance IsString APIType
+
+0.3 Adam Gundry <adam@well-typed.com> Apr 2014
+	* Add tool to perform generic traversals
+	* Move API normal forms and dependency analysis to a new module
+
+0.2 Chris Dornan <chrisd@irisconnect.co.uk> Feb 2014
+	* First public release
