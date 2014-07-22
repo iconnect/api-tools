@@ -42,7 +42,6 @@ module Data.API.JSON
     , expectedString
     , badFormat
     , withInt
-    , withNum
     , withIntRange
     , withBinary
     , withBool
@@ -63,9 +62,9 @@ import           Data.API.Utils
 
 import           Control.Applicative
 import qualified Data.Aeson                     as JS
+import qualified Data.Aeson.Parser              as JS
 import           Data.Aeson.TH
-import           Data.Attoparsec.Number
-import           Data.Attoparsec.Text
+import           Data.Attoparsec.ByteString
 import qualified Data.ByteString.Char8          as B
 import qualified Data.ByteString.Base64         as B64
 import qualified Data.ByteString.Lazy           as BL
@@ -74,6 +73,7 @@ import           Data.List
 import           Data.Maybe
 import qualified Data.SafeCopy                  as SC
 import qualified Data.Text                      as T
+import qualified Data.Text.Encoding             as T
 import           Data.Time
 import           Data.Traversable
 import qualified Data.Vector                    as V
@@ -352,11 +352,13 @@ modifyTopError f p = ParserWithErrs $ \ q z -> case runParserWithErrs p q z of
 withInt :: String -> (Int -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
 withInt = withNum
 
-withNum :: Num n => String -> (n -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
-withNum _ f (JS.Number (I n)) = f (fromInteger n)
-withNum _ f (JS.String s)
-  | Right (I n) <- parseOnly (number <* endOfInput) s = f (fromInteger n)
-withNum s _ v = failWith $ Expected ExpInt s v
+withNum :: JS.FromJSON n => String -> (n -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
+withNum s f v = case JS.fromJSON v of
+  JS.Success i -> f i
+  JS.Error _ | JS.String t  <- v
+             , Right v'     <- parseOnly (JS.value <* endOfInput) (T.encodeUtf8 t)
+             , JS.Success i <- JS.fromJSON v' -> f i
+             | otherwise                      -> failWith $ Expected ExpInt s v
 
 withIntRange :: IntRange -> String -> (Int -> ParserWithErrs a)
              -> JS.Value -> ParserWithErrs a
@@ -382,9 +384,9 @@ withBinary lab f = withText lab g
 withBool :: String -> (Bool -> ParserWithErrs a)
          -> JS.Value -> ParserWithErrs a
 withBool _ f (JS.Bool b) = f b
-withBool _ f (JS.Number (I i)) | i == 0 = f False
-                               | i == 1 = f True
-withBool s _ v           = failWith $ Expected ExpBool s v
+withBool _ f (JS.Number x) | x == 0 = f False
+                           | x == 1 = f True
+withBool s _ v                      = failWith $ Expected ExpBool s v
 
 withText :: String -> (T.Text -> ParserWithErrs a)
          -> JS.Value -> ParserWithErrs a
