@@ -232,10 +232,10 @@ instance PPLines NormTypeDecl where
   ppLines (NRecordType flds) = "record" : map (\ (f, ty) -> "  " ++ pp f
                                                             ++ " :: " ++ pp ty)
                                               (Map.toList flds)
-  ppLines (NUnionType alts)  = "union"  : map (\ (f, ty) -> "  " ++ pp f
+  ppLines (NUnionType alts)  = "union"  : map (\ (f, ty) -> "  | " ++ pp f
                                                             ++ " :: " ++ pp ty)
                                               (Map.toList alts)
-  ppLines (NEnumType vals)   = "enum"   : map (\ v -> "  " ++ pp v)
+  ppLines (NEnumType vals)   = "enum"   : map (\ v -> "  | " ++ pp v)
                                               (Set.toList vals)
   ppLines (NTypeSynonym t)   = [pp t]
   ppLines (NNewtype b)       = ["basic " ++ pp b]
