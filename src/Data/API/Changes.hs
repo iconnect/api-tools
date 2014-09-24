@@ -419,7 +419,7 @@ data ApplyFailure
     | TableChangeError     { afCustomMessage :: String }       -- ^ custom error in tableChange
   deriving (Eq, Show)
 
-data TypeKind = TKRecord | TKUnion | TKEnum
+data TypeKind = TKRecord | TKUnion | TKEnum | TKNewtype | TKTypeSynonym
   deriving (Eq, Show)
 
 
@@ -958,19 +958,25 @@ prettyValueErrorPosition = unlines . ppLines
 
 
 instance PP TypeKind where
-  pp TKRecord = "record"
-  pp TKUnion  = "union"
-  pp TKEnum   = "enum"
+  pp TKRecord      = "record"
+  pp TKUnion       = "union"
+  pp TKEnum        = "enum"
+  pp TKNewtype     = "newtype"
+  pp TKTypeSynonym = "type"
 
 ppATypeKind :: TypeKind -> String
-ppATypeKind TKRecord = "a record"
-ppATypeKind TKUnion  = "a union"
-ppATypeKind TKEnum   = "an enum"
+ppATypeKind TKRecord      = "a record"
+ppATypeKind TKUnion       = "a union"
+ppATypeKind TKEnum        = "an enum"
+ppATypeKind TKNewtype     = "a newtype"
+ppATypeKind TKTypeSynonym = "a type synonym"
 
 ppMemberWord :: TypeKind -> String
-ppMemberWord TKRecord = "field"
-ppMemberWord TKUnion  = "alternative"
-ppMemberWord TKEnum   = "value"
+ppMemberWord TKRecord      = "field"
+ppMemberWord TKUnion       = "alternative"
+ppMemberWord TKEnum        = "value"
+ppMemberWord TKNewtype     = "member"
+ppMemberWord TKTypeSynonym = "member"
 
 
 instance PPLines APIChange where
