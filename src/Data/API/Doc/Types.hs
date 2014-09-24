@@ -18,6 +18,7 @@ module Data.API.Doc.Types
     , mk_link
     ) where
 
+import           Data.API.PP
 import           Data.API.Types
 
 import           Text.Printf
@@ -103,15 +104,8 @@ renderAPIType :: DocInfo -> APIType -> String
 renderAPIType di (TyList  ty  ) = "[" ++ renderAPIType di ty ++ "]"
 renderAPIType di (TyMaybe ty  ) = "?" ++ renderAPIType di ty
 renderAPIType di (TyName  tn  ) = mk_link (doc_info_type_url di tn) (_TypeName tn)
-renderAPIType _  (TyBasic bt  ) = renderBasicType bt
+renderAPIType _  (TyBasic bt  ) = pp bt
 renderAPIType _  TyJSON         = "json"
-
-renderBasicType :: BasicType -> String
-renderBasicType BTstring{} = "string"
-renderBasicType BTbinary{} = "binary"
-renderBasicType BTbool  {} = "bool"
-renderBasicType BTint   {} = "int"
-renderBasicType BTutc   {} = "utc"
 
 mk_link :: URL -> String -> String
 mk_link = printf "<b><a class='reflink' href='%s' >%s</a></b>"

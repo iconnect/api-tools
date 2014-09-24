@@ -67,7 +67,7 @@ instance PP APIType where
 instance PP BasicType where
   pp BTstring = "string"
   pp BTbinary = "binary"
-  pp BTbool   = "bool"
+  pp BTbool   = "boolean"
   pp BTint    = "integer"
   pp BTutc    = "utc"
 
