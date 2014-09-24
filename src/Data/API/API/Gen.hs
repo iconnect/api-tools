@@ -17,7 +17,7 @@ $(generate         apiAPI)
 
 $(generateAPITools apiAPI
                    [ enumTool
-                   , jsonTool
+                   , jsonTool'
                    , quickCheckTool
                    , lensTool
                    , safeCopyTool

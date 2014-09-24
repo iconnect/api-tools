@@ -31,6 +31,7 @@ module Data.API.JSON
     , fromJSONWithErrs'
     , decodeWithErrs
     , decodeWithErrs'
+    , parseJSONDefault
 
       -- * ParserWithErrs combinators
     , withParseFlags
@@ -63,6 +64,7 @@ import           Data.API.Utils
 import           Control.Applicative
 import qualified Data.Aeson                     as JS
 import qualified Data.Aeson.Parser              as JS
+import qualified Data.Aeson.Types               as JS
 import           Data.Aeson.TH
 import           Data.Attoparsec.ByteString
 import qualified Data.ByteString.Char8          as B
@@ -320,6 +322,15 @@ decodeWithErrs' :: FromJSONWithErrs a => ParseFlags -> BL.ByteString -> Either [
 decodeWithErrs' q x = case JS.eitherDecode x of
                      Left e  -> Left [(SyntaxError e, [])]
                      Right v -> fromJSONWithErrs' q v
+
+
+-- | Suitable as an implementation of 'parseJSON' that uses the
+-- 'FromJSONWithErrs' instance (provided said instance was not defined
+-- using 'fromJSON'!).
+parseJSONDefault :: FromJSONWithErrs a => JS.Value -> JS.Parser a
+parseJSONDefault v = case fromJSONWithErrs v of
+                       Right x -> return x
+                       Left es -> fail $ prettyJSONErrorPositions es
 
 
 ---------------------------------
