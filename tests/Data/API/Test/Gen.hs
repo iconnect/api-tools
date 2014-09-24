@@ -17,7 +17,7 @@ import           Test.QuickCheck                ( Arbitrary(..) )
 $(generate         DSL.example)
 $(generateAPITools DSL.example
                    [ enumTool
-                   , jsonTool
+                   , jsonTool'
                    , quickCheckTool
                    , lensTool
                    , safeCopyTool
@@ -91,7 +91,7 @@ prj_enum (ENUM True ) = ENM_e2
 
 $(generateAPITools example2
                    [ enumTool
-                   , jsonTool
+                   , jsonTool'
                    , quickCheckTool
                    , lensTool
                    , safeCopyTool

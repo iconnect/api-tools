@@ -134,7 +134,7 @@ migrateFailureTest (s, start, end, clog, db, expected) =
 $(generate         startSchema)
 $(generateAPITools startSchema
                    [ enumTool
-                   , jsonTool
+                   , jsonTool'
                    , quickCheckTool
                    ])
 

@@ -24,7 +24,7 @@ import qualified Test.Tasty.QuickCheck    as QC
 $(generate         startSchema)
 $(generateAPITools startSchema
                    [ enumTool
-                   , jsonTool
+                   , jsonTool'
                    , quickCheckTool
                    ])
 
