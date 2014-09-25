@@ -68,7 +68,7 @@ writeJsonFile :: JS.ToJSON a => FilePath -> a -> IO ()
 writeJsonFile file = BS.writeFile file . JS.encodePretty
 
 readApiFile :: FilePath -> IO APIWithChangelog
-readApiFile file = fmap parseAPIWithChangelog (readFile file)
+readApiFile file = fmap (parseAPIWithChangelog file (0,0)) (readFile file)
 
 data ChangeTag = None
     deriving (Read, Show)
@@ -94,4 +94,4 @@ reformatJSON file1 file2 = do
 parse :: FilePath -> IO ()
 parse file = do
   s <- readFile file
-  print (parseAPIWithChangelog s)
+  print (parseAPIWithChangelog file (0,0) s)

@@ -19,6 +19,7 @@ import qualified Data.Text                  as T
 import qualified Data.CaseInsensitive       as CI
 import qualified Data.Version               as V
 import           Distribution.Text (simpleParse)
+import           Language.Haskell.TH
 import           Language.Haskell.TH.Quote
 import           Text.Printf
 import           Text.Regex
@@ -29,6 +30,7 @@ import           Text.Regex
 
 %tokentype { PToken }
 
+%monad { ParseM } { >>= } { return }
 
 %token
     ';'                                 { (,) _ Semi            }
@@ -294,18 +296,25 @@ MigrationTag :: { MigrationTag }
     : typeiden                         { $1                                 }
 
 {
-happyError :: [PToken] -> a
-happyError tks = error $ printf "Syntax error at %s: %s\n" loc $ show (take 5 tks)
+type ParseM = Either [PToken]
+
+happyError :: [PToken] -> ParseM a
+happyError = Left
+
+parseAPI :: String -> (Int, Int) -> String -> API
+parseAPI = wrap parse
+
+wrap :: ([PToken] -> ParseM a) -> String -> (Int, Int) -> String -> a
+wrap parser fn (start_ln,_start_cn) s = case parser (scan s) of
+    Right v  -> v
+    Left tks -> error $ printf "Syntax error at %s of %s:\n        %s\n" (loc tks) fn $ show (take 5 tks)
   where
-    loc = case tks of
+    loc tks = case tks of
             []                    -> "<EOF>"
-            (AlexPn ad ln cn,_):_ -> printf "line %d, column %d (@%d)" ln cn ad
+            (AlexPn ad ln cn,_):_ -> printf "line %d, column %d (@%d)" (start_ln+ln-1) (cn-1) ad
 
-parseAPI :: String -> API
-parseAPI = parse . scan
-
-parseAPIWithChangelog :: String -> APIWithChangelog
-parseAPIWithChangelog = parse_with_changelog . scan
+parseAPIWithChangelog :: String -> (Int, Int) -> String -> APIWithChangelog
+parseAPIWithChangelog = wrap parse_with_changelog
 
 
 data FieldChange = FldChAdd FieldName APIType (Maybe DefaultValue)
@@ -351,7 +360,7 @@ parseVersionExtra s             = Release $ parseVer s
 api :: QuasiQuoter
 api =
     QuasiQuoter
-        { quoteExp  = \s -> [| parseAPI s |]
+        { quoteExp  = located [|parseAPI|]
         , quotePat  = error "api QuasiQuoter used in patten      context"
         , quoteType = error "api QuasiQuoter used in type        context"
         , quoteDec  = error "api QuasiQuoter used in declaration context"
@@ -360,9 +369,16 @@ api =
 apiWithChangelog :: QuasiQuoter
 apiWithChangelog =
     QuasiQuoter
-        { quoteExp  = \s -> [| parseAPIWithChangelog s |]
+        { quoteExp  = located [|parseAPIWithChangelog|]
         , quotePat  = error "apiWithChangelog QuasiQuoter used in patten      context"
         , quoteType = error "apiWithChangelog QuasiQuoter used in type        context"
         , quoteDec  = error "apiWithChangelog QuasiQuoter used in declaration context"
         }
+
+located :: ExpQ -> String -> ExpQ
+located e s = do
+    l <- location
+    let fn = loc_filename l
+        ls = loc_start    l
+    [|$(e) fn ls s|]
 }
