@@ -21,7 +21,7 @@ module Data.API.JSON
 
       -- * Parser with multiple error support
     , ParserWithErrs
-    , ParseFlags(useDefaults, enforceReadOnlyFields)
+    , ParseFlags(useDefaults, enforceReadOnlyFields, enforceFilters)
     , defaultParseFlags
     , runParserWithErrsTop
 
@@ -223,6 +223,9 @@ data ParseFlags = ParseFlags
     , enforceReadOnlyFields :: Bool
       -- ^ If true, fields in the schema marked read-only will be
       -- overwritten with default values
+    , enforceFilters        :: Bool
+      -- ^ If true, parse errors will be generated when invalid values
+      -- are supplied for filtered newtypes
     }
 
 -- | Use this as a basis for overriding individual fields of the
@@ -230,6 +233,7 @@ data ParseFlags = ParseFlags
 defaultParseFlags :: ParseFlags
 defaultParseFlags = ParseFlags { useDefaults           = False
                                , enforceReadOnlyFields = False
+                               , enforceFilters        = True
                                }
 
 runParserWithErrsTop :: ParseFlags -> ParserWithErrs a -> Either [(JSONError, Position)] a
@@ -373,10 +377,10 @@ withNum s f v = case JS.fromJSON v of
 
 withIntRange :: IntRange -> String -> (Int -> ParserWithErrs a)
              -> JS.Value -> ParserWithErrs a
-withIntRange ir dg f = withInt dg g
+withIntRange ir dg f v = withParseFlags $ \ pf -> withInt dg (g (enforceFilters pf)) v
   where
-    g i | i `inIntRange` ir = f i
-        | otherwise         = failWith $ IntRangeError dg i ir
+    g enforce i | not enforce || i `inIntRange` ir = f i
+                | otherwise                        = failWith $ IntRangeError dg i ir
 
     _ `inIntRange` IntRange Nothing   Nothing   = True
     i `inIntRange` IntRange (Just lo) Nothing   = lo <= i
@@ -406,9 +410,10 @@ withText s _ v             = failWith $ Expected ExpString s v
 
 withRegEx :: RegEx -> String -> (T.Text -> ParserWithErrs a)
                -> JS.Value -> ParserWithErrs a
-withRegEx re dg f = withText dg g
+withRegEx re dg f v = withParseFlags $ \ pf -> withText dg (g (enforceFilters pf)) v
   where
-    g txt = case matchRegex (re_regex re) $ T.unpack txt of
+    g enforce txt | not enforce = f txt
+                  | otherwise   = case matchRegex (re_regex re) $ T.unpack txt of
               Just _  -> f txt
               Nothing -> failWith $ RegexError dg txt re
 
@@ -420,10 +425,10 @@ withUTC lab f = withText lab g
 
 withUTCRange :: UTCRange -> String -> (UTCTime -> ParserWithErrs a)
                -> JS.Value -> ParserWithErrs a
-withUTCRange ur dg f = withUTC dg g
+withUTCRange ur dg f v = withParseFlags $ \ pf -> withUTC dg (g (enforceFilters pf)) v
   where
-    g u | u `inUTCRange` ur = f u
-        | otherwise         = failWith $ UTCRangeError dg u ur
+    g enforce u | not enforce || u `inUTCRange` ur = f u
+                | otherwise                        = failWith $ UTCRangeError dg u ur
 
     _ `inUTCRange` UTCRange Nothing   Nothing   = True
     u `inUTCRange` UTCRange (Just lo) Nothing   = lo <= u

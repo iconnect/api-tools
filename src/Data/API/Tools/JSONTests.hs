@@ -8,6 +8,7 @@
 module Data.API.Tools.JSONTests
     ( jsonTestsTool
     , prop_decodesTo
+    , prop_decodesTo'
     , prop_resultsMatchRoundtrip
     ) where
 
@@ -45,6 +46,14 @@ prop_decodesTo :: forall a . (Eq a, FromJSONWithErrs a)
 prop_decodesTo v x = case fromJSONWithErrs v :: Either [(JSONError, Position)] a of
                        Right y | x == y -> True
                        _                -> False
+
+-- | QuickCheck property that a 'Value' decodes to an expected Haskell
+-- value, using 'fromJSONWithErrs'' with the given 'ParseFlags'
+prop_decodesTo' :: forall a . (Eq a, FromJSONWithErrs a)
+               => ParseFlags -> JS.Value -> a -> Bool
+prop_decodesTo' pf v x = case fromJSONWithErrs' pf v :: Either [(JSONError, Position)] a of
+                           Right y | x == y -> True
+                           _                -> False
 
 -- | QuickCheck property that Haskell values can be encoded with
 -- 'toJSON' and decoded with 'fromJSONWithErrs' to get the original

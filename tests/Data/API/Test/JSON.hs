@@ -10,13 +10,16 @@ import           Data.API.API.Gen ( apiAPISimpleTests )
 import           Data.API.JSON
 import           Data.API.Tools
 import           Data.API.Tools.JSONTests
-import           Data.API.Test.Gen (exampleSimpleTests, example2SimpleTests, FilteredInt, FilteredString, FilteredUTC)
+import           Data.API.Test.Gen ( exampleSimpleTests, example2SimpleTests
+                                   , FilteredInt(..), FilteredString(..), FilteredUTC(..)
+                                   )
 import           Data.API.Test.MigrationData
 import           Data.API.Types
 import           Data.API.Utils
 
 import qualified Data.Aeson               as JS
 import qualified Data.HashMap.Strict      as HMap
+import           Data.Time
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -46,10 +49,17 @@ basicValueDecoding = sequence_ [ help (JS.String "12")  (12 :: Int) True
                                , help (JS.Object (HMap.singleton "id" (JS.Number 3)))
                                       (Recursive (Id 3) Nothing)
                                       True
+                               , help' noFilter (JS.Number 0) (FilteredInt 0) True
+                               , help' noFilter (JS.String "cabcage") (FilteredString "cabcage") True
+                               , help' noFilter (JS.String "2014-10-13T15:20:10Z") (FilteredUTC (pUTC "2014-10-13T15:20:10Z")) True
                                ]
   where
     help v x yes = assertBool ("Failed on " ++ show v ++ " " ++ show x)
                               (prop_decodesTo v x == yes)
+    help' pf v x yes = assertBool ("Failed on " ++ show v ++ " " ++ show x)
+                                  (prop_decodesTo' pf v x == yes)
+
+    noFilter = defaultParseFlags { enforceFilters = False }
 
 -- | Test that the correct errors are generated for bad JSON data
 errorDecoding :: [TestTree]
@@ -82,7 +92,8 @@ errorDecoding = [ help "not enough input" ""         (proxy :: Int)
                                               ++ "\ninstead of\n" ++ prettyJSONErrorPositions es)
                                              (es == es')
 
-    pUTC = maybe (error "errorDecoding: pUTC") id . parseUTC_
+pUTC :: String -> UTCTime
+pUTC = maybe (error "pUTC") id . parseUTC_
 
 jsonTests :: TestTree
 jsonTests = testGroup "JSON"
