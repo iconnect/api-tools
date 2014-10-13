@@ -6,12 +6,14 @@ module Data.API.Test.JSON
     ( jsonTests
     ) where
 
-import           Data.API.API.Gen
+import           Data.API.API.Gen ( apiAPISimpleTests )
 import           Data.API.JSON
 import           Data.API.Tools
 import           Data.API.Tools.JSONTests
-import           Data.API.Test.Gen (exampleSimpleTests, example2SimpleTests)
+import           Data.API.Test.Gen (exampleSimpleTests, example2SimpleTests, FilteredInt, FilteredString, FilteredUTC)
 import           Data.API.Test.MigrationData
+import           Data.API.Types
+import           Data.API.Utils
 
 import qualified Data.Aeson               as JS
 import qualified Data.HashMap.Strict      as HMap
@@ -63,6 +65,12 @@ errorDecoding = [ help "not enough input" ""         (proxy :: Int)
                       [(UnexpectedEnumVal ["bar", "foo"] "no", [InElem 0])]
                 , help "missing field"    "{}"       (proxy :: Bar)
                       [(MissingField, [InField "id"])]
+                , help "int out of range" "[0]" (proxy :: [FilteredInt])
+                      [(IntRangeError "FilteredInt" 0 (IntRange (Just 3) (Just 5)), [InElem 0])]
+                , help "string mismatch" "[\"cabcage\"]" (proxy :: [FilteredString])
+                      [(RegexError "FilteredString" "cabcage" (mkRegEx "cab*age"), [InElem 0])]
+                , help "utc out of range" "[\"2014-10-13T15:20:10Z\"]" (proxy :: [FilteredUTC])
+                      [(UTCRangeError "FilteredUTC" (pUTC "2014-10-13T15:20:10Z") (UTCRange (parseUTC_ "2014-10-13T15:20:11Z") Nothing), [InElem 0])]
                 ]
   where
     proxy = error "proxy"
@@ -73,6 +81,8 @@ errorDecoding = [ help "not enough input" ""         (proxy :: Int)
                                               ++ "\n" ++ prettyJSONErrorPositions es'
                                               ++ "\ninstead of\n" ++ prettyJSONErrorPositions es)
                                              (es == es')
+
+    pUTC = maybe (error "errorDecoding: pUTC") id . parseUTC_
 
 jsonTests :: TestTree
 jsonTests = testGroup "JSON"

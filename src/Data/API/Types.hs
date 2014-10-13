@@ -29,6 +29,7 @@ module Data.API.Types
     , RegEx(..)
     , Binary(..)
     , defaultValueAsJsValue
+    , mkRegEx
     ) where
 
 import           Data.API.Utils

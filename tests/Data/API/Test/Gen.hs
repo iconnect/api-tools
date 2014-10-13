@@ -89,6 +89,12 @@ prj_enum :: ENUM -> REP__ENUM
 prj_enum (ENUM False) = ENM_e1
 prj_enum (ENUM True ) = ENM_e2
 
+
+instance Arbitrary FilteredString where
+  arbitrary = pure "cabbage"
+
+instance Example FilteredString
+
 $(generateAPITools example2
                    [ enumTool
                    , jsonTool'

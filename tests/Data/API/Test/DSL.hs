@@ -89,4 +89,14 @@ uv :: MyUTC
 urec :: URec
     = record
         foo :: utc
+
+
+fi :: FilteredInt
+    = basic integer | >= 3, <= 5
+
+fs :: FilteredString
+    = basic string | "cab*age"
+
+fu :: FilteredUTC
+    = basic utc | >= 2014-10-13T15:20:11Z
 |]
