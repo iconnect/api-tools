@@ -249,9 +249,6 @@ gen_FromJSON = mkTool $ \ ts an -> do
                      _           -> False
 
 
-alternatives :: Alternative t => t a -> [t a] -> t a
-alternatives none = foldr (<|>) none
-
 mkInt :: Int -> Value
 mkInt = Number . fromInteger . toInteger
 

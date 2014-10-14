@@ -11,6 +11,7 @@
 module Data.API.JSON
     ( -- * Representation of JSON parsing errors
       JSONError(..)
+    , JSONWarning
     , Expected(..)
     , FormatExpected(..)
     , Position
@@ -21,7 +22,7 @@ module Data.API.JSON
 
       -- * Parser with multiple error support
     , ParserWithErrs
-    , ParseFlags(useDefaults, enforceReadOnlyFields)
+    , ParseFlags(useDefaults, enforceReadOnlyFields, enforceFilters)
     , defaultParseFlags
     , runParserWithErrsTop
 
@@ -29,6 +30,7 @@ module Data.API.JSON
     , FromJSONWithErrs(..)
     , fromJSONWithErrs
     , fromJSONWithErrs'
+    , fromJSONWithErrs''
     , decodeWithErrs
     , decodeWithErrs'
     , parseJSONDefault
@@ -99,6 +101,9 @@ data JSONError = Expected  Expected       String JS.Value
                | RegexError String T.Text RegEx
                | SyntaxError String
   deriving (Eq, Show)
+
+-- | At present, we do not distinguish between errors and warnings
+type JSONWarning = JSONError
 
 -- | JSON type expected at a particular position, when a value of a
 -- different type was encountered
@@ -188,30 +193,29 @@ prettyJSONErrorPositions xs = unlines $ concatMap help xs
 --
 --    * @pf \`ap\` ps@  returns errors from @pf@ only
 newtype ParserWithErrs a = ParserWithErrs {
-    runParserWithErrs :: ParseFlags -> Position -> Either [(JSONError, Position)] a }
+    runParserWithErrs :: ParseFlags -> Position -> ([(JSONError, Position)], Maybe a) }
   deriving Functor
 
 instance Applicative ParserWithErrs where
-  pure x    = ParserWithErrs $ \ _ _ -> Right x
+  pure x    = ParserWithErrs $ \ _ _ -> ([], Just x)
   pf <*> ps = ParserWithErrs $ \ q z ->
-                  case (runParserWithErrs pf q z, runParserWithErrs ps q z) of
-                      (Right f, Right s)  -> Right $ f s
-                      (Left es, Right _)  -> Left es
-                      (Right _, Left es)  -> Left es
-                      (Left es, Left es') -> Left $ es ++ es'
+                  let (es_f, mb_f) = runParserWithErrs pf q z
+                      (es_s, mb_s) = runParserWithErrs ps q z
+                  in (es_f ++ es_s, mb_f <*> mb_s)
 
 instance Alternative ParserWithErrs where
   empty   = failWith $ SyntaxError "No alternative"
   px <|> py = ParserWithErrs $ \ q z -> case runParserWithErrs px q z of
-                                        Right v -> Right v
-                                        Left  _ -> runParserWithErrs py q z
+                                          r@(_, Just _) -> r
+                                          (_, Nothing)  -> runParserWithErrs py q z
 
 instance Monad ParserWithErrs where
   return   = pure
   px >>= f = ParserWithErrs $ \ q z ->
                   case runParserWithErrs px q z of
-                    Right x -> runParserWithErrs (f x) q z
-                    Left es -> Left es
+                    (es, Just x ) -> let (es', r) = runParserWithErrs (f x) q z
+                                     in (es ++ es', r)
+                    (es, Nothing) -> (es, Nothing)
   fail     = failWith . SyntaxError
 
 
@@ -223,6 +227,9 @@ data ParseFlags = ParseFlags
     , enforceReadOnlyFields :: Bool
       -- ^ If true, fields in the schema marked read-only will be
       -- overwritten with default values
+    , enforceFilters        :: Bool
+      -- ^ If true, parse errors will be generated when invalid values
+      -- are supplied for filtered newtypes
     }
 
 -- | Use this as a basis for overriding individual fields of the
@@ -230,10 +237,16 @@ data ParseFlags = ParseFlags
 defaultParseFlags :: ParseFlags
 defaultParseFlags = ParseFlags { useDefaults           = False
                                , enforceReadOnlyFields = False
+                               , enforceFilters        = True
                                }
 
-runParserWithErrsTop :: ParseFlags -> ParserWithErrs a -> Either [(JSONError, Position)] a
-runParserWithErrsTop q p = runParserWithErrs p q []
+-- | Run a parser with given flags, starting in the outermost
+-- location, and returning warnings even if the parse was successful
+runParserWithErrsTop :: ParseFlags -> ParserWithErrs a
+                      -> Either [(JSONError, Position)] (a, [(JSONWarning, Position)])
+runParserWithErrsTop q p = case runParserWithErrs p q [] of
+                              (es, Nothing) -> Left es
+                              (es, Just v)  -> Right (v, es)
 
 
 --------------------------------------------------
@@ -309,7 +322,14 @@ fromJSONWithErrs = fromJSONWithErrs' defaultParseFlags
 -- errors with their positions.  This version allows the 'ParseFlags'
 -- to be specified.
 fromJSONWithErrs' :: FromJSONWithErrs a => ParseFlags -> JS.Value -> Either [(JSONError, Position)] a
-fromJSONWithErrs' q = runParserWithErrsTop q . parseJSONWithErrs
+fromJSONWithErrs' q = fmap fst . fromJSONWithErrs'' q
+
+-- | Run the JSON parser on a value to produce a result or a list of
+-- errors with their positions.  This version allows the 'ParseFlags'
+-- to be specified, and produces warnings even if the parse succeeded.
+fromJSONWithErrs'' :: FromJSONWithErrs a => ParseFlags -> JS.Value
+                   -> Either [(JSONError, Position)] (a, [(JSONWarning, Position)])
+fromJSONWithErrs'' q = runParserWithErrsTop q . parseJSONWithErrs
 
 
 -- | Decode a 'ByteString' and run the JSON parser
@@ -341,7 +361,10 @@ withParseFlags :: (ParseFlags -> ParserWithErrs a) -> ParserWithErrs a
 withParseFlags k = ParserWithErrs $ \ q -> runParserWithErrs (k q) q
 
 failWith :: JSONError -> ParserWithErrs a
-failWith e = ParserWithErrs $ \ _ z -> Left [(e, z)]
+failWith e = ParserWithErrs $ \ _ z -> ([(e, z)], Nothing)
+
+warning :: JSONError -> ParserWithErrs ()
+warning e = ParserWithErrs $ \ _ z -> ([(e, z)], Just ())
 
 stepInside :: Step -> ParserWithErrs a -> ParserWithErrs a
 stepInside s p = ParserWithErrs $ \ q z -> runParserWithErrs p q (s:z)
@@ -351,11 +374,17 @@ stepInside s p = ParserWithErrs $ \ q z -> runParserWithErrs p q (s:z)
 modifyTopError :: (JSONError -> JSONError)
                -> ParserWithErrs a -> ParserWithErrs a
 modifyTopError f p = ParserWithErrs $ \ q z -> case runParserWithErrs p q z of
-                                               Left es -> Left $ map (modifyIfAt z) es
-                                               r       -> r
+                                                 (es, r) -> (map (modifyIfAt z) es, r)
   where
     modifyIfAt z x@(e, z') | z == z'   = (f e, z')
                            | otherwise = x
+
+-- | If the conditional is false, fail with an error (if filters are
+-- not being enforced) or report a warning and continue (if they are).
+withFilter :: Bool -> JSONError -> ParserWithErrs a -> ParserWithErrs a
+withFilter p err m | p         = m
+                   | otherwise = withParseFlags $ \ pf -> if enforceFilters pf then failWith err
+                                                                               else warning err >> m
 
 
 -- It's contrary to my principles, but I'll accept a string containing
@@ -373,11 +402,8 @@ withNum s f v = case JS.fromJSON v of
 
 withIntRange :: IntRange -> String -> (Int -> ParserWithErrs a)
              -> JS.Value -> ParserWithErrs a
-withIntRange ir dg f = withInt dg g
+withIntRange ir dg f = withInt dg $ \ i -> withFilter (i `inIntRange` ir) (IntRangeError dg i ir) (f i)
   where
-    g i | i `inIntRange` ir = f i
-        | otherwise         = failWith $ IntRangeError dg i ir
-
     _ `inIntRange` IntRange Nothing   Nothing   = True
     i `inIntRange` IntRange (Just lo) Nothing   = lo <= i
     i `inIntRange` IntRange Nothing   (Just hi) = i <= hi
@@ -406,11 +432,9 @@ withText s _ v             = failWith $ Expected ExpString s v
 
 withRegEx :: RegEx -> String -> (T.Text -> ParserWithErrs a)
                -> JS.Value -> ParserWithErrs a
-withRegEx re dg f = withText dg g
+withRegEx re dg f = withText dg $ \ txt -> withFilter (ok txt) (RegexError dg txt re) (f txt)
   where
-    g txt = case matchRegex (re_regex re) $ T.unpack txt of
-              Just _  -> f txt
-              Nothing -> failWith $ RegexError dg txt re
+    ok txt = isJust $ matchRegex (re_regex re) $ T.unpack txt
 
 withUTC :: String -> (UTCTime -> ParserWithErrs a)
         -> JS.Value -> ParserWithErrs a
@@ -420,11 +444,8 @@ withUTC lab f = withText lab g
 
 withUTCRange :: UTCRange -> String -> (UTCTime -> ParserWithErrs a)
                -> JS.Value -> ParserWithErrs a
-withUTCRange ur dg f = withUTC dg g
+withUTCRange ur dg f = withUTC dg $ \ u -> withFilter (u `inUTCRange` ur) (UTCRangeError dg u ur) (f u)
   where
-    g u | u `inUTCRange` ur = f u
-        | otherwise         = failWith $ UTCRangeError dg u ur
-
     _ `inUTCRange` UTCRange Nothing   Nothing   = True
     u `inUTCRange` UTCRange (Just lo) Nothing   = lo <= u
     u `inUTCRange` UTCRange Nothing   (Just hi) = u <= hi
