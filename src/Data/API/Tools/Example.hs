@@ -96,7 +96,7 @@ gen_sn_ex :: Tool (APINode, SpecNewtype)
 gen_sn_ex = mkTool $ \ ts (an, sn) -> case snFilter sn of
                                Just (FtrStrg _) -> return []
                                Just _           -> inst ts an [e| QC.arbitrary |]
-                               Nothing          -> inst ts an [e| fmap $(nodeConE an) example |]
+                               Nothing          -> inst ts an [e| fmap $(nodeNewtypeConE ts an sn) example |]
   where
     inst ts an e = optionalInstanceD ts ''Example [nodeRepT an] [simpleD 'example e]
 

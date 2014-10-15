@@ -19,6 +19,7 @@ module Data.API.Tools.Combinators
       -- * Tool settings
     , ToolSettings
     , warnOnOmittedInstance
+    , newtypeSmartConstructors
     , defaultToolSettings
     ) where
 
@@ -36,12 +37,16 @@ data ToolSettings = ToolSettings
     { warnOnOmittedInstance :: Bool
       -- ^ Generate a warning when an instance declaration is omitted
       -- because it already exists
+    , newtypeSmartConstructors :: Bool
+      -- ^ Rename the constructors of filtered newtypes and generate
+      -- smart constructors that enforce the invariants
     }
 
 -- | Default settings designed to be overridden.
 defaultToolSettings :: ToolSettings
 defaultToolSettings = ToolSettings
     { warnOnOmittedInstance = False
+    , newtypeSmartConstructors = False
     }
 
 -- | A @'Tool' a@ is something that can generate TH declarations from

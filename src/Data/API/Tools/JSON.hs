@@ -86,9 +86,9 @@ instance FromJSONWithErrs JobId where
 
 gen_sn_fm :: Tool (APINode, SpecNewtype)
 gen_sn_fm = mkTool $ \ ts (an, sn) -> optionalInstanceD ts ''FromJSONWithErrs [nodeRepT an]
-                                          [simpleD 'parseJSONWithErrs (bdy an sn)]
+                                          [simpleD 'parseJSONWithErrs (bdy ts an sn)]
   where
-    bdy an sn = [e| $(wth sn) $(typeNameE (anName an)) (pure . $(nodeConE an)) |]
+    bdy ts an sn = [e| $(wth sn) $(typeNameE (anName an)) (pure . $(nodeNewtypeConE ts an sn)) |]
 
     wth sn    =
         case (snType sn, snFilter sn) of

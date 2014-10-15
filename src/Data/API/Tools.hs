@@ -18,6 +18,7 @@ module Data.API.Tools
     , generateAPIToolsWith
     , defaultToolSettings
     , warnOnOmittedInstance
+    , newtypeSmartConstructors
 
       -- * Individual tools
     , enumTool
