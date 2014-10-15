@@ -14,6 +14,7 @@ module Data.API.Tools
     , generateAPITools
 
       -- * Tool settings
+    , generateWith
     , generateAPIToolsWith
     , defaultToolSettings
     , warnOnOmittedInstance
@@ -47,7 +48,12 @@ import           Language.Haskell.TH
 
 -- | Generate the datatypes corresponding to an API.
 generate :: API -> Q [Dec]
-generate api = generateAPITools api [datatypesTool]
+generate = generateWith defaultToolSettings
+
+-- | Generate the datatypes corresponding to an API, allowing the
+-- 'ToolSettings' to be overriden.
+generateWith :: ToolSettings -> API -> Q [Dec]
+generateWith ts api = generateAPIToolsWith ts api [datatypesTool]
 
 -- | Apply a list of tools to an 'API', generating TH declarations.
 -- See the individual tool descriptions for details.  Note that
