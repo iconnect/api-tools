@@ -403,11 +403,6 @@ withNum s f v = case JS.fromJSON v of
 withIntRange :: IntRange -> String -> (Int -> ParserWithErrs a)
              -> JS.Value -> ParserWithErrs a
 withIntRange ir dg f = withInt dg $ \ i -> withFilter (i `inIntRange` ir) (IntRangeError dg i ir) (f i)
-  where
-    _ `inIntRange` IntRange Nothing   Nothing   = True
-    i `inIntRange` IntRange (Just lo) Nothing   = lo <= i
-    i `inIntRange` IntRange Nothing   (Just hi) = i <= hi
-    i `inIntRange` IntRange (Just lo) (Just hi) = lo <= i && i <= hi
 
 withBinary :: String -> (Binary -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
 withBinary lab f = withText lab g
@@ -445,11 +440,6 @@ withUTC lab f = withText lab g
 withUTCRange :: UTCRange -> String -> (UTCTime -> ParserWithErrs a)
                -> JS.Value -> ParserWithErrs a
 withUTCRange ur dg f = withUTC dg $ \ u -> withFilter (u `inUTCRange` ur) (UTCRangeError dg u ur) (f u)
-  where
-    _ `inUTCRange` UTCRange Nothing   Nothing   = True
-    u `inUTCRange` UTCRange (Just lo) Nothing   = lo <= u
-    u `inUTCRange` UTCRange Nothing   (Just hi) = u <= hi
-    u `inUTCRange` UTCRange (Just lo) (Just hi) = lo <= u && u <= hi
 
 withVersion :: String -> (Version -> ParserWithErrs a)
             -> JS.Value -> ParserWithErrs a
