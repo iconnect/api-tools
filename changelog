@@ -1,5 +1,13 @@
 -*-change-log-*-
 
+0.5 Adam Gundry <adam@well-typed.com> October 2014
+	* Tool to generate Aeson FromJSON instances, as well as FromJSONWithErrs
+	* Add more TypeKind alternatives for custom migrations
+	* Pretty-printing and error message fixes
+	* Report correct source locations in quasiquote parsers
+	* Extend JSON parser to optionally treat newtype filter violations as warnings
+	* Optionally generate smart constructors for filtered newtypes
+
 0.4.0.1 Adam Gundry <adam@well-typed.com> July 2014
 	* Widen dependency compatibility to support GHC 7.8.3
 
