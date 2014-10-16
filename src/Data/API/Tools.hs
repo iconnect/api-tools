@@ -16,6 +16,7 @@ module Data.API.Tools
       -- * Tool settings
     , generateWith
     , generateAPIToolsWith
+    , ToolSettings
     , defaultToolSettings
     , warnOnOmittedInstance
     , newtypeSmartConstructors
