@@ -26,7 +26,7 @@ $(generateAPITools DSL.example
                    , jsonTestsTool (mkName "exampleSimpleTests")
                    ])
 
-$(generate      example2)
+$(generateWith (defaultToolSettings { newtypeSmartConstructors = True }) example2)
 
 data Coord = Coord Int Int
     deriving (Eq,Show)
@@ -91,11 +91,11 @@ prj_enum (ENUM True ) = ENM_e2
 
 
 instance Arbitrary FilteredString where
-  arbitrary = pure "cabbage"
+  arbitrary = pure $ UnsafeMkFilteredString "cabbage"
 
 instance Example FilteredString
 
-$(generateAPITools example2
+$(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True }) example2
                    [ enumTool
                    , jsonTool'
                    , quickCheckTool

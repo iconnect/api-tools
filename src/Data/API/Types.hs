@@ -30,6 +30,8 @@ module Data.API.Types
     , Binary(..)
     , defaultValueAsJsValue
     , mkRegEx
+    , inIntRange
+    , inUTCRange
     ) where
 
 import           Data.API.Utils
@@ -136,6 +138,12 @@ data IntRange
 instance Lift IntRange where
     lift (IntRange lo hi) = [e| IntRange lo hi |]
 
+inIntRange :: Int -> IntRange -> Bool
+_ `inIntRange` IntRange Nothing   Nothing   = True
+i `inIntRange` IntRange (Just lo) Nothing   = lo <= i
+i `inIntRange` IntRange Nothing   (Just hi) = i <= hi
+i `inIntRange` IntRange (Just lo) (Just hi) = lo <= i && i <= hi
+
 data UTCRange
     = UTCRange
         { ur_lo :: Maybe UTCTime
@@ -152,6 +160,12 @@ liftUTC u = [e| fromMaybe (error "liftUTC") (parseUTC_ $(stringE (mkUTC_ u))) |]
 liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
 liftMaybeUTCTime Nothing  = [e| Nothing |]
 liftMaybeUTCTime (Just u) = [e| Just $(liftUTC u) |]
+
+inUTCRange :: UTCTime -> UTCRange -> Bool
+_ `inUTCRange` UTCRange Nothing   Nothing   = True
+u `inUTCRange` UTCRange (Just lo) Nothing   = lo <= u
+u `inUTCRange` UTCRange Nothing   (Just hi) = u <= hi
+u `inUTCRange` UTCRange (Just lo) (Just hi) = lo <= u && u <= hi
 
 
 data RegEx =

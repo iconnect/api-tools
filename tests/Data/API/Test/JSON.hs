@@ -10,9 +10,7 @@ import           Data.API.API.Gen ( apiAPISimpleTests )
 import           Data.API.JSON
 import           Data.API.Tools
 import           Data.API.Tools.JSONTests
-import           Data.API.Test.Gen ( exampleSimpleTests, example2SimpleTests
-                                   , FilteredInt(..), FilteredString(..), FilteredUTC(..)
-                                   )
+import           Data.API.Test.Gen hiding ( Foo )
 import           Data.API.Test.MigrationData
 import           Data.API.Types
 import           Data.API.Utils
@@ -49,9 +47,9 @@ basicValueDecoding = sequence_ [ help (JS.String "12")  (12 :: Int) True
                                , help (JS.Object (HMap.singleton "id" (JS.Number 3)))
                                       (Recursive (Id 3) Nothing)
                                       True
-                               , help' noFilter (JS.Number 0) (FilteredInt 0) True
-                               , help' noFilter (JS.String "cabcage") (FilteredString "cabcage") True
-                               , help' noFilter (JS.String "2014-10-13T15:20:10Z") (FilteredUTC (pUTC "2014-10-13T15:20:10Z")) True
+                               , help' noFilter (JS.Number 0) (UnsafeMkFilteredInt 0) True
+                               , help' noFilter (JS.String "cabcage") (UnsafeMkFilteredString "cabcage") True
+                               , help' noFilter (JS.String "2014-10-13T15:20:10Z") (UnsafeMkFilteredUTC (pUTC "2014-10-13T15:20:10Z")) True
                                ]
   where
     help v x yes = assertBool ("Failed on " ++ show v ++ " " ++ show x)
@@ -92,6 +90,20 @@ errorDecoding = [ help "not enough input" ""         (proxy :: Int)
                                               ++ "\ninstead of\n" ++ prettyJSONErrorPositions es)
                                              (es == es')
 
+-- | Test that smart constructors correctly enforce the invariants
+smartConstructors :: [TestTree]
+smartConstructors =
+  [ testCase "mkFilteredInt"    $ do mkFilteredInt    2         @?= Nothing
+                                     mkFilteredInt    3         @?= Just (UnsafeMkFilteredInt 3)
+  , testCase "mkFilteredUTC"    $ do mkFilteredUTC    bad_time  @?= Nothing
+                                     mkFilteredUTC    good_time @?= Just (UnsafeMkFilteredUTC good_time)
+  , testCase "mkFilteredString" $ do mkFilteredString "cabcage" @?= Nothing
+                                     mkFilteredString "cabbage" @?= Just (UnsafeMkFilteredString "cabbage")
+  ]
+  where
+    bad_time  = pUTC "2014-10-13T15:20:10Z"
+    good_time = pUTC "2014-10-13T15:20:13Z"
+
 pUTC :: String -> UTCTime
 pUTC = maybe (error "pUTC") id . parseUTC_
 
@@ -99,6 +111,7 @@ jsonTests :: TestTree
 jsonTests = testGroup "JSON"
   [ testCase  "Basic value decoding"  basicValueDecoding
   , testGroup "Decoding invalid data" errorDecoding
+  , testGroup "Smart constructors"    smartConstructors
   , testGroup "Round-trip tests"
       [ testGroup "example"  $ map (uncurry QC.testProperty) exampleSimpleTests
       , testGroup "example2" $ map (uncurry QC.testProperty) example2SimpleTests

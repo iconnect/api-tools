@@ -33,14 +33,14 @@ quickCheckTool = apiNodeTool $ apiSpecTool gen_sn_ab gen_sr_ab gen_su_ab gen_se_
 -- values).
 gen_sn_ab :: Tool (APINode, SpecNewtype)
 gen_sn_ab = mkTool $ \ ts (an, sn) -> case snFilter sn of
-    Nothing | snType sn == BTint    -> mk_instance ts an [e| QC.arbitraryBoundedIntegral |]
-            | otherwise             -> mk_instance ts an [e| arbitrary |]
-    Just (FtrIntg ir)               -> mk_instance ts an [e| arbitraryIntRange ir |]
-    Just (FtrUTC ur)                -> mk_instance ts an [e| arbitraryUTCRange ur |]
+    Nothing | snType sn == BTint    -> mk_instance ts an sn [e| QC.arbitraryBoundedIntegral |]
+            | otherwise             -> mk_instance ts an sn [e| arbitrary |]
+    Just (FtrIntg ir)               -> mk_instance ts an sn [e| arbitraryIntRange ir |]
+    Just (FtrUTC ur)                -> mk_instance ts an sn [e| arbitraryUTCRange ur |]
     Just (FtrStrg _)                -> return []
   where
-    mk_instance ts an arb = optionalInstanceD ts ''Arbitrary [nodeRepT an]
-                                [simpleD 'arbitrary [e| fmap $(nodeConE an) $arb |]]
+    mk_instance ts an sn arb = optionalInstanceD ts ''Arbitrary [nodeRepT an]
+                                  [simpleD 'arbitrary [e| fmap $(nodeNewtypeConE ts an sn) $arb |]]
 
 
 -- | Generate an 'Arbitrary' instance for a record:

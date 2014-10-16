@@ -6,28 +6,33 @@ module Data.API.Tools.Datatypes
     , nodeT
     , nodeRepT
     , nodeConE
+    , nodeNewtypeConE
     , nodeFieldE
     , nodeAltConE
     , nodeAltConP
     , newtypeProjectionE
     ) where
 
+import           Data.API.TH
 import           Data.API.Tools.Combinators
 import           Data.API.Types
 
+import           Control.Applicative
 import           Data.Aeson
 import qualified Data.CaseInsensitive           as CI
 import           Data.Char
+import           Data.Maybe
 import           Data.String
 import qualified Data.Text                      as T
 import           Data.Time
 import           Data.Typeable
 import           Language.Haskell.TH
+import           Text.Regex
 
 
 -- | Tool to generate datatypes and type synonyms corresponding to an API
 datatypesTool :: APITool
-datatypesTool = apiNodeTool $ apiSpecTool (simpleTool $ uncurry gen_sn_dt)
+datatypesTool = apiNodeTool $ apiSpecTool (mkTool     $ uncurry . gen_sn_dt)
                                           (simpleTool $ uncurry gen_sr_dt)
                                           (simpleTool $ uncurry gen_su_dt)
                                           (simpleTool $ uncurry gen_se_dt)
@@ -43,11 +48,21 @@ gen_sy as ty = return [TySynD (type_nm as) [] $ mk_type ty]
 --
 -- > newtype JobId = JobId { _JobId :: T.Text }
 -- >     deriving (Show,IsString,Eq,Typeable)
+--
+-- If a filter has been applied, and smart constructors are enabled,
+-- instead generate this:
+--
+-- > newtype EmailAddress = UnsafeMkEmailAddress { _EmailAddress :: T.Text }
+-- >     deriving (Show,Eq,Typeable)
+-- > mkEmailAddress :: T.Text -> Maybe EmailAddress
+-- > mkEmailAddress t = ... -- check filter
 
-gen_sn_dt :: APINode -> SpecNewtype -> Q [Dec]
-gen_sn_dt as sn = return [NewtypeD [] nm [] c $ derive_leaf_nms ++ iss]
+gen_sn_dt :: ToolSettings -> APINode -> SpecNewtype -> Q [Dec]
+gen_sn_dt ts as sn = (nd :) <$> if smart then sc else return []
   where
-    c   = RecC nm [(newtype_prj_nm as,NotStrict,mk_type $ TyBasic (snType sn))]
+    nd  = NewtypeD [] nm [] c $ derive_leaf_nms ++ iss
+    c   = RecC (newtype_con_nm smart as) [(newtype_prj_nm as,NotStrict,wrapped_ty)]
+    wrapped_ty = mk_type $ TyBasic (snType sn)
 
     nm  = rep_type_nm as
 
@@ -57,6 +72,18 @@ gen_sn_dt as sn = return [NewtypeD [] nm [] c $ derive_leaf_nms ++ iss]
             BTbool   -> []
             BTint    -> []
             BTutc    -> []
+
+    smart = newtypeSmartConstructors ts && isJust (snFilter sn)
+
+    sc  = simpleSigD (newtype_smart_con_nm as) [t| $(return wrapped_ty) -> Maybe $(nodeRepT as) |] $
+             case snFilter sn of
+               Just (FtrStrg re) -> [| \ s -> if isJust (matchRegex (re_regex re) (T.unpack s))
+                                                                   then Just ($nt_con s) else Nothing |]
+               Just (FtrIntg ir) -> [| \ i -> if i `inIntRange` ir then Just ($nt_con i) else Nothing |]
+               Just (FtrUTC  ur) -> [| \ u -> if u `inUTCRange` ur then Just ($nt_con u) else Nothing |]
+               Nothing           -> [| Just . $nt_con |]
+
+    nt_con = nodeNewtypeConE ts as sn
 
 
 
@@ -158,6 +185,17 @@ rep_type_nm an = mkName $ rep_type_s an
 newtype_prj_nm :: APINode -> Name
 newtype_prj_nm an = mkName $ "_" ++ rep_type_s an
 
+-- | Name of the constructor of a newtype, which will be same as the
+-- representation type unless a smart constructor is requested, in
+-- which case we just prefix it with "UnsafeMk".
+newtype_con_nm :: Bool -> APINode -> Name
+newtype_con_nm smart an | smart     = mkName $ "UnsafeMk" ++ rep_type_s an
+                        | otherwise = mkName $               rep_type_s an
+
+-- | Name of the smart constructor of a newtype, prefixed with "mk".
+newtype_smart_con_nm :: APINode -> Name
+newtype_smart_con_nm an = mkName $ "mk" ++ rep_type_s an
+
 rep_type_s :: APINode -> String
 rep_type_s an = f $ _TypeName $ anName an
   where
@@ -186,9 +224,13 @@ nodeT = conT . type_nm
 nodeRepT :: APINode -> TypeQ
 nodeRepT = conT . rep_type_nm
 
--- | The constructor for a newtype or record API node
+-- | The constructor for a record API node
 nodeConE :: APINode -> ExpQ
 nodeConE = conE . rep_type_nm
+
+-- | The constructor for a newtype, which might be renamed
+nodeNewtypeConE :: ToolSettings -> APINode -> SpecNewtype -> ExpQ
+nodeNewtypeConE ts an sn = conE $ newtype_con_nm (newtypeSmartConstructors ts && isJust (snFilter sn)) an
 
 -- | A record field in an API node, as an expression
 nodeFieldE :: APINode -> FieldName -> ExpQ
