@@ -1,5 +1,8 @@
 {-# LANGUAGE TemplateHaskell            #-}
 
+-- | This module defines some utilities for working with Template
+-- Haskell, which may be useful for defining 'Tool's, but should be
+-- considered internal implementation details of this package.
 module Data.API.TH
     ( applicativeE
     , optionalInstanceD
@@ -17,8 +20,9 @@ import           Language.Haskell.TH
 
 -- | Construct an idiomatic expression (an expression in an
 -- Applicative context), i.e.
---     app ke []             => ke
---     app ke [e1,e2,...,en] => ke <$> e1 <*> e2 ... <*> en
+--
+-- > app ke []             = ke
+-- > app ke [e1,e2,...,en] = ke <$> e1 <*> e2 ... <*> en
 applicativeE :: ExpQ -> [ExpQ] -> ExpQ
 applicativeE ke es0 =
     case es0 of

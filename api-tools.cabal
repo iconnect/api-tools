@@ -41,6 +41,7 @@ Library
         Data.API.NormalForm
         Data.API.Parse
         Data.API.PP
+        Data.API.TH
         Data.API.Tools
         Data.API.Tools.Combinators
         Data.API.Tools.Datatypes
@@ -63,7 +64,6 @@ Library
         Data.API.Doc.Dir
         Data.API.Doc.Types
         Data.API.Scan
-        Data.API.TH
 
   Build-depends:
         Cabal                >= 1.4      && < 2    ,
