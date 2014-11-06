@@ -124,7 +124,7 @@ declarations.  Thus @$(generate example)@ will produce something like:
 > type MyFlag = Bool
 
 The Template Haskell staging restriction means that @example@ must be
-defined in one module and imported into another to call @generate@.
+defined in one module and imported into another to call 'generate'.
 
 -}
 
@@ -138,11 +138,27 @@ for a list of tools supplied with the library.  For example, the call
 
 will define:
 
-* @_text_MyEnum :: MyEnum -> 'Text'@ and @_map_MyEnum :: Map 'Text' MyEnum@,
-  for converting between enumerations and text representations
+* @_text_MyEnum :: MyEnum -> 'Text'@ for converting an enumeration to
+  its textual representation;
+
+* @_map_MyEnum :: Map 'Text' MyEnum@ for converting a textual
+  representation back to an enumeration; and
 
 * 'ToJSON', 'FromJSONWithErrs' and 'Arbitrary' instances for all the
-  generated types
+  generated types.
+
+Note that 'generate' must be used to create the datatypes first,
+otherwise 'generateAPITools' will result in scope errors.  Moreover,
+certain tools have dependencies, as described in the documentation for
+each tool in "Data.API.Tools".  Dependent tools must be generated in
+the same call to 'generateAPITools' or a previous call; if they are
+missing unpleasant compilation errors will occur.  For example,
+omitting 'enumTool' in the above to give
+
+> $(generateAPITools [jsonTool, quickCheckTool] example)
+
+will lead to errors about undefined symbols @_text_MyEnum@ and
+@_map_MyEnum@ in the generated code.
 
 -}
 

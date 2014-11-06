@@ -24,6 +24,7 @@ module Data.API.Tools
       -- * Individual tools
     , enumTool
     , exampleTool
+    , deepSeqTool
     , jsonTool
     , jsonTool'
     , jsonTestsTool
@@ -35,6 +36,7 @@ module Data.API.Tools
 
 import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
+import           Data.API.Tools.DeepSeq
 import           Data.API.Tools.Enum
 import           Data.API.Tools.Example
 import           Data.API.Tools.JSON
