@@ -1,5 +1,10 @@
 -*-change-log-*-
 
+0.5.1 Adam Gundry <adam@well-typed.com> November 2014
+	* Tool to generate NFData instances (added dependency on deepseq)
+	* Expose internal module with TH utility functions
+	* Documentation tweaks
+
 0.5 Adam Gundry <adam@well-typed.com> October 2014
 	* Tool to generate Aeson FromJSON instances, as well as FromJSONWithErrs
 	* Add more TypeKind alternatives for custom migrations
