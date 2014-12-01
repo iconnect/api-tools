@@ -32,7 +32,7 @@ gen_sr = mkTool $ \ ts (an, sr) -> do
   where
     bdy an sr x = lamE [varP x] $ foldr f [e|()|] (srFields sr)
       where
-        f (fn,_) r = [e| $(nodeFieldE an fn) $(varE x) `seq` $r |]
+        f (fn,_) r = [e| rnf ($(nodeFieldE an fn) $(varE x)) `seq` $r |]
 
 gen_su :: Tool (APINode, SpecUnion)
 gen_su = mkTool $ \ ts (an, su) -> do
