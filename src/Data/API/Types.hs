@@ -36,6 +36,7 @@ module Data.API.Types
 
 import           Data.API.Utils
 
+import           Control.DeepSeq
 import qualified Data.CaseInsensitive           as CI
 import           Data.String
 import           Data.Time
@@ -284,7 +285,7 @@ defaultValueAsJsValue (DefValUtc    t)           = mkUTC t
 -- | Binary data is represented in JSON format as a base64-encoded
 -- string
 newtype Binary = Binary { _Binary :: B.ByteString }
-    deriving (Show,Eq,Ord)
+    deriving (Show,Eq,Ord,NFData)
 
 instance ToJSON Binary where
     toJSON = String . T.decodeLatin1 . B64.encode . _Binary
