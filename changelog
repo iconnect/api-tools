@@ -1,5 +1,9 @@
 -*-change-log-*-
 
+0.5.2 Adam Gundry <adam@well-typed.com> December 2014
+	* Fix bug in DeepSeq tool: records not reduced to normal form
+	* Add instance for NFData Binary
+
 0.5.1 Adam Gundry <adam@well-typed.com> November 2014
 	* Tool to generate NFData instances (added dependency on deepseq)
 	* Expose internal module with TH utility functions
