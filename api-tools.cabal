@@ -168,7 +168,7 @@ Test-Suite test-api-tools
         regex-compat-tdfa    >= 0.95.1   && < 0.96 ,
         safe                 >= 0.3.3    && < 0.4  ,
         safecopy             >= 0.8.1    && < 0.9  ,
-        tasty                >= 0.3      && < 0.9  ,
+        tasty                >= 0.10.1   && < 0.11 ,
         tasty-hunit          >= 0.2      && < 0.9  ,
         tasty-quickcheck     >= 0.3      && < 0.9  ,
         time                 >= 1.4      && < 1.5  ,
