@@ -39,7 +39,7 @@ instance Example Coord
 inj_coord :: REP__Coord -> ParserWithErrs Coord
 inj_coord (REP__Coord x y) = pure $ Coord x y
 
-prj_coord :: Coord -> REP__Coord 
+prj_coord :: Coord -> REP__Coord
 prj_coord (Coord x y) = REP__Coord x y
 
 
@@ -104,4 +104,5 @@ $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True })
                    , exampleTool
                    , samplesTool   (mkName "example2Samples")
                    , jsonTestsTool (mkName "example2SimpleTests")
+                   , jsonTestsToolCBOR (mkName "example2SimpleTestsCBOR")
                    ])

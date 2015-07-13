@@ -28,6 +28,7 @@ module Data.API.Tools
     , jsonTool
     , jsonTool'
     , jsonTestsTool
+    , jsonTestsToolCBOR
     , lensTool
     , quickCheckTool
     , safeCopyTool
