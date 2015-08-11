@@ -18,6 +18,7 @@ $(generate         DSL.example)
 $(generateAPITools DSL.example
                    [ enumTool
                    , jsonTool'
+                   , cborTool'
                    , quickCheckTool
                    , lensTool
                    , safeCopyTool
@@ -98,6 +99,7 @@ instance Example FilteredString
 $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True }) example2
                    [ enumTool
                    , jsonTool'
+--                   , cborTool'
                    , quickCheckTool
                    , lensTool
                    , safeCopyTool

@@ -27,6 +27,7 @@ module Data.API.Tools
     , deepSeqTool
     , jsonTool
     , jsonTool'
+    , cborTool'
     , jsonTestsTool
     , jsonTestsToolCBOR
     , lensTool
@@ -40,6 +41,7 @@ import           Data.API.Tools.Datatypes
 import           Data.API.Tools.DeepSeq
 import           Data.API.Tools.Enum
 import           Data.API.Tools.Example
+import           Data.API.Tools.CBOR
 import           Data.API.Tools.JSON
 import           Data.API.Tools.JSONTests
 import           Data.API.Tools.Lens
