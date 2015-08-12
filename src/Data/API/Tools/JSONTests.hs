@@ -9,6 +9,7 @@
 module Data.API.Tools.JSONTests
     ( jsonTestsTool
     , jsonTestsToolCBOR
+    , jsonTestsToolCBOR2
     , prop_decodesTo
     , prop_decodesTo'
     , prop_resultsMatchRoundtrip
@@ -21,6 +22,8 @@ import           Data.API.TH
 import           Data.API.Types
 
 import qualified Data.Aeson                     as JS
+import           Data.Binary.Serialise.CBOR
+import qualified Data.ByteString.Lazy           as BS
 import           Language.Haskell.TH
 import           Test.QuickCheck
 
@@ -56,6 +59,20 @@ jsonTestsToolCBOR nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Propert
 -- prop_resultsMatchRoundtrip property
 generatePropCBOR :: APINode -> ExpQ
 generatePropCBOR an = [e| ($ty, property (prop_resultsMatchRoundtripCBOR :: $(nodeT an) -> Bool)) |]
+  where
+    ty = stringE $ _TypeName $ anName an
+
+
+jsonTestsToolCBOR2 :: Name -> APITool
+jsonTestsToolCBOR2 nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Property)] |] (props api)
+  where
+    props api = listE $ map generatePropCBOR2 [ an | ThNode an <- api ]
+
+-- | For an APINode, generate a (String, Property) pair giving the
+-- type name and an appropriate instance of the
+-- prop_resultsMatchRoundtrip property
+generatePropCBOR2 :: APINode -> ExpQ
+generatePropCBOR2 an = [e| ($ty, property (prop_resultsMatchRoundtripCBOR2 :: $(nodeT an) -> Bool)) |]
   where
     ty = stringE $ _TypeName $ anName an
 
@@ -101,3 +118,13 @@ readProcessUnsafe :: FilePath -> [String] -> ByteString -> ByteString
 readProcessUnsafe p args input = unsafePerformIO $ do
   (_, out, _) <- readProcessWithExitCode p args input
   return out
+
+
+prop_decodesToCBOR :: forall a . (Eq a, Serialise a)
+                   => BS.ByteString -> a -> Bool
+prop_decodesToCBOR v x = deserialise v == x
+
+-- TODO: should we test serialise or serialiseIncremental?
+prop_resultsMatchRoundtripCBOR2 :: forall a . (Eq a, Serialise a )
+                                => a -> Bool
+prop_resultsMatchRoundtripCBOR2 x = prop_decodesToCBOR (serialise x) x

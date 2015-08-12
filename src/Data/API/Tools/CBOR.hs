@@ -5,7 +5,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 module Data.API.Tools.CBOR
-    ( cborTool'
+    ( cborTool', ToCBOR(..), FromCBOR(..)
     ) where
 
 import           Data.API.TH
@@ -241,8 +241,8 @@ cborStrMap_p mp t = fromMaybe (error "Unexpected enumeration key in CBOR")
                     $ flip Map.lookup mp t
 
 
-gen_in :: Tool APINode
-gen_in = mkTool $ \ ts an -> case anConvert an of
+_gen_in :: Tool APINode
+_gen_in = mkTool $ \ ts an -> case anConvert an of
   Nothing          -> return []
   Just (inj_fn, _) -> optionalInstanceD ts ''FromCBOR [nodeT an]
                           [simpleD 'fromCBOR bdy]
@@ -252,8 +252,8 @@ gen_in = mkTool $ \ ts an -> case anConvert an of
     inj = varE $ mkName $ _FieldName inj_fn
 
 
-gen_pr :: Tool APINode
-gen_pr = mkTool $ \ ts an -> case anConvert an of
+_gen_pr :: Tool APINode
+_gen_pr = mkTool $ \ ts an -> case anConvert an of
   Nothing          -> return []
   Just (_, prj_fn) -> optionalInstanceD ts ''ToCBOR [nodeT an] [simpleD 'toCBOR bdy]
    where

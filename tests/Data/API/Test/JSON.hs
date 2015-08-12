@@ -116,6 +116,7 @@ jsonTests = testGroup "JSON"
       [ testGroup "example"  $ map (uncurry QC.testProperty) exampleSimpleTests
       , testGroup "example2" $ map (uncurry QC.testProperty) example2SimpleTests
       , testGroup "example2CBOR" $ map (uncurry QC.testProperty) example2SimpleTestsCBOR
+      , testGroup "example2CBOR2" $ map (uncurry QC.testProperty) example2SimpleTestsCBOR2
       , testGroup "api"      $ map (uncurry QC.testProperty) apiAPISimpleTests
       ]
   ]

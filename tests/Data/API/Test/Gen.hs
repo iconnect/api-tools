@@ -9,6 +9,7 @@ import           Data.API.JSON
 import           Data.API.Test.DSL hiding (example)
 import qualified Data.API.Test.DSL as DSL
 import           Data.API.Tools
+import           Data.API.Tools.CBOR
 import           Data.API.Tools.Example
 import           Control.Applicative
 import           Language.Haskell.TH
@@ -37,6 +38,12 @@ instance Arbitrary Coord where
 
 instance Example Coord
 
+instance ToCBOR Coord where
+    toCBOR = undefined  -- TODO
+
+instance FromCBOR Coord where
+    fromCBOR = undefined  -- TODO
+
 inj_coord :: REP__Coord -> ParserWithErrs Coord
 inj_coord (REP__Coord x y) = pure $ Coord x y
 
@@ -51,6 +58,12 @@ instance Arbitrary Ssn where
     arbitrary = Ssn <$> arbitrary
 
 instance Example Ssn
+
+instance ToCBOR Ssn where
+    toCBOR = undefined  -- TODO
+
+instance FromCBOR Ssn where
+    fromCBOR = undefined  -- TODO
 
 inj_ssn :: REP__Ssn -> ParserWithErrs Ssn
 inj_ssn = return . Ssn . fromIntegral . _REP__Ssn
@@ -67,6 +80,12 @@ instance Arbitrary CHOICE where
 
 instance Example CHOICE
 
+instance ToCBOR CHOICE where
+    toCBOR = undefined  -- TODO
+
+instance FromCBOR CHOICE where
+    fromCBOR = undefined  -- TODO
+
 inj_chc :: REP__CHOICE -> ParserWithErrs CHOICE
 inj_chc (CHC_a i) = return $ CHOICE i
 inj_chc (CHC_b _) = empty
@@ -81,6 +100,12 @@ instance Arbitrary ENUM where
     arbitrary = ENUM <$> arbitrary
 
 instance Example ENUM
+
+instance ToCBOR ENUM where
+    toCBOR = undefined  -- TODO
+
+instance FromCBOR ENUM where
+    fromCBOR = undefined  -- TODO
 
 inj_enum :: REP__ENUM -> ParserWithErrs ENUM
 inj_enum ENM_e1 = return $ ENUM False
@@ -107,4 +132,5 @@ $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True })
                    , samplesTool   (mkName "example2Samples")
                    , jsonTestsTool (mkName "example2SimpleTests")
                    , jsonTestsToolCBOR (mkName "example2SimpleTestsCBOR")
+                   , jsonTestsToolCBOR2 (mkName "example2SimpleTestsCBOR2")
                    ])
