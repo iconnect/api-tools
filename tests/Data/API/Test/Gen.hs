@@ -99,7 +99,7 @@ instance Example FilteredString
 $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True }) example2
                    [ enumTool
                    , jsonTool'
---                   , cborTool'
+                   , cborTool'
                    , quickCheckTool
                    , lensTool
                    , safeCopyTool
