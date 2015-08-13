@@ -6,7 +6,7 @@ module Data.API.Test.JSON
     ( jsonTests
     ) where
 
-import           Data.API.API.Gen ( apiAPISimpleTests )
+import           Data.API.API.Gen ( apiAPISimpleTests, apiAPISimpleTestsCBOR2 )
 import           Data.API.JSON
 import           Data.API.Tools
 import           Data.API.Tools.JSONTests
@@ -114,9 +114,11 @@ jsonTests = testGroup "JSON"
   , testGroup "Smart constructors"    smartConstructors
   , testGroup "Round-trip tests"
       [ testGroup "example"  $ map (uncurry QC.testProperty) exampleSimpleTests
+      , testGroup "exampleCBOR2"  $ map (uncurry QC.testProperty) exampleSimpleTestsCBOR2
       , testGroup "example2" $ map (uncurry QC.testProperty) example2SimpleTests
       , testGroup "example2CBOR" $ map (uncurry QC.testProperty) example2SimpleTestsCBOR
       , testGroup "example2CBOR2" $ map (uncurry QC.testProperty) example2SimpleTestsCBOR2
       , testGroup "api"      $ map (uncurry QC.testProperty) apiAPISimpleTests
+      , testGroup "apiCBOR2"      $ map (uncurry QC.testProperty) apiAPISimpleTestsCBOR2
       ]
   ]

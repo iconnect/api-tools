@@ -25,6 +25,7 @@ $(generateAPITools DSL.example
                    , exampleTool
                    , samplesTool   (mkName "exampleSamples")
                    , jsonTestsTool (mkName "exampleSimpleTests")
+                   , jsonTestsToolCBOR2 (mkName "exampleSimpleTestsCBOR2")
                    ])
 
 $(generateWith (defaultToolSettings { newtypeSmartConstructors = True }) example2)
