@@ -109,9 +109,10 @@ gen_sn_fm = mkTool $ \ ts (an, sn) -> optionalInstanceD ts ''FromCBOR [nodeRepT 
             BTbinary -> [e| decodeBytes |]
             BTbool   -> [e| decodeBool |]
             BTint    -> [e| decodeInt |]
-            BTutc    -> [e| fromMaybe (error "Can't parse UTC from CBOR")
-                            . parseUTC'
-                            <$> decodeString |]
+            BTutc    -> [e| decodeString
+                            >>= maybe (fail "Can't parse UTC from CBOR")
+                                      return
+                                . parseUTC' |]
 
 
 {-
@@ -211,7 +212,7 @@ decodeUnion :: [(T.Text, Decoder a)] -> Decoder a
 decodeUnion ds = do
     dfn <- decodeString
     case lookup dfn ds of
-      Nothing -> error "Unexpected field in union in CBOR"
+      Nothing -> fail "Unexpected field in union in CBOR"
       Just d -> d
 
 {-
@@ -227,19 +228,20 @@ gen_se_to = mkTool $ \ ts (an, _se) -> optionalInstanceD ts ''ToCBOR [nodeRepT a
 
 {-
 instance FromCBOR FrameRate where
-    fromCBOR = cborStrMap_p _map_FrameRate <$> decodeString
+    fromCBOR = cborStrMap_p _map_FrameRate . decodeString
 -}
 
 gen_se_fm :: Tool (APINode, SpecEnum)
 gen_se_fm = mkTool $ \ ts (an, _se) -> optionalInstanceD ts ''FromCBOR [nodeRepT an]
                                            [simpleD 'fromCBOR (bdy an)]
   where
-    bdy an = [e| cborStrMap_p $(varE (map_enum_nm an)) <$> decodeString |]
+    bdy an = [e| decodeString >>= cborStrMap_p $(varE (map_enum_nm an)) |]
 
 
-cborStrMap_p :: Ord a => Map.Map T.Text a -> T.Text -> a
-cborStrMap_p mp t = fromMaybe (error "Unexpected enumeration key in CBOR")
-                    $ flip Map.lookup mp t
+cborStrMap_p :: (Monad m, Ord a) => Map.Map T.Text a -> T.Text -> m a
+cborStrMap_p mp t = case Map.lookup t mp of
+  Nothing -> fail "Unexpected enumeration key in CBOR"
+  Just r -> return r
 
 
 gen_in :: Tool APINode
@@ -262,7 +264,7 @@ gen_pr = mkTool $ \ ts an -> case anConvert an of
 
 parserToDecoder :: ParserWithErrs a -> Decoder a
 parserToDecoder x = case runParserWithErrsTop defaultParseFlags x of
-  Left _ -> error "ParserWithErrs failure in CBOR"  -- TODO
+  Left _ -> fail "ParserWithErrs failure in CBOR"
   Right (y, _) -> pure y  -- TODO: what to do with the returned Position?
 
 fieldNameE :: FieldName -> ExpQ
