@@ -8,6 +8,7 @@ module Data.API.Tools.CBOR
     ( cborTool', ToCBOR(..), FromCBOR(..)
     ) where
 
+import           Data.API.JSON
 import           Data.API.TH
 import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
@@ -59,12 +60,12 @@ cborTool' = apiNodeTool $ toJsonNodeTool <> fromJsonNodeTool
 -- | Tool to generate 'ToCBOR' instance for an API node
 toJsonNodeTool :: APINodeTool
 toJsonNodeTool = apiSpecTool gen_sn_to gen_sr_to gen_su_to gen_se_to mempty
--- not essential and conflits with JSON tests: <> gen_pr
+                 <> gen_pr
 
 -- | Tool to generate 'FromCBOR' instance for an API node
 fromJsonNodeTool :: APINodeTool
 fromJsonNodeTool = apiSpecTool gen_sn_fm gen_sr_fm gen_su_fm gen_se_fm mempty
--- not essential and conflits with JSON tests: <> gen_in
+                   <> gen_in
 
 
 {-
@@ -241,25 +242,28 @@ cborStrMap_p mp t = fromMaybe (error "Unexpected enumeration key in CBOR")
                     $ flip Map.lookup mp t
 
 
-_gen_in :: Tool APINode
-_gen_in = mkTool $ \ ts an -> case anConvert an of
+gen_in :: Tool APINode
+gen_in = mkTool $ \ ts an -> case anConvert an of
   Nothing          -> return []
   Just (inj_fn, _) -> optionalInstanceD ts ''FromCBOR [nodeT an]
                           [simpleD 'fromCBOR bdy]
    where
-    bdy = do x <- newName "x"
-             lamE [varP x] [e| fromCBOR $(varE x) >>= $inj |]
+    bdy = [e| fromCBOR >>= parserToDecoder . $inj |]
     inj = varE $ mkName $ _FieldName inj_fn
 
 
-_gen_pr :: Tool APINode
-_gen_pr = mkTool $ \ ts an -> case anConvert an of
+gen_pr :: Tool APINode
+gen_pr = mkTool $ \ ts an -> case anConvert an of
   Nothing          -> return []
   Just (_, prj_fn) -> optionalInstanceD ts ''ToCBOR [nodeT an] [simpleD 'toCBOR bdy]
    where
     bdy = [e| toCBOR . $prj |]
     prj = varE $ mkName $ _FieldName prj_fn
 
+parserToDecoder :: ParserWithErrs a -> Decoder a
+parserToDecoder x = case runParserWithErrsTop defaultParseFlags x of
+  Left _ -> error "ParserWithErrs failure in CBOR"  -- TODO
+  Right (y, _) -> pure y  -- TODO: what to do with the returned Position?
 
 fieldNameE :: FieldName -> ExpQ
 fieldNameE = stringE . _FieldName
