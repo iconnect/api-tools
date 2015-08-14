@@ -21,7 +21,7 @@ import           Control.Applicative
 import           Data.Binary.Serialise.CBOR.Class
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
-import           Data.List (foldl')
+import           Data.List (foldl1')
 import           Data.Maybe
 import qualified Data.Map                       as Map
 import           Data.Monoid
@@ -142,10 +142,10 @@ gen_sr_to = mkTool $ \ ts (an, sr) -> do
                   | (fn, _) <- srFields sr ]
 
 -- TODO: lots of thunks; perhaps calculate @length sr@ first
--- TODO: I assume encodeBreak is a noop
+-- TODO: I assume the record has at least 1 field
 encodeRecord :: [Encoding] -> Encoding
 encodeRecord l = encodeMapLen (fromIntegral $ length l)
-                 <> foldl' (<>) encodeBreak l
+                 <> foldl1' (<>) l
 
 
 {-
