@@ -189,8 +189,8 @@ gen_su_to = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''ToCBOR [nodeRepT an
     cl an fn = do x <- newName "x"
                   clause [nodeAltConP an fn [varP x]] (bdy fn x) []
 
-    bdy fn x = normalB [e| encodeRecord [ encodeString $(fieldNameE fn)
-                                          <> encode $(varE x) ] |]
+    bdy fn x = normalB [e| encodeString $(fieldNameE fn)
+                           <> encode $(varE x) |]
 
 
 {-
