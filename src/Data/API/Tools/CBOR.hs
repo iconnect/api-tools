@@ -18,6 +18,7 @@ import           Data.API.Utils
 import           Data.Time.Clock
 
 import           Control.Applicative
+import qualified Data.Aeson                     as JS
 import           Data.Binary.Serialise.CBOR.Class
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
@@ -44,6 +45,12 @@ instance ToCBOR UTCTime where
 instance FromCBOR UTCTime where
     fromCBOR = fromMaybe (error "UTCTime hack in CBOR") . parseUTC'
                <$> decodeString  -- TODO on the binary-CBOR side
+
+instance FromCBOR JS.Value where
+  fromCBOR = return $ JS.String $ T.pack "TODO"
+
+instance ToCBOR JS.Value where
+  toCBOR _ = encode "TODO"
 
 instance ToCBOR Binary where
     toCBOR = encodeBytes . _Binary
