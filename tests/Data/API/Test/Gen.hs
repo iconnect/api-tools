@@ -10,7 +10,11 @@ import           Data.API.Test.DSL hiding (example)
 import qualified Data.API.Test.DSL as DSL
 import           Data.API.Tools
 import           Data.API.Tools.Example
+
 import           Control.Applicative
+import qualified Data.Aeson                     as JS
+import           Data.SafeCopy
+import qualified Data.Text                      as T
 import           Language.Haskell.TH
 import           Test.QuickCheck                ( Arbitrary(..) )
 
@@ -95,6 +99,17 @@ instance Arbitrary FilteredString where
   arbitrary = pure $ UnsafeMkFilteredString "cabbage"
 
 instance Example FilteredString
+
+
+-- | These instances are required by the generated code, but we don't
+-- really want to force them on clients of the library, so just define
+-- orphans here.
+instance Arbitrary JS.Value where
+    arbitrary = JS.String . T.pack <$> arbitrary
+
+instance SafeCopy JS.Value where
+  getCopy = error "Not implemented"
+  putCopy = error "Not implemented"
 
 $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True }) example2
                    [ enumTool

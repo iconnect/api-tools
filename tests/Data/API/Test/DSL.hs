@@ -99,4 +99,20 @@ fs :: FilteredString
 
 fu :: FilteredUTC
     = basic utc | >= 2014-10-13T15:20:11Z
+
+bb :: BasicBinary
+    = basic binary
+
+j :: JSON
+    = json
+
+nr :: NewRec
+    = record
+        bb :: BasicBinary
+        j  :: JSON
+
+nu :: NewUnion
+    = union
+      | bb :: BasicBinary
+      | j  :: JSON
 |]
