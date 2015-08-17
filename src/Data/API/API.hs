@@ -6,6 +6,8 @@
 module Data.API.API
     ( apiAPI
     , extractAPI
+    , convertAPI
+    , unconvertAPI
     ) where
 
 import           Data.API.API.DSL
@@ -21,9 +23,11 @@ import           Text.Regex
 
 
 -- | Take an API spec and generate a JSON description of the API
-
 extractAPI :: API -> Value
-extractAPI api = toJSON $ map convert [ an | ThNode an <- api ]
+extractAPI = toJSON . convertAPI
+
+convertAPI :: API -> D.APISpec
+convertAPI api = [ convert an | ThNode an <- api ]
 
 convert :: APINode -> D.APINode
 convert (APINode{..}) =
@@ -127,6 +131,9 @@ convert_default (DefValUtc    u) = D.DV_utc     u
 
 instance FromJSONWithErrs Thing where
     parseJSONWithErrs v = (ThNode . unconvert) <$> parseJSONWithErrs v
+
+unconvertAPI :: D.APISpec -> API
+unconvertAPI = map (ThNode . unconvert)
 
 unconvert :: D.APINode -> APINode
 unconvert (D.APINode{..}) =
