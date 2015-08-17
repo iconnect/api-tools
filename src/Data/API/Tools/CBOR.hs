@@ -82,7 +82,7 @@ gen_sn_to = mkTool $ \ ts (an, sn) -> optionalInstanceD ts ''ToCBOR [nodeRepT an
 
     ine sn = case snType sn of
             BTstring -> [e| encodeString |]
-            BTbinary -> [e| encodeBytes |]
+            BTbinary -> [e| encode |]
             BTbool   -> [e| encodeBool |]
             BTint    -> [e| encodeInt |]
             BTutc    -> [e| encodeString . mkUTC' |]
@@ -107,7 +107,7 @@ gen_sn_fm = mkTool $ \ ts (an, sn) -> optionalInstanceD ts ''FromCBOR [nodeRepT 
     oute sn =
         case snType sn of
             BTstring -> [e| decodeString |]
-            BTbinary -> [e| decodeBytes |]
+            BTbinary -> [e| decode |]
             BTbool   -> [e| decodeBool |]
             BTint    -> [e| decodeInt |]
             BTutc    -> [e| decodeString
