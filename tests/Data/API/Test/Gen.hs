@@ -13,6 +13,7 @@ import           Data.API.Tools.Example
 
 import           Control.Applicative
 import qualified Data.Aeson                     as JS
+import           Data.Binary.Serialise.CBOR.Aeson ()
 import           Data.SafeCopy
 import qualified Data.Text                      as T
 import           Language.Haskell.TH

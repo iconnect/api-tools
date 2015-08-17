@@ -58,6 +58,7 @@ Library
         Data.API.Tutorial
         Data.API.Types
         Data.API.Utils
+        Data.Binary.Serialise.CBOR.Aeson
 
   Other-modules:
         Data.API.API.DSL
@@ -86,6 +87,7 @@ Library
         regex-compat-tdfa    >= 0.95.1   && < 0.96 ,
         safe                 >= 0.3.3    && < 0.4  ,
         safecopy             >= 0.8.1    && < 0.9  ,
+        scientific           >= 0.3      && < 0.4  ,
         time                 >= 1.4      && < 1.5  ,
         template-haskell     >= 2.7      && < 2.10 ,
         text                 >= 0.11.3   && < 1.2  ,
