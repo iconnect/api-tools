@@ -198,14 +198,9 @@ gen_pr = mkTool $ \ ts an -> case anConvert an of
     bdy_in = [e| encode . $prj |]
     prj = varE $ mkName $ _FieldName prj_fn
 
-    bdy_out = [e| decode >>= parserToDecoder . $inj |]
+    bdy_out = [e| decode >>= $inj |]
     inj = varE $ mkName $ _FieldName inj_fn
 
-
-parserToDecoder :: ParserWithErrs a -> Decoder a
-parserToDecoder x = case runParserWithErrsTop defaultParseFlags x of
-  Left _ -> fail "ParserWithErrs failure in CBOR"
-  Right (y, _) -> pure y  -- TODO: what to do with the returned Position?
 
 fieldNameE :: FieldName -> ExpQ
 fieldNameE = stringE . _FieldName
