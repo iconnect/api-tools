@@ -15,14 +15,12 @@ import           Data.API.Tools.Datatypes
 import           Data.API.Tools.Enum
 import           Data.API.Types
 import           Data.API.Utils
-import           Data.Time.Clock
 
 import           Control.Applicative
 import           Data.Binary.Serialise.CBOR.Class
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
 import           Data.List (foldl1')
-import           Data.Maybe
 import qualified Data.Map                       as Map
 import           Data.Monoid
 import qualified Data.Text                      as T
@@ -37,13 +35,6 @@ class FromCBOR a where
 instance (ToCBOR a, FromCBOR a) => Serialise a where
     encode = toCBOR
     decode = fromCBOR
-
-instance ToCBOR UTCTime where
-    toCBOR = encodeString . mkUTC' -- TODO on the binary-CBOR side
-
-instance FromCBOR UTCTime where
-    fromCBOR = fromMaybe (error "UTCTime hack in CBOR") . parseUTC'
-               <$> decodeString  -- TODO on the binary-CBOR side
 
 instance ToCBOR Binary where
     toCBOR = encodeBytes . _Binary
