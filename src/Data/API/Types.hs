@@ -43,6 +43,7 @@ import           Data.Time
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Aeson.TH
+import qualified Data.Binary.Serialise.CBOR     as CBOR
 import           Data.Maybe
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
@@ -285,7 +286,7 @@ defaultValueAsJsValue (DefValUtc    t)           = mkUTC t
 -- | Binary data is represented in JSON format as a base64-encoded
 -- string
 newtype Binary = Binary { _Binary :: B.ByteString }
-    deriving (Show,Eq,Ord,NFData)
+    deriving (Show,Eq,Ord,NFData,CBOR.Serialise)
 
 instance ToJSON Binary where
     toJSON = String . T.decodeLatin1 . B64.encode . _Binary
