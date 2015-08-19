@@ -24,6 +24,6 @@ $(generateAPITools apiAPI
                    , safeCopyTool
                    , exampleTool
                    , samplesTool   (mkName "apiAPISamples")
-                   , jsonTestsTool (mkName "apiAPISimpleTests")
-                   , jsonTestsToolCBOR2 (mkName "apiAPISimpleTestsCBOR2")
+                   , jsonTestsTool (mkName "apiAPITestsJSON")
+                   , cborTestsTool (mkName "apiAPITestsCBOR")
                    ])

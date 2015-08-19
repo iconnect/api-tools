@@ -8,11 +8,12 @@
 
 module Data.API.Tools.JSONTests
     ( jsonTestsTool
+    , cborTestsTool
     , jsonTestsToolCBOR
-    , jsonTestsToolCBOR2
     , prop_decodesTo
     , prop_decodesTo'
     , prop_resultsMatchRoundtrip
+    , prop_cborRoundtrip
     ) where
 
 import           Data.API.JSON
@@ -37,44 +38,31 @@ import Control.Applicative ((<*))
 -- | Tool to generate a list of tests of type @[('String', 'Property')]@
 -- with the given name.  This depends on 'jsonTool' and 'quickCheckTool'.
 jsonTestsTool :: Name -> APITool
-jsonTestsTool nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Property)] |] (props api)
-  where
-    props api = listE $ map generateProp [ an | ThNode an <- api ]
+jsonTestsTool = testsTool 'prop_resultsMatchRoundtrip
 
--- | For an APINode, generate a (String, Property) pair giving the
--- type name and an appropriate instance of the
--- prop_resultsMatchRoundtrip property
-generateProp :: APINode -> ExpQ
-generateProp an = [e| ($ty, property (prop_resultsMatchRoundtrip :: $(nodeT an) -> Bool)) |]
-  where
-    ty = stringE $ _TypeName $ anName an
+cborTestsTool :: Name -> APITool
+cborTestsTool = testsTool 'prop_cborRoundtrip
 
 jsonTestsToolCBOR :: Name -> APITool
-jsonTestsToolCBOR nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Property)] |] (props api)
+jsonTestsToolCBOR = testsTool 'prop_resultsMatchRoundtripCBOR
+
+
+-- | Tool to generate a list of tests of type @[('String', 'Property')]@
+-- based on instantiating the first argument at type @A -> Bool@ for each
+-- type @A@ in the API.  The second argument is the name of the declaration
+-- that should be produced.
+testsTool :: Name -> Name -> APITool
+testsTool prop_nm nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Property)] |] (props api)
   where
-    props api = listE $ map generatePropCBOR [ an | ThNode an <- api ]
+    props api = listE $ map (generateProp prop_nm) [ an | ThNode an <- api ]
 
 -- | For an APINode, generate a (String, Property) pair giving the
--- type name and an appropriate instance of the
--- prop_resultsMatchRoundtrip property
-generatePropCBOR :: APINode -> ExpQ
-generatePropCBOR an = [e| ($ty, property (prop_resultsMatchRoundtripCBOR :: $(nodeT an) -> Bool)) |]
+-- type name and an appropriate instance of the property
+generateProp :: Name -> APINode -> ExpQ
+generateProp prop_nm an = [e| ($ty, property ($(varE prop_nm) :: $(nodeT an) -> Bool)) |]
   where
     ty = stringE $ _TypeName $ anName an
 
-
-jsonTestsToolCBOR2 :: Name -> APITool
-jsonTestsToolCBOR2 nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Property)] |] (props api)
-  where
-    props api = listE $ map generatePropCBOR2 [ an | ThNode an <- api ]
-
--- | For an APINode, generate a (String, Property) pair giving the
--- type name and an appropriate instance of the
--- prop_resultsMatchRoundtrip property
-generatePropCBOR2 :: APINode -> ExpQ
-generatePropCBOR2 an = [e| ($ty, property (prop_resultsMatchRoundtripCBOR2 :: $(nodeT an) -> Bool)) |]
-  where
-    ty = stringE $ _TypeName $ anName an
 
 
 -- | QuickCheck property that a 'Value' decodes to an expected Haskell
@@ -100,6 +88,12 @@ prop_resultsMatchRoundtrip :: forall a . (Eq a, JS.ToJSON a, FromJSONWithErrs a 
                            => a -> Bool
 prop_resultsMatchRoundtrip x = prop_decodesTo (JS.toJSON x) x
 
+-- | QuickCheck property that CBOR decoding is a left inverse for encoding
+prop_cborRoundtrip :: forall a . (Eq a, Serialise a)
+                   => a -> Bool
+prop_cborRoundtrip x = deserialise (serialise x) == x
+
+
 -- TODO: check that JSON obtained via cbor2json.rb from the CBOR generated
 -- from the Haskell values is equal to that obtained via toJSON.
 -- For now, before we can generate CBOR from haskell values,
@@ -118,13 +112,3 @@ readProcessUnsafe :: FilePath -> [String] -> ByteString -> ByteString
 readProcessUnsafe p args input = unsafePerformIO $ do
   (_, out, _) <- readProcessWithExitCode p args input
   return out
-
-
-prop_decodesToCBOR :: forall a . (Eq a, Serialise a)
-                   => BS.ByteString -> a -> Bool
-prop_decodesToCBOR v x = deserialise v == x
-
--- TODO: should we test serialise or serialiseIncremental?
-prop_resultsMatchRoundtripCBOR2 :: forall a . (Eq a, Serialise a )
-                                => a -> Bool
-prop_resultsMatchRoundtripCBOR2 x = prop_decodesToCBOR (serialise x) x

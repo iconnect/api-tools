@@ -28,8 +28,8 @@ $(generateAPITools DSL.example
                    , safeCopyTool
                    , exampleTool
                    , samplesTool   (mkName "exampleSamples")
-                   , jsonTestsTool (mkName "exampleSimpleTests")
-                   , jsonTestsToolCBOR2 (mkName "exampleSimpleTestsCBOR2")
+                   , jsonTestsTool (mkName "exampleTestsJSON")
+                   , cborTestsTool (mkName "exampleTestsCBOR")
                    ])
 
 $(generateWith (defaultToolSettings { newtypeSmartConstructors = True }) example2)
@@ -120,7 +120,7 @@ $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True })
                    , safeCopyTool
                    , exampleTool
                    , samplesTool   (mkName "example2Samples")
-                   , jsonTestsTool (mkName "example2SimpleTests")
-                   , jsonTestsToolCBOR (mkName "example2SimpleTestsCBOR")
-                   , jsonTestsToolCBOR2 (mkName "example2SimpleTestsCBOR2")
+                   , jsonTestsTool (mkName "example2TestsJSON")
+                   , cborTestsTool (mkName "example2TestsCBOR")
+                   , jsonTestsToolCBOR (mkName "example2TestsJSONCBOR")
                    ])
