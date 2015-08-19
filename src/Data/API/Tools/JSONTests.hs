@@ -7,13 +7,18 @@
 -- from the DSL description of same.
 
 module Data.API.Tools.JSONTests
-    ( jsonTestsTool
+    ( -- * Tools
+      jsonTestsTool
     , cborTestsTool
+    , jsonViaCBORTestsTool
     , jsonTestsToolCBOR
+
+      -- * Properties
     , prop_decodesTo
     , prop_decodesTo'
     , prop_resultsMatchRoundtrip
     , prop_cborRoundtrip
+    , prop_toJSONViaCBOR
     ) where
 
 import           Data.API.JSON
@@ -24,6 +29,7 @@ import           Data.API.Types
 
 import qualified Data.Aeson                     as JS
 import           Data.Binary.Serialise.CBOR
+import           Data.Binary.Serialise.CBOR.Aeson ()
 import qualified Data.ByteString.Lazy           as BS
 import           Language.Haskell.TH
 import           Test.QuickCheck
@@ -42,6 +48,9 @@ jsonTestsTool = testsTool 'prop_resultsMatchRoundtrip
 
 cborTestsTool :: Name -> APITool
 cborTestsTool = testsTool 'prop_cborRoundtrip
+
+jsonViaCBORTestsTool :: Name -> APITool
+jsonViaCBORTestsTool = testsTool 'prop_toJSONViaCBOR
 
 jsonTestsToolCBOR :: Name -> APITool
 jsonTestsToolCBOR = testsTool 'prop_resultsMatchRoundtripCBOR
@@ -93,6 +102,11 @@ prop_cborRoundtrip :: forall a . (Eq a, Serialise a)
                    => a -> Bool
 prop_cborRoundtrip x = deserialise (serialise x) == x
 
+-- | QuickCheck property that 'toJSON' agrees with encoding to CBOR
+-- and then decoding using the generic decoder
+prop_toJSONViaCBOR :: forall a . (Eq a, Serialise a, JS.ToJSON a)
+                   => a -> Bool
+prop_toJSONViaCBOR x = deserialise (serialise x) == JS.toJSON x
 
 -- TODO: check that JSON obtained via cbor2json.rb from the CBOR generated
 -- from the Haskell values is equal to that obtained via toJSON.
