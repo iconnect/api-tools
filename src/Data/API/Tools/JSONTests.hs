@@ -22,6 +22,7 @@ module Data.API.Tools.JSONTests
     , prop_toJSONViaCBOR
     ) where
 
+import           Data.API.Changes
 import           Data.API.JSON
 import           Data.API.JSONToCBOR
 import           Data.API.Tools.Combinators
@@ -122,7 +123,7 @@ prop_jsonToCBOR :: forall a . (Eq a, Serialise a, JS.ToJSON a)
                 => API -> TypeName -> a -> Bool
 prop_jsonToCBOR api tn x = case jsonToCBOR api tn (JS.toJSON x) of
                              Right v  -> serialise v == serialise x
-                             Left err -> error $ prettyJSONError err
+                             Left err -> error $ prettyValueError err
 
 -- TODO: check that JSON obtained via cbor2json.rb from the CBOR generated
 -- from the Haskell values is equal to that obtained via toJSON.
