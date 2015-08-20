@@ -31,6 +31,7 @@ $(generateAPITools DSL.example
                    , jsonTestsTool (mkName "exampleTestsJSON")
                    , cborTestsTool (mkName "exampleTestsCBOR")
                    , jsonViaCBORTestsTool (mkName "exampleTestsToJSONViaCBOR")
+                   , jsonToCBORTestsTool  (mkName "exampleTestsJSONToCBOR")
                    ])
 
 $(generateWith (defaultToolSettings { newtypeSmartConstructors = True }) example2)
@@ -125,4 +126,5 @@ $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True })
                    , cborTestsTool (mkName "example2TestsCBOR")
                    , jsonViaCBORTestsTool (mkName "example2TestsToJSONViaCBOR")
                    , jsonTestsToolCBOR (mkName "example2TestsJSONCBOR")
+                   , jsonToCBORTestsTool  (mkName "example2TestsJSONToCBOR")
                    ])

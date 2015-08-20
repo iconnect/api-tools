@@ -12,6 +12,7 @@ module Data.API.Tools.JSONTests
     , cborTestsTool
     , jsonViaCBORTestsTool
     , jsonTestsToolCBOR
+    , jsonToCBORTestsTool
 
       -- * Properties
     , prop_decodesTo
@@ -22,6 +23,7 @@ module Data.API.Tools.JSONTests
     ) where
 
 import           Data.API.JSON
+import           Data.API.JSONToCBOR
 import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.TH
@@ -72,7 +74,15 @@ generateProp prop_nm an = [e| ($ty, property ($(varE prop_nm) :: $(nodeT an) -> 
   where
     ty = stringE $ _TypeName $ anName an
 
+jsonToCBORTestsTool :: Name -> APITool
+jsonToCBORTestsTool nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Property)] |] (props api)
+  where
+    props api = listE $ map (genProp api) [ an | ThNode an <- api ]
 
+    genProp api an = [e| ($ty, property (prop_jsonToCBOR api tn :: $(nodeT an) -> Bool)) |]
+      where
+        tn = anName an
+        ty = stringE $ _TypeName $ anName an
 
 -- | QuickCheck property that a 'Value' decodes to an expected Haskell
 -- value, using 'fromJSONWithErrs'
@@ -107,6 +117,12 @@ prop_cborRoundtrip x = deserialise (serialise x) == x
 prop_toJSONViaCBOR :: forall a . (Eq a, Serialise a, JS.ToJSON a)
                    => a -> Bool
 prop_toJSONViaCBOR x = deserialise (serialise x) == JS.toJSON x
+
+prop_jsonToCBOR :: forall a . (Eq a, Serialise a, JS.ToJSON a)
+                => API -> TypeName -> a -> Bool
+prop_jsonToCBOR api tn x = case jsonToCBOR api tn (JS.toJSON x) of
+                             Right v  -> serialise v == serialise x
+                             Left err -> error $ prettyJSONError err
 
 -- TODO: check that JSON obtained via cbor2json.rb from the CBOR generated
 -- from the Haskell values is equal to that obtained via toJSON.

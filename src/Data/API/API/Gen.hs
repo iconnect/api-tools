@@ -27,4 +27,5 @@ $(generateAPITools apiAPI
                    , jsonTestsTool (mkName "apiAPITestsJSON")
                    , cborTestsTool (mkName "apiAPITestsCBOR")
                    , jsonViaCBORTestsTool (mkName "apiAPITestsToJSONViaCBOR")
+                   , jsonToCBORTestsTool  (mkName "apiAPITestsJSONToCBOR")
                    ])

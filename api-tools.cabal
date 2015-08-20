@@ -37,6 +37,7 @@ Library
         Data.API.Doc
         Data.API.Doc.Subst
         Data.API.JSON
+        Data.API.JSONToCBOR
         Data.API.Markdown
         Data.API.NormalForm
         Data.API.Parse

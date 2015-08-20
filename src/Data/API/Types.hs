@@ -2,8 +2,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# OPTIONS_GHC -fno-warn-orphans       #-}
-
 
 module Data.API.Types
     ( API
@@ -137,9 +135,6 @@ data IntRange
         }
     deriving (Eq, Show)
 
-instance Lift IntRange where
-    lift (IntRange lo hi) = [e| IntRange lo hi |]
-
 inIntRange :: Int -> IntRange -> Bool
 _ `inIntRange` IntRange Nothing   Nothing   = True
 i `inIntRange` IntRange (Just lo) Nothing   = lo <= i
@@ -152,16 +147,6 @@ data UTCRange
         , ur_hi :: Maybe UTCTime
         }
     deriving (Eq, Show)
-
-instance Lift UTCRange where
-    lift (UTCRange lo hi) = [e| UTCRange $(liftMaybeUTCTime lo) $(liftMaybeUTCTime hi) |]
-
-liftUTC :: UTCTime -> ExpQ
-liftUTC u = [e| fromMaybe (error "liftUTC") (parseUTC_ $(stringE (mkUTC_ u))) |]
-
-liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
-liftMaybeUTCTime Nothing  = [e| Nothing |]
-liftMaybeUTCTime (Just u) = [e| Just $(liftUTC u) |]
 
 inUTCRange :: UTCTime -> UTCRange -> Bool
 _ `inUTCRange` UTCRange Nothing   Nothing   = True
@@ -190,9 +175,6 @@ instance Eq RegEx where
 
 instance Show RegEx where
     show = T.unpack . re_text
-
-instance Lift RegEx where
-    lift re = [e| mkRegEx $(stringE (T.unpack (re_text re))) |]
 
 -- | SpecRecord is your classsic product type.
 
@@ -263,14 +245,6 @@ data DefaultValue
     | DefValUtc    UTCTime
     deriving (Eq, Show)
 
-instance Lift DefaultValue where
-  lift DefValList       = [e| DefValList     |]
-  lift DefValMaybe      = [e| DefValMaybe    |]
-  lift (DefValString s) = [e| DefValString (T.pack $(lift (T.unpack s))) |]
-  lift (DefValBool   b) = [e| DefValBool b   |]
-  lift (DefValInt    i) = [e| DefValInt i    |]
-  lift (DefValUtc    u) = [e| DefValUtc $(liftUTC u) |]
-
 -- | Convert a default value to an Aeson 'Value'.  This differs from
 -- 'toJSON' as it will not round-trip with 'fromJSON': UTC default
 -- values are turned into strings.
@@ -326,3 +300,85 @@ deriveJSON defaultOptions ''IntRange
 deriveJSON defaultOptions ''UTCRange
 deriveJSON defaultOptions ''BasicType
 deriveJSON defaultOptions ''CI.CI
+
+
+instance Lift Thing where
+  lift (ThComment c) = [e| ThComment c |]
+  lift (ThNode    n) = [e| ThNode    n |]
+
+instance Lift APINode where
+  lift (APINode a b c d e) = [e| APINode a b $(liftPrefix c) d e |]
+
+liftPrefix :: Prefix -> ExpQ
+liftPrefix ci = let s = CI.original ci in [e| CI.mk s |]
+
+instance Lift TypeName where
+  lift (TypeName s) = [e| TypeName s |]
+
+instance Lift FieldName where
+  lift (FieldName s) = [e| FieldName s |]
+
+instance Lift Spec where
+  lift (SpNewtype s) = [e| SpNewtype s |]
+  lift (SpRecord  s) = [e| SpRecord  s |]
+  lift (SpUnion   s) = [e| SpUnion   s |]
+  lift (SpEnum    s) = [e| SpEnum    s |]
+  lift (SpSynonym s) = [e| SpSynonym s |]
+
+instance Lift SpecNewtype where
+  lift (SpecNewtype a b) = [e| SpecNewtype a b |]
+
+instance Lift Filter where
+  lift (FtrStrg re) = [e| FtrStrg re |]
+  lift (FtrIntg ir) = [e| FtrIntg ir |]
+  lift (FtrUTC  ur) = [e| FtrUTC  ur |]
+
+instance Lift IntRange where
+    lift (IntRange lo hi) = [e| IntRange lo hi |]
+
+instance Lift UTCRange where
+    lift (UTCRange lo hi) = [e| UTCRange $(liftMaybeUTCTime lo) $(liftMaybeUTCTime hi) |]
+
+liftUTC :: UTCTime -> ExpQ
+liftUTC u = [e| fromMaybe (error "liftUTC") (parseUTC_ $(stringE (mkUTC_ u))) |]
+
+liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
+liftMaybeUTCTime Nothing  = [e| Nothing |]
+liftMaybeUTCTime (Just u) = [e| Just $(liftUTC u) |]
+
+instance Lift RegEx where
+    lift re = [e| mkRegEx $(stringE (T.unpack (re_text re))) |]
+
+instance Lift SpecRecord where
+  lift (SpecRecord s) = [e| SpecRecord s |]
+
+instance Lift FieldType where
+  lift (FieldType a b c d) = [e| FieldType a b c d |]
+
+instance Lift SpecUnion where
+  lift (SpecUnion s) = [e| SpecUnion s |]
+
+instance Lift SpecEnum where
+  lift (SpecEnum s) = [e| SpecEnum s |]
+
+instance Lift APIType where
+  lift (TyList  t) = [e| TyList  t |]
+  lift (TyMaybe t) = [e| TyMaybe t |]
+  lift (TyName  t) = [e| TyName  t |]
+  lift (TyBasic t) = [e| TyBasic t |]
+  lift TyJSON      = [e| TyJSON    |]
+
+instance Lift BasicType where
+  lift BTstring = [e| BTstring |]
+  lift BTbinary = [e| BTbinary |]
+  lift BTbool   = [e| BTbool   |]
+  lift BTint    = [e| BTint    |]
+  lift BTutc    = [e| BTutc    |]
+
+instance Lift DefaultValue where
+  lift DefValList       = [e| DefValList     |]
+  lift DefValMaybe      = [e| DefValMaybe    |]
+  lift (DefValString s) = [e| DefValString (T.pack $(lift (T.unpack s))) |]
+  lift (DefValBool   b) = [e| DefValBool b   |]
+  lift (DefValInt    i) = [e| DefValInt i    |]
+  lift (DefValUtc    u) = [e| DefValUtc $(liftUTC u) |]
