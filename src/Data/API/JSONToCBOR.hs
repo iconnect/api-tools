@@ -1,5 +1,6 @@
 module Data.API.JSONToCBOR
     ( jsonToCBOR
+    , postprocessJSON
     , encodeUnion
     ) where
 
@@ -107,3 +108,50 @@ jsonToCBORBasic napi bt v = case (bt, v) of
     (BTint   , _)        -> Left $ JSONError $ expectedInt v
     (BTutc   , String t) -> encode <$> (parseUTC' t ?! JSONError (BadFormat FmtUTC "utc" t))
     (BTutc   , _)        -> Left $ JSONError $ expectedString v
+
+
+-- | When a JSON value has been deserialised from CBOR, the
+-- representation may need some modifications in order to match the
+-- result of 'toJSON' on a Haskell datatype.  In particular, Aeson's
+-- representation of 'Maybe' does not round-trip (because 'Nothing' is
+-- encoded as 'Null' and @'Just' x@ as @'toJSON' x@), so CBOR uses a
+-- different representation (as an empty or 1-element list).
+postprocessJSON :: API -> TypeName -> Value -> Either ValueError Value
+postprocessJSON api = postprocessJSONTypeName (apiNormalForm api)
+
+postprocessJSONTypeName :: NormAPI -> TypeName -> Value -> Either ValueError Value
+postprocessJSONTypeName napi tn v = do
+    t <- Map.lookup tn napi ?! InvalidAPI (TypeDoesNotExist tn)
+    case t of
+      NRecordType nrt -> postprocessJSONRecord napi nrt v
+      NUnionType  nut -> postprocessJSONUnion  napi nut v
+      NEnumType    _  -> pure v
+      NTypeSynonym ty -> postprocessJSONType   napi ty  v
+      NNewtype     _  -> pure v
+
+postprocessJSONType :: NormAPI -> APIType -> Value -> Either ValueError Value
+postprocessJSONType napi ty v = case (ty, v) of
+    (TyList ty, Array arr) -> Array <$> traverse (postprocessJSONType napi ty) arr
+    (TyList _, _)          -> Left $ JSONError $ expectedArray v
+    (TyMaybe _, Array arr) -> case Vec.toList arr of
+                                []    -> pure Null
+                                [v]   -> pure v
+                                _:_:_ -> Left $ JSONError $ SyntaxError "over-long array when converting Maybe value"
+    (TyMaybe ty, _)        -> Left $ JSONError $ expectedArray v
+    (TyName tn, _)         -> postprocessJSONTypeName napi tn v
+    (TyBasic bt, _)        -> pure v
+    (TyJSON, _)            -> pure v
+
+postprocessJSONRecord :: NormAPI -> NormRecordType -> Value -> Either ValueError Value
+postprocessJSONRecord napi nrt (Object hm) = Object <$> HMap.traverseWithKey f hm
+  where
+    f t v = do ty <- Map.lookup (FieldName $ T.unpack t) nrt ?! JSONError MissingField
+               postprocessJSONType napi ty v
+postprocessJSONRecord _ _ v = Left $ JSONError $ expectedObject v
+
+postprocessJSONUnion :: NormAPI -> NormUnionType -> Value -> Either ValueError Value
+postprocessJSONUnion napi nut v = case v of
+    Object hm | [(k, r)] <- HMap.toList hm
+              , Just ty <- Map.lookup (FieldName $ T.unpack k) nut
+              -> Object . HMap.singleton k <$> postprocessJSONType napi ty r
+    _ -> Left $ JSONError $ expectedObject v
