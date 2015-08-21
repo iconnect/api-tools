@@ -44,7 +44,8 @@ jsonToCBORTypeName napi tn v = do
 
 jsonToCBORType :: NormAPI -> APIType -> Value -> Either ValueError Term
 jsonToCBORType napi ty v = case (ty, v) of
-    (TyList ty, Array arr) -> TListI <$> traverse (jsonToCBORType napi ty) (Vec.toList arr)
+    (TyList ty, Array arr) | Vec.null arr -> return $ TList []
+                           | otherwise    -> TListI <$> traverse (jsonToCBORType napi ty) (Vec.toList arr)
     (TyList _, _)          -> Left $ JSONError $ expectedArray v
     (TyMaybe _, Null)      -> pure $ TList []
     (TyMaybe ty, v)        -> TList . pure <$> jsonToCBORType napi ty v
