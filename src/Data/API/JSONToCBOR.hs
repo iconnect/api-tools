@@ -6,7 +6,6 @@ module Data.API.JSONToCBOR
 
 import           Data.API.Changes
 import           Data.API.JSON
-import           Data.API.NormalForm
 import           Data.API.Types
 import           Data.API.Utils
 
@@ -21,7 +20,6 @@ import qualified Data.Vector                    as Vec
 import           Data.Binary.Serialise.CBOR     as CBOR
 import           Data.Binary.Serialise.CBOR.JSON ()
 import           Data.Binary.Serialise.CBOR.Encoding
-import           Data.Binary.Serialise.CBOR.Term
 import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
@@ -46,17 +44,17 @@ jsonToCBORTypeName napi tn v = do
       NUnionType  nut -> jsonToCBORUnion  napi nut v
       NEnumType   net -> jsonToCBOREnum   napi net v
       NTypeSynonym ty -> jsonToCBORType   napi ty  v
-      NNewtype     bt -> jsonToCBORBasic  napi bt  v
+      NNewtype     bt -> jsonToCBORBasic       bt  v
 
 jsonToCBORType :: NormAPI -> APIType -> Value -> Either ValueError Encoding
-jsonToCBORType napi ty v = case (ty, v) of
-    (TyList ty, Array arr) -> encode <$> traverse (jsonToCBORType napi ty) (Vec.toList arr)
-    (TyList _, _)          -> Left $ JSONError $ expectedArray v
-    (TyMaybe _, Null)      -> pure $ encode (Nothing :: Maybe ())
-    (TyMaybe ty, v)        -> encode . Just <$> jsonToCBORType napi ty v
-    (TyName tn, _)         -> jsonToCBORTypeName napi tn v
-    (TyBasic bt, _)        -> jsonToCBORBasic napi bt v
-    (TyJSON, _)            -> pure $ encode v
+jsonToCBORType napi ty0 v = case (ty0, v) of
+    (TyList  ty, Array arr) -> encode <$> traverse (jsonToCBORType napi ty) (Vec.toList arr)
+    (TyList  _ , _)         -> Left $ JSONError $ expectedArray v
+    (TyMaybe _ , Null)      -> pure $ encode (Nothing :: Maybe ())
+    (TyMaybe ty, _)         -> encode . Just <$> jsonToCBORType napi ty v
+    (TyName  tn, _)         -> jsonToCBORTypeName napi tn v
+    (TyBasic bt, _)         -> jsonToCBORBasic bt v
+    (TyJSON    , _)         -> pure $ encode v
 
 -- | Encode a record as a map from field names to values.  Crucially,
 -- the fields are in ascending order by field name.
@@ -92,8 +90,8 @@ jsonToCBOREnum _ _ v = case v of
                          String t -> pure $ encode t
                          _        -> Left $ JSONError $ expectedString v
 
-jsonToCBORBasic :: NormAPI -> BasicType -> Value -> Either ValueError Encoding
-jsonToCBORBasic napi bt v = case (bt, v) of
+jsonToCBORBasic :: BasicType -> Value -> Either ValueError Encoding
+jsonToCBORBasic bt v = case (bt, v) of
     (BTstring, String t) -> pure $ encode t
     (BTstring, _)        -> Left $ JSONError $ expectedString v
     (BTbinary, String t) -> case B64.decode $ TE.encodeUtf8 t of
@@ -102,7 +100,7 @@ jsonToCBORBasic napi bt v = case (bt, v) of
     (BTbinary, _)        -> Left $ JSONError $ expectedString v
     (BTbool  , Bool b)   -> pure $ encode b
     (BTbool  , _)        -> Left $ JSONError $ expectedBool v
-    (BTint   , Number n) -> case floatingOrInteger n of
+    (BTint   , Number n) -> case floatingOrInteger n :: Either Double Int of
                               Right i -> pure $ encodeInt i
                               Left  _ -> Left $ JSONError $ expectedInt v
     (BTint   , _)        -> Left $ JSONError $ expectedInt v
@@ -130,17 +128,17 @@ postprocessJSONTypeName napi tn v = do
       NNewtype     _  -> pure v
 
 postprocessJSONType :: NormAPI -> APIType -> Value -> Either ValueError Value
-postprocessJSONType napi ty v = case (ty, v) of
-    (TyList ty, Array arr) -> Array <$> traverse (postprocessJSONType napi ty) arr
-    (TyList _, _)          -> Left $ JSONError $ expectedArray v
-    (TyMaybe _, Array arr) -> case Vec.toList arr of
+postprocessJSONType napi ty0 v = case (ty0, v) of
+    (TyList ty , Array arr) -> Array <$> traverse (postprocessJSONType napi ty) arr
+    (TyList _  , _)         -> Left $ JSONError $ expectedArray v
+    (TyMaybe ty, Array arr) -> case Vec.toList arr of
                                 []    -> pure Null
-                                [v]   -> pure v
+                                [v1]  -> postprocessJSONType napi ty v1
                                 _:_:_ -> Left $ JSONError $ SyntaxError "over-long array when converting Maybe value"
-    (TyMaybe ty, _)        -> Left $ JSONError $ expectedArray v
-    (TyName tn, _)         -> postprocessJSONTypeName napi tn v
-    (TyBasic bt, _)        -> pure v
-    (TyJSON, _)            -> pure v
+    (TyMaybe _ , _)         -> Left $ JSONError $ expectedArray v
+    (TyName tn , _)         -> postprocessJSONTypeName napi tn v
+    (TyBasic _ , _)         -> pure v
+    (TyJSON    , _)         -> pure v
 
 postprocessJSONRecord :: NormAPI -> NormRecordType -> Value -> Either ValueError Value
 postprocessJSONRecord napi nrt (Object hm) = Object <$> HMap.traverseWithKey f hm

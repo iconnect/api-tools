@@ -114,6 +114,11 @@ nr :: NewRec
     = record
         bb :: BasicBinary
         j  :: JSON
+        k  :: ? MaybeThing
+
+mt :: MaybeThing
+    = record
+        thing :: ? JSON
 
 nu :: NewUnion
     = union
