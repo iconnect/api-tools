@@ -32,7 +32,7 @@ import           Data.API.Types
 
 import qualified Data.Aeson                     as JS
 import           Data.Binary.Serialise.CBOR
-import           Data.Binary.Serialise.CBOR.Aeson ()
+import           Data.Binary.Serialise.CBOR.JSON ()
 import qualified Data.ByteString.Lazy           as BS
 import           Language.Haskell.TH
 import           Test.QuickCheck

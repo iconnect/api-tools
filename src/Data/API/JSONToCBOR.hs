@@ -18,7 +18,7 @@ import           Data.Monoid
 import           Data.Traversable
 import qualified Data.Vector                    as Vec
 import           Data.Binary.Serialise.CBOR     as CBOR
-import           Data.Binary.Serialise.CBOR.Aeson ()
+import           Data.Binary.Serialise.CBOR.JSON ()
 import           Data.Binary.Serialise.CBOR.Encoding
 import           Data.Binary.Serialise.CBOR.Term
 import           Data.Scientific
