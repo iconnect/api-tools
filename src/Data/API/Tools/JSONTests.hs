@@ -75,6 +75,8 @@ generateProp prop_nm an = [e| ($ty, property ($(varE prop_nm) :: $(nodeT an) -> 
   where
     ty = stringE $ _TypeName $ anName an
 
+-- | Tool to generate a list of tests of 'prop_jsonToCBOR', which
+-- takes the API and the type name as arguments.
 jsonToCBORTestsTool :: Name -> APITool
 jsonToCBORTestsTool nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Property)] |] (props api)
   where
@@ -119,6 +121,9 @@ prop_toJSONViaCBOR :: forall a . (Eq a, Serialise a, JS.ToJSON a)
                    => a -> Bool
 prop_toJSONViaCBOR x = deserialise (serialise x) == JS.toJSON x
 
+-- | QuickCheck property that conversion 'toJSON', followed by
+-- schema-aware 'jsonToCBOR' conversion, gives the same results as
+-- direct conversion to CBOR via 'serialise'
 prop_jsonToCBOR :: forall a . (Eq a, Serialise a, JS.ToJSON a)
                 => API -> TypeName -> a -> Bool
 prop_jsonToCBOR api tn x = case jsonToCBOR api tn (JS.toJSON x) of
