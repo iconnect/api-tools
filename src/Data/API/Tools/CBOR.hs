@@ -82,20 +82,15 @@ instance Serialise JobSpecId where
             , "Output"     .= jsiOutput     x
             , "PipelineId" .= jsiPipelineId x
             ]
-     decode (Object v) =
+     decode (Record v) =
         JobSpecId <$>
             v .: "Id"                               <*>
             v .: "Input"                            <*>
             v .: "Output"                           <*>
             v .: "PipelineId"
 
-
-We assume the order of record fields give by srFields is fixed.
-If the order in the definition is changed, the encoding differs
-and so the data has to be migrated.
-
-TODO: I think we need to sort fields by name, so that the format
-is insensitive to changes in order.
+TODO (correctness): We need to sort fields by name, so that the format
+is insensitive to changes in order given by srFields.
 -}
 
 gen_sr_to :: Tool (APINode, SpecRecord)
@@ -112,19 +107,19 @@ gen_sr_to = mkTool $ \ ts (an, sr) -> do
                   | (fn, _) <- srFields sr ]
 
     cl an sr    = varE '(>>)
-                    `appE` (varE 'decodeMapLen)  --TODO: check len with srFields
+                    `appE` (varE 'decodeMapLen)  -- TODO (extra check): check len with srFields
                     `appE` bdy
       where
         bdy = applicativeE (nodeConE an) $ map project (srFields sr)
         project (_fn, ft) = [e| decodeString >> decode |]
-          where _ro    = ftReadOnly ft  -- TODO: use as in withDefaultField
-                _mb_dv = ftDefault ft  -- TODO: use as in withDefaultField
-          -- TODO: check that $(fieldNameE fn) matches the decoded name
+          where _ro    = ftReadOnly ft  -- TODO (extra check): use as in withDefaultField
+                _mb_dv = ftDefault ft  -- TODO (extra check): use as in withDefaultField
+          -- TODO (correctness): check that $(fieldNameE fn) matches the decoded name
           -- and if not, use the default value, etc.
 
 
--- TODO: lots of thunks; perhaps calculate @length sr@ first
--- TODO: I assume the record has at least 1 field
+-- TODO (speed): lots of thunks; perhaps calculate @length sr@ first
+-- We can assume the record has at least 1 field.
 encodeRecord :: [Encoding] -> Encoding
 encodeRecord l = encodeMapLen (fromIntegral $ length l)
                  <> foldl1' (<>) l
@@ -134,8 +129,8 @@ encodeRecord l = encodeMapLen (fromIntegral $ length l)
 instance Serialise Foo where
     encode (Bar x) = object [ "x" .= x ]
     encode (Baz x) = object [ "y" .= x ]
-    decode = decodeUnion [ ("x", fmap Bar . fromCBOR)
-                         , ("y", fmap Baz . fromCBOR) ]
+    decode = decodeUnion [ ("x", fmap Bar . decode)
+                         , ("y", fmap Baz . decode) ]
 
 -}
 
@@ -181,7 +176,7 @@ gen_se_to = mkTool $ \ ts (an, _se) -> optionalInstanceD ts ''Serialise [nodeRep
 
     bdy_out an = [e| decodeString >>= cborStrMap_p $(varE (map_enum_nm an)) |]
 
-
+-- In a monad, to @fail@ instead of crashing with @error@.
 cborStrMap_p :: (Monad m, Ord a) => Map.Map T.Text a -> T.Text -> m a
 cborStrMap_p mp t = case Map.lookup t mp of
   Nothing -> fail "Unexpected enumeration key in CBOR"
