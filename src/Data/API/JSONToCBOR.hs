@@ -1,5 +1,6 @@
 module Data.API.JSONToCBOR
     ( jsonToCBOR
+    , encodeUnion
     ) where
 
 import           Data.API.Changes
@@ -13,10 +14,12 @@ import           Data.Aeson
 import qualified Data.ByteString.Base64         as B64
 import qualified Data.HashMap.Strict            as HMap
 import qualified Data.Map                       as Map
+import           Data.Monoid
 import           Data.Traversable
 import qualified Data.Vector                    as Vec
 import           Data.Binary.Serialise.CBOR     as CBOR
 import           Data.Binary.Serialise.CBOR.Aeson ()
+import           Data.Binary.Serialise.CBOR.Encoding
 import           Data.Binary.Serialise.CBOR.Term
 import           Data.Scientific
 import qualified Data.Text                      as T
@@ -66,6 +69,11 @@ jsonToCBORUnion napi nut v = case v of
               , Just ty <- Map.lookup (FieldName $ T.unpack k) nut
               -> TMap . pure . ((,) (TString k)) <$> jsonToCBORType napi ty r
     _ -> Left $ JSONError $ expectedObject v
+
+-- TODO can this be reused here? Or move it to Data.API.Tools.CBOR?
+encodeUnion :: CBOR.Serialise a => T.Text -> a -> Encoding
+encodeUnion t e = encodeMapLen 1 <> encodeString t <> CBOR.encode e
+
 
 -- | Encode an enumerated value as its name; we do not check that it
 -- actually belongs to the type here.

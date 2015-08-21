@@ -15,6 +15,7 @@ import           Data.API.Types
 import           Data.API.Utils
 
 import           Control.Applicative
+import           Data.API.JSONToCBOR
 import           Data.Binary.Serialise.CBOR.Class
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
@@ -55,7 +56,7 @@ gen_sn_to = mkTool $ \ ts (an, sn) -> optionalInstanceD ts ''Serialise [nodeRepT
             BTbinary -> [e| encode |]
             BTbool   -> [e| encodeBool |]
             BTint    -> [e| encodeInt |]
-            BTutc    -> [e| encodeString . mkUTC' |]
+            BTutc    -> [e| encode |]
 
 
     oute sn =
@@ -64,10 +65,7 @@ gen_sn_to = mkTool $ \ ts (an, sn) -> optionalInstanceD ts ''Serialise [nodeRepT
             BTbinary -> [e| decode |]
             BTbool   -> [e| decodeBool |]
             BTint    -> [e| decodeInt |]
-            BTutc    -> [e| decodeString
-                            >>= maybe (fail "Can't parse UTC from CBOR")
-                                      return
-                                . parseUTC' |]
+            BTutc    -> [e| decode |]
 
 
 
@@ -137,7 +135,7 @@ encodeRecordFields l = foldl1' (<>) l
 
 {-
 instance Serialise Foo where
-    encode (Bar x) = object [ "x" .= x ]
+    encode (Bar x) = encodeUnion "x" x
     encode (Baz x) = object [ "y" .= x ]
     decode = decodeUnion [ ("x", fmap Bar . decode)
                          , ("y", fmap Baz . decode) ]
@@ -155,8 +153,7 @@ gen_su_to = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''Serialise [nodeRepT
     cl an fn = do x <- newName "x"
                   clause [nodeAltConP an fn [varP x]] (bdy fn x) []
 
-    bdy fn x = normalB [e| encodeString $(fieldNameE fn)
-                           <> encode $(varE x) |]
+    bdy fn x = normalB [e| encodeUnion $(fieldNameE fn) $(varE x) |]
 
 
     bdy_out an su = varE 'decodeUnion `appE` listE (map (alt an) (suFields su))
@@ -165,6 +162,7 @@ gen_su_to = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''Serialise [nodeRepT
 
 decodeUnion :: [(T.Text, Decoder a)] -> Decoder a
 decodeUnion ds = do
+    _   <- decodeMapLen -- should always be 1
     dfn <- decodeString
     case lookup dfn ds of
       Nothing -> fail "Unexpected field in union in CBOR"
@@ -173,7 +171,7 @@ decodeUnion ds = do
 {-
 instance Serialise FrameRate where
     encode = encodeString . _text_FrameRate
-    decode = cborStrMap_p _map_FrameRate . decodeString
+    decode = decodeString >>= cborStrMap_p _map_FrameRate
 -}
 
 gen_se_to :: Tool (APINode, SpecEnum)
