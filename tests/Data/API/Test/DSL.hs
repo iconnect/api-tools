@@ -52,7 +52,11 @@ poo :: Poo
     // A simple test example
     = record
         x :: integer
-        y :: Foo
+        y :: Faa
+
+faa :: Faa
+    = record
+        f :: Flag
 
 c :: Coord
     // A simple test example
