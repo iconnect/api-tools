@@ -19,9 +19,10 @@ import           Data.API.JSONToCBOR
 import           Data.Binary.Serialise.CBOR.Class
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
-import           Data.List (foldl1')
+import           Data.List (foldl', foldl1', sortBy)
 import qualified Data.Map                       as Map
 import           Data.Monoid
+import           Data.Ord (comparing)
 import qualified Data.Text                      as T
 import           Language.Haskell.TH
 
@@ -72,21 +73,22 @@ gen_sn_to = mkTool $ \ ts (an, sn) -> optionalInstanceD ts ''Serialise [nodeRepT
 {-
 instance Serialise JobSpecId where
      encode = \ x ->
-        encodeRecord
-            [ "Id"         .= jsiId         x
-            , "Input"      .= jsiInput      x
-            , "Output"     .= jsiOutput     x
-            , "PipelineId" .= jsiPipelineId x
+        encodeMapLen 4 >>
+        encodeRecordFields
+            [ encodeString "Id"         <> encode (jsiId         x)
+            , encodeString "Input"      <> encode (jsiInput      x)
+            , encodeString "Output"     <> encode (jsiOutput     x)
+            , encodeString "PipelineId" <> encode (jsiPipelineId x)
             ]
      decode (Record v) =
-        JobSpecId <$>
-            v .: "Id"                               <*>
-            v .: "Input"                            <*>
-            v .: "Output"                           <*>
-            v .: "PipelineId"
+        decodeMapLen >>
+        JobSpecId <$> (decodeString >> decode)
+                  <*> (decodeString >> decode)
+                  <*> (decodeString >> decode)
+                  <*> (decodeString >> decode)
 
-TODO (correctness): We need to sort fields by name, so that the format
-is insensitive to changes in order given by srFields.
+Note that fields are stored alphabetically ordered by field name, so
+that we are insensitive to changes in field order in the schema.
 -}
 
 gen_sr_to :: Tool (APINode, SpecRecord)
@@ -97,7 +99,7 @@ gen_sr_to = mkTool $ \ ts (an, sr) -> do
                                                    ]
   where
     bdy_in an sr x =
-        let fields = srFields sr
+        let fields = sortFields sr
             len = fromIntegral (length fields)  -- to Integer
             lenE = varE 'fromIntegral  -- to Word
                      `appE` (sigE (litE (integerL len))
@@ -121,12 +123,21 @@ gen_sr_to = mkTool $ \ ts (an, sr) -> do
                     `appE` (varE 'decodeMapLen)  -- TODO (extra check): check len with srFields
                     `appE` bdy
       where
-        bdy = applicativeE (nodeConE an) $ map project (srFields sr)
-        project (_fn, ft) = [e| decodeString >> decode |]
-          where _ro    = ftReadOnly ft  -- TODO (extra check): use as in withDefaultField
-                _mb_dv = ftDefault ft  -- TODO (extra check): use as in withDefaultField
+        sorted_fields   = map fst $ sortFields sr
+        original_fields = map fst $ srFields sr
+        bdy = applicativeE dataCon $ map project sorted_fields
+        project _fn = [e| decodeString >> decode |]
           -- TODO (correctness): check that $(fieldNameE fn) matches the decoded name
           -- and if not, use the default value, etc.
+
+        -- If the fields are sorted, just use the data constructor,
+        -- but if not, generate a reordering function like
+        --   \ _foo_a _foo_b -> Con _foo_b _foo_a
+        dataCon | sorted_fields == original_fields = nodeConE an
+                | otherwise = lamE (map (nodeFieldP an) sorted_fields)
+                                   (foldl' appE (nodeConE an) (map (nodeFieldE an) original_fields))
+
+    sortFields sr = sortBy (comparing fst) $ srFields sr
 
 -- We can assume the record has at least 1 field.
 encodeRecordFields :: [Encoding] -> Encoding

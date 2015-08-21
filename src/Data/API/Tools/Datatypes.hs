@@ -8,6 +8,7 @@ module Data.API.Tools.Datatypes
     , nodeConE
     , nodeNewtypeConE
     , nodeFieldE
+    , nodeFieldP
     , nodeAltConE
     , nodeAltConP
     , newtypeProjectionE
@@ -235,6 +236,10 @@ nodeNewtypeConE ts an sn = conE $ newtype_con_nm (newtypeSmartConstructors ts &&
 -- | A record field in an API node, as an expression
 nodeFieldE :: APINode -> FieldName -> ExpQ
 nodeFieldE an fnm = varE $ pref_field_nm an fnm
+
+-- | A record field in an API node, as a pattern
+nodeFieldP :: APINode -> FieldName -> PatQ
+nodeFieldP an fnm = varP $ pref_field_nm an fnm
 
 -- | A prefixed constructor for a union or enum, as an expression
 nodeAltConE :: APINode -> FieldName -> ExpQ
