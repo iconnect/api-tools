@@ -49,10 +49,10 @@ convert_spec sp =
       SpSynonym ty -> D.SP_synonym $ convert_type              ty
 
 convert_conversion :: (FieldName,FieldName) -> D.Conversion
-convert_conversion (i,p) =
+convert_conversion (inj,prj) =
     D.Conversion
-        { D._cv_injection  = T.pack $ _FieldName p
-        , D._cv_projection = T.pack $ _FieldName i
+        { D._cv_injection  = T.pack $ _FieldName inj
+        , D._cv_projection = T.pack $ _FieldName prj
         }
 
 convert_specnt :: SpecNewtype -> D.SpecNewtype

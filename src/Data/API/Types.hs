@@ -62,7 +62,7 @@ type API = [Thing]
 data Thing
     = ThComment MDComment
     | ThNode    APINode
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | Specifies an individual element/type of the API
 
@@ -74,7 +74,7 @@ data APINode
         , anSpec    :: Spec             -- ^ the type specification
         , anConvert :: Conversion       -- ^ optional conversion functions
         }
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | TypeName must contain a valid Haskell type constructor
 
@@ -111,7 +111,7 @@ data Spec
     | SpUnion   SpecUnion
     | SpEnum    SpecEnum
     | SpSynonym APIType
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | SpecNewtype elements are isomorphisms of string, inetgers or booleans
 
@@ -120,13 +120,13 @@ data SpecNewtype =
         { snType   :: BasicType
         , snFilter :: Maybe Filter
         }
-    deriving (Show)
+    deriving (Eq,Show)
 
 data Filter
     = FtrStrg RegEx
     | FtrIntg IntRange
     | FtrUTC  UTCRange
-    deriving (Show)
+    deriving (Eq,Show)
 
 data IntRange
     = IntRange
@@ -181,7 +181,7 @@ instance Show RegEx where
 data SpecRecord = SpecRecord
     { srFields :: [(FieldName, FieldType)]
     }
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | In addition to the type and comment, record fields may carry a
 -- flag indicating that they are read-only, and may have a default
@@ -193,24 +193,25 @@ data FieldType = FieldType
     , ftDefault  :: Maybe DefaultValue
     , ftComment  :: MDComment
     }
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | SpecUnion is your classsic union type
 
 data SpecUnion = SpecUnion
     { suFields :: [(FieldName,(APIType,MDComment))]
     }
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | SpecEnum is your classic enumerated type
 
 data SpecEnum = SpecEnum
     { seAlts :: [(FieldName,MDComment)]
     }
-    deriving (Show)
+    deriving (Eq,Show)
 
--- Conversion possibly converts to an internal representation
-
+-- | Conversion possibly converts to an internal representation.  If
+-- specified, a conversion is a pair of an injection function name and
+-- a projection function name.
 type Conversion = Maybe (FieldName,FieldName)
 
 -- | Type is either a list, Maybe, a named element of the API or a basic type
