@@ -127,7 +127,7 @@ prop_cborRoundtrip x = deserialise (serialise x) == x
 -- and then decoding using the generic decoder
 prop_cborToJSON :: forall a . (Eq a, Serialise a, JS.ToJSON a)
                    => API -> TypeName -> a -> QCProperty.Result
-prop_cborToJSON api tn x = case postprocessJSON api tn (deserialise (serialise x)) of
+prop_cborToJSON api tn x = case postprocessJSON CBORToAeson api tn (deserialise (serialise x)) of
                          Right v | v == JS.toJSON x -> succeeded
                                  | otherwise        -> failed { QCProperty.reason = "Post-processed: " ++ show v
                                                                                ++ "\nDirect JSON:    " ++ show (JS.toJSON x) }
