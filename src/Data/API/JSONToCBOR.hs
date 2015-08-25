@@ -1,8 +1,12 @@
+{-# LANGUAGE CPP #-}
+
 module Data.API.JSONToCBOR
     ( jsonToCBOR
     , postprocessJSON
     , Direction(..)
     , encodeUnion
+    , encodeUTCTime
+    , encodeUTCTime'
     ) where
 
 import           Data.API.Changes
@@ -22,8 +26,16 @@ import           Data.Binary.Serialise.CBOR     as CBOR
 import           Data.Binary.Serialise.CBOR.JSON ()
 import           Data.Binary.Serialise.CBOR.Encoding
 import           Data.Scientific
+import           Data.Time
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
+
+#if MIN_VERSION_time(1,5,0)
+import Data.Time.Format (formatTime, defaultTimeLocale)
+#else
+import Data.Time.Format (formatTime)
+import System.Locale    (defaultTimeLocale)
+#endif
 
 -- TODO this should be in binary-serialise-cbor
 instance Serialise Encoding where
@@ -105,8 +117,21 @@ jsonToCBORBasic bt v = case (bt, v) of
                               Right i -> pure $ encodeInt i
                               Left  _ -> Left $ JSONError $ expectedInt v
     (BTint   , _)        -> Left $ JSONError $ expectedInt v
-    (BTutc   , String t) -> encode <$> (parseUTC' t ?! JSONError (BadFormat FmtUTC "utc" t))
+    (BTutc   , String t) -> pure $ encodeTag 0 <> encode t -- encodeUTCTime <$> (parseUTC' t ?! JSONError (BadFormat FmtUTC "utc" t))
     (BTutc   , _)        -> Left $ JSONError $ expectedString v
+
+-- | Encode a UTCTime to match Aeson
+-- TODO: this is a pain, dubiously necessary and changes with Aeson versions
+encodeUTCTime :: UTCTime -> Encoding
+encodeUTCTime t = encodeTag 0 <> encode (formatTime defaultTimeLocale fmt t)
+ where
+   fmt = "%FT%T." ++ take 3 (formatTime defaultTimeLocale "%q" t) ++ "Z"
+
+-- | Encode a UTCTime to match generated ToJSON instances (not the
+-- same as 'encodeUTCTime', of course...)
+encodeUTCTime' :: UTCTime -> Encoding
+encodeUTCTime' t = encodeTag 0 <> encode (mkUTC' t)
+
 
 
 data Direction = AesonToCBOR | CBORToAeson
