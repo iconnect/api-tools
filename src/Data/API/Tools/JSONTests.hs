@@ -140,7 +140,9 @@ prop_jsonToCBOR :: forall a . (Eq a, Serialise a, JS.ToJSON a)
                 => API -> TypeName -> a -> QCProperty.Result
 prop_jsonToCBOR api tn x = case jsonToCBOR api tn (JS.toJSON x) of
                              Right v  | serialise v == serialise x -> succeeded
-                                      | otherwise -> failed { QCProperty.reason = "Failed with JSON: " ++ show (JS.toJSON x) }
+                                      | otherwise -> failed { QCProperty.reason = "Failed with JSON: " ++ show (JS.toJSON x)
+                                                                                ++ "\n serialise v: " ++ show (serialise v)
+                                                                                ++ "\n serialise x: " ++ show (serialise x) }
                              Left err -> failed { QCProperty.reason = prettyValueError err }
 
 -- TODO: check that JSON obtained via cbor2json.rb from the CBOR generated

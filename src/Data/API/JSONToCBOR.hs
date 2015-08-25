@@ -177,7 +177,7 @@ postprocessJSONRecord dir napi nrt v = case v of
     Object hm -> Object <$> HMap.traverseWithKey f hm
     _         -> Left $ JSONError $ expectedObject v
   where
-    f t v = do ty <- Map.lookup (FieldName $ T.unpack t) nrt ?! JSONError MissingField
+    f t v = do ty <- Map.lookup (FieldName $ T.unpack t) nrt ?! JSONError UnexpectedField
                postprocessJSONType dir napi ty v
 
 postprocessJSONUnion :: Direction -> NormAPI -> NormUnionType -> Value -> Either ValueError Value
