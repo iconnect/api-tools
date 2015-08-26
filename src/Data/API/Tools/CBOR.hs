@@ -18,7 +18,6 @@ import           Data.API.Types
 import           Data.API.Utils
 
 import           Control.Applicative
-import           Data.API.JSONToCBOR
 import           Data.Binary.Serialise.CBOR.Class
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
@@ -180,8 +179,8 @@ encodeUTCTime' t = encodeTag 0 <> encode (mkUTC' t)
 -- type declaration is missing from the API.
 encoder :: NormAPI -> APIType -> ExpQ
 encoder _   (TyBasic BTutc) = [e| encodeUTCTime |]
-encoder api (TyList  ty)    = [e| encode . fmap $(encoder api ty) |]
-encoder api (TyMaybe ty)    = [e| encode . fmap $(encoder api ty) |]
+encoder api (TyList  ty)    = [e| encodeListWith  $(encoder api ty) |]
+encoder api (TyMaybe ty)    = [e| encodeMaybeWith $(encoder api ty) |]
 encoder api (TyName tn)     = case Map.lookup tn api of
                                 Just (NTypeSynonym ty) -> encoder api ty
                                 Just _                 -> [e| encode |]
@@ -189,6 +188,15 @@ encoder api (TyName tn)     = case Map.lookup tn api of
                                                                             ++ _TypeName tn)
                                                        >> [e| encode |]
 encoder _ _                 = [e| encode |]
+
+encodeListWith :: (a -> Encoding) -> [a] -> Encoding
+encodeListWith _ [] = encodeListLen 0
+encodeListWith f xs = encodeListLenIndef
+                        <> foldr (\x r -> f x <> r) encodeBreak xs
+
+encodeMaybeWith :: (a -> Encoding) -> Maybe a -> Encoding
+encodeMaybeWith _ Nothing  = encodeListLen 0
+encodeMaybeWith f (Just x) = encodeListLen 1 <> f x
 
 -- We can assume the record has at least 1 field.
 encodeRecordFields :: [Encoding] -> Encoding
@@ -221,6 +229,11 @@ gen_su_to api = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''Serialise [node
     bdy_out an su = varE 'decodeUnion `appE` listE (map (alt an) (suFields su))
 
     alt an (fn, _) = [e| ( $(fieldNameE fn) , fmap $(nodeAltConE an fn) decode ) |]
+
+-- | Encode an element of a union as single-element map from a field
+-- name to a value.
+encodeUnion :: T.Text -> Encoding -> Encoding
+encodeUnion t e = encodeMapLen 1 <> encodeString t <> e
 
 decodeUnion :: [(T.Text, Decoder a)] -> Decoder a
 decodeUnion ds = do

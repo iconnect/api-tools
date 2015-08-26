@@ -149,5 +149,5 @@ prop_jsonToCBOR api tn x
                                         ++ "\nDirect serialisation:  " ++ show e2 }
   where
     v  = JS.toJSON x
-    e1 = serialise $ serialiseJSONWithSchema api tn v
+    e1 = serialiseJSONWithSchema api tn v
     e2 = serialise x
