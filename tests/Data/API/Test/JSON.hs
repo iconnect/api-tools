@@ -6,7 +6,7 @@ module Data.API.Test.JSON
     ( jsonTests
     ) where
 
-import           Data.API.API.Gen ( apiAPISimpleTests )
+import           Data.API.API.Gen ( apiAPITestsJSON, apiAPITestsCBOR, apiAPITestsCBORToJSON, apiAPITestsJSONToCBOR )
 import           Data.API.JSON
 import           Data.API.Tools
 import           Data.API.Tools.JSONTests
@@ -113,8 +113,18 @@ jsonTests = testGroup "JSON"
   , testGroup "Decoding invalid data" errorDecoding
   , testGroup "Smart constructors"    smartConstructors
   , testGroup "Round-trip tests"
-      [ testGroup "example"  $ map (uncurry QC.testProperty) exampleSimpleTests
-      , testGroup "example2" $ map (uncurry QC.testProperty) example2SimpleTests
-      , testGroup "api"      $ map (uncurry QC.testProperty) apiAPISimpleTests
+      [ testGroup "example JSON"   $ map (uncurry QC.testProperty) exampleTestsJSON
+      , testGroup "example CBOR"   $ map (uncurry QC.testProperty) exampleTestsCBOR
+      , testGroup "example CBOR to JSON" $ map (uncurry QC.testProperty) exampleTestsCBORToJSON
+      , testGroup "example JSON to CBOR" $ map (uncurry QC.testProperty) exampleTestsJSONToCBOR
+      , testGroup "example2 JSON"  $ map (uncurry QC.testProperty) example2TestsCBOR
+      , testGroup "example2 CBOR"  $ map (uncurry QC.testProperty) example2TestsCBOR
+      , testGroup "example2 CBOR to JSON" $ map (uncurry QC.testProperty) example2TestsCBORToJSON
+      , testGroup "example2 JSON to CBOR" $ map (uncurry QC.testProperty) example2TestsJSONToCBOR
+      , testGroup "api JSON"       $ map (uncurry QC.testProperty) apiAPITestsJSON
+      , testGroup "api CBOR"       $ map (uncurry QC.testProperty) apiAPITestsCBOR
+      , testGroup "api CBOR to JSON" $ map (uncurry QC.testProperty) apiAPITestsCBORToJSON
+      , testGroup "api JSON to CBOR" $ map (uncurry QC.testProperty) apiAPITestsJSONToCBOR
+      , QC.testProperty "Aeson Value to CBOR" (prop_cborRoundtrip :: JS.Value -> Bool)
       ]
   ]

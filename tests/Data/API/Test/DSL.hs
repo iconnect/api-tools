@@ -52,7 +52,11 @@ poo :: Poo
     // A simple test example
     = record
         x :: integer
-        y :: Foo
+        y :: Faa
+
+faa :: Faa
+    = record
+        f :: Flag
 
 c :: Coord
     // A simple test example
@@ -99,4 +103,25 @@ fs :: FilteredString
 
 fu :: FilteredUTC
     = basic utc | >= 2014-10-13T15:20:11Z
+
+bb :: BasicBinary
+    = basic binary
+
+j :: JSON
+    = json
+
+nr :: NewRec
+    = record
+        bb :: BasicBinary
+        j  :: JSON
+        k  :: ? MaybeThing
+
+mt :: MaybeThing
+    = record
+        thing :: ? JSON
+
+nu :: NewUnion
+    = union
+      | bb :: BasicBinary
+      | j  :: JSON
 |]

@@ -2,8 +2,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# OPTIONS_GHC -fno-warn-orphans       #-}
-
 
 module Data.API.Types
     ( API
@@ -43,6 +41,7 @@ import           Data.Time
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Aeson.TH
+import qualified Data.Binary.Serialise.CBOR     as CBOR
 import           Data.Maybe
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
@@ -63,7 +62,7 @@ type API = [Thing]
 data Thing
     = ThComment MDComment
     | ThNode    APINode
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | Specifies an individual element/type of the API
 
@@ -75,7 +74,7 @@ data APINode
         , anSpec    :: Spec             -- ^ the type specification
         , anConvert :: Conversion       -- ^ optional conversion functions
         }
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | TypeName must contain a valid Haskell type constructor
 
@@ -112,7 +111,7 @@ data Spec
     | SpUnion   SpecUnion
     | SpEnum    SpecEnum
     | SpSynonym APIType
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | SpecNewtype elements are isomorphisms of string, inetgers or booleans
 
@@ -121,13 +120,13 @@ data SpecNewtype =
         { snType   :: BasicType
         , snFilter :: Maybe Filter
         }
-    deriving (Show)
+    deriving (Eq,Show)
 
 data Filter
     = FtrStrg RegEx
     | FtrIntg IntRange
     | FtrUTC  UTCRange
-    deriving (Show)
+    deriving (Eq,Show)
 
 data IntRange
     = IntRange
@@ -135,9 +134,6 @@ data IntRange
         , ir_hi :: Maybe Int
         }
     deriving (Eq, Show)
-
-instance Lift IntRange where
-    lift (IntRange lo hi) = [e| IntRange lo hi |]
 
 inIntRange :: Int -> IntRange -> Bool
 _ `inIntRange` IntRange Nothing   Nothing   = True
@@ -151,16 +147,6 @@ data UTCRange
         , ur_hi :: Maybe UTCTime
         }
     deriving (Eq, Show)
-
-instance Lift UTCRange where
-    lift (UTCRange lo hi) = [e| UTCRange $(liftMaybeUTCTime lo) $(liftMaybeUTCTime hi) |]
-
-liftUTC :: UTCTime -> ExpQ
-liftUTC u = [e| fromMaybe (error "liftUTC") (parseUTC_ $(stringE (mkUTC_ u))) |]
-
-liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
-liftMaybeUTCTime Nothing  = [e| Nothing |]
-liftMaybeUTCTime (Just u) = [e| Just $(liftUTC u) |]
 
 inUTCRange :: UTCTime -> UTCRange -> Bool
 _ `inUTCRange` UTCRange Nothing   Nothing   = True
@@ -190,15 +176,12 @@ instance Eq RegEx where
 instance Show RegEx where
     show = T.unpack . re_text
 
-instance Lift RegEx where
-    lift re = [e| mkRegEx $(stringE (T.unpack (re_text re))) |]
-
 -- | SpecRecord is your classsic product type.
 
 data SpecRecord = SpecRecord
     { srFields :: [(FieldName, FieldType)]
     }
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | In addition to the type and comment, record fields may carry a
 -- flag indicating that they are read-only, and may have a default
@@ -210,24 +193,25 @@ data FieldType = FieldType
     , ftDefault  :: Maybe DefaultValue
     , ftComment  :: MDComment
     }
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | SpecUnion is your classsic union type
 
 data SpecUnion = SpecUnion
     { suFields :: [(FieldName,(APIType,MDComment))]
     }
-    deriving (Show)
+    deriving (Eq,Show)
 
 -- | SpecEnum is your classic enumerated type
 
 data SpecEnum = SpecEnum
     { seAlts :: [(FieldName,MDComment)]
     }
-    deriving (Show)
+    deriving (Eq,Show)
 
--- Conversion possibly converts to an internal representation
-
+-- | Conversion possibly converts to an internal representation.  If
+-- specified, a conversion is a pair of an injection function name and
+-- a projection function name.
 type Conversion = Maybe (FieldName,FieldName)
 
 -- | Type is either a list, Maybe, a named element of the API or a basic type
@@ -262,14 +246,6 @@ data DefaultValue
     | DefValUtc    UTCTime
     deriving (Eq, Show)
 
-instance Lift DefaultValue where
-  lift DefValList       = [e| DefValList     |]
-  lift DefValMaybe      = [e| DefValMaybe    |]
-  lift (DefValString s) = [e| DefValString (T.pack $(lift (T.unpack s))) |]
-  lift (DefValBool   b) = [e| DefValBool b   |]
-  lift (DefValInt    i) = [e| DefValInt i    |]
-  lift (DefValUtc    u) = [e| DefValUtc $(liftUTC u) |]
-
 -- | Convert a default value to an Aeson 'Value'.  This differs from
 -- 'toJSON' as it will not round-trip with 'fromJSON': UTC default
 -- values are turned into strings.
@@ -285,7 +261,7 @@ defaultValueAsJsValue (DefValUtc    t)           = mkUTC t
 -- | Binary data is represented in JSON format as a base64-encoded
 -- string
 newtype Binary = Binary { _Binary :: B.ByteString }
-    deriving (Show,Eq,Ord,NFData)
+    deriving (Show,Eq,Ord,NFData,CBOR.Serialise)
 
 instance ToJSON Binary where
     toJSON = String . T.decodeLatin1 . B64.encode . _Binary
@@ -325,3 +301,85 @@ deriveJSON defaultOptions ''IntRange
 deriveJSON defaultOptions ''UTCRange
 deriveJSON defaultOptions ''BasicType
 deriveJSON defaultOptions ''CI.CI
+
+
+instance Lift Thing where
+  lift (ThComment c) = [e| ThComment c |]
+  lift (ThNode    n) = [e| ThNode    n |]
+
+instance Lift APINode where
+  lift (APINode a b c d e) = [e| APINode a b $(liftPrefix c) d e |]
+
+liftPrefix :: Prefix -> ExpQ
+liftPrefix ci = let s = CI.original ci in [e| CI.mk s |]
+
+instance Lift TypeName where
+  lift (TypeName s) = [e| TypeName s |]
+
+instance Lift FieldName where
+  lift (FieldName s) = [e| FieldName s |]
+
+instance Lift Spec where
+  lift (SpNewtype s) = [e| SpNewtype s |]
+  lift (SpRecord  s) = [e| SpRecord  s |]
+  lift (SpUnion   s) = [e| SpUnion   s |]
+  lift (SpEnum    s) = [e| SpEnum    s |]
+  lift (SpSynonym s) = [e| SpSynonym s |]
+
+instance Lift SpecNewtype where
+  lift (SpecNewtype a b) = [e| SpecNewtype a b |]
+
+instance Lift Filter where
+  lift (FtrStrg re) = [e| FtrStrg re |]
+  lift (FtrIntg ir) = [e| FtrIntg ir |]
+  lift (FtrUTC  ur) = [e| FtrUTC  ur |]
+
+instance Lift IntRange where
+    lift (IntRange lo hi) = [e| IntRange lo hi |]
+
+instance Lift UTCRange where
+    lift (UTCRange lo hi) = [e| UTCRange $(liftMaybeUTCTime lo) $(liftMaybeUTCTime hi) |]
+
+liftUTC :: UTCTime -> ExpQ
+liftUTC u = [e| fromMaybe (error "liftUTC") (parseUTC_ $(stringE (mkUTC_ u))) |]
+
+liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
+liftMaybeUTCTime Nothing  = [e| Nothing |]
+liftMaybeUTCTime (Just u) = [e| Just $(liftUTC u) |]
+
+instance Lift RegEx where
+    lift re = [e| mkRegEx $(stringE (T.unpack (re_text re))) |]
+
+instance Lift SpecRecord where
+  lift (SpecRecord s) = [e| SpecRecord s |]
+
+instance Lift FieldType where
+  lift (FieldType a b c d) = [e| FieldType a b c d |]
+
+instance Lift SpecUnion where
+  lift (SpecUnion s) = [e| SpecUnion s |]
+
+instance Lift SpecEnum where
+  lift (SpecEnum s) = [e| SpecEnum s |]
+
+instance Lift APIType where
+  lift (TyList  t) = [e| TyList  t |]
+  lift (TyMaybe t) = [e| TyMaybe t |]
+  lift (TyName  t) = [e| TyName  t |]
+  lift (TyBasic t) = [e| TyBasic t |]
+  lift TyJSON      = [e| TyJSON    |]
+
+instance Lift BasicType where
+  lift BTstring = [e| BTstring |]
+  lift BTbinary = [e| BTbinary |]
+  lift BTbool   = [e| BTbool   |]
+  lift BTint    = [e| BTint    |]
+  lift BTutc    = [e| BTutc    |]
+
+instance Lift DefaultValue where
+  lift DefValList       = [e| DefValList     |]
+  lift DefValMaybe      = [e| DefValMaybe    |]
+  lift (DefValString s) = [e| DefValString (T.pack $(lift (T.unpack s))) |]
+  lift (DefValBool   b) = [e| DefValBool b   |]
+  lift (DefValInt    i) = [e| DefValInt i    |]
+  lift (DefValUtc    u) = [e| DefValUtc $(liftUTC u) |]

@@ -6,6 +6,8 @@
 module Data.API.API
     ( apiAPI
     , extractAPI
+    , convertAPI
+    , unconvertAPI
     ) where
 
 import           Data.API.API.DSL
@@ -21,9 +23,11 @@ import           Text.Regex
 
 
 -- | Take an API spec and generate a JSON description of the API
-
 extractAPI :: API -> Value
-extractAPI api = toJSON $ map convert [ an | ThNode an <- api ]
+extractAPI = toJSON . convertAPI
+
+convertAPI :: API -> D.APISpec
+convertAPI api = [ convert an | ThNode an <- api ]
 
 convert :: APINode -> D.APINode
 convert (APINode{..}) =
@@ -45,10 +49,10 @@ convert_spec sp =
       SpSynonym ty -> D.SP_synonym $ convert_type              ty
 
 convert_conversion :: (FieldName,FieldName) -> D.Conversion
-convert_conversion (i,p) =
+convert_conversion (inj,prj) =
     D.Conversion
-        { D._cv_injection  = T.pack $ _FieldName p
-        , D._cv_projection = T.pack $ _FieldName i
+        { D._cv_injection  = T.pack $ _FieldName inj
+        , D._cv_projection = T.pack $ _FieldName prj
         }
 
 convert_specnt :: SpecNewtype -> D.SpecNewtype
@@ -127,6 +131,9 @@ convert_default (DefValUtc    u) = D.DV_utc     u
 
 instance FromJSONWithErrs Thing where
     parseJSONWithErrs v = (ThNode . unconvert) <$> parseJSONWithErrs v
+
+unconvertAPI :: D.APISpec -> API
+unconvertAPI = map (ThNode . unconvert)
 
 unconvert :: D.APINode -> APINode
 unconvert (D.APINode{..}) =

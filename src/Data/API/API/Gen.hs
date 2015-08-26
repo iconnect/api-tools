@@ -18,10 +18,14 @@ $(generate         apiAPI)
 $(generateAPITools apiAPI
                    [ enumTool
                    , jsonTool'
+                   , cborTool
                    , quickCheckTool
                    , lensTool
                    , safeCopyTool
                    , exampleTool
                    , samplesTool   (mkName "apiAPISamples")
-                   , jsonTestsTool (mkName "apiAPISimpleTests")
+                   , jsonTestsTool (mkName "apiAPITestsJSON")
+                   , cborTestsTool (mkName "apiAPITestsCBOR")
+                   , cborToJSONTestsTool 'apiAPI (mkName "apiAPITestsCBORToJSON")
+                   , jsonToCBORTestsTool 'apiAPI (mkName "apiAPITestsJSONToCBOR")
                    ])
