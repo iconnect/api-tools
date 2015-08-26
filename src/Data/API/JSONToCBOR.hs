@@ -28,84 +28,82 @@ import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 
+{-
 -- TODO this should be in binary-serialise-cbor
 instance Serialise Encoding where
   encode = id
   decode = error "can't decode Encoding"
+-}
 
 -- | Convert a JSON value into a CBOR term in a generic but
 -- schema-dependent fashion.  This is necessary because the JSON
 -- representation carries less information than we need in CBOR
 -- (e.g. it lacks a distinction between bytestrings and text).
 serialiseJSONWithSchema :: API -> TypeName -> Value -> Encoding
-serialiseJSONWithSchema api tn v = case jsonToCBOR api tn v of
-    Right e  -> e
-    Left err -> error $ "serialiseJSONWithSchema could not pre-process: " ++ prettyValueError err
+serialiseJSONWithSchema api = jsonToCBORTypeName (apiNormalForm api)
 
-jsonToCBOR :: API -> TypeName -> Value -> Either ValueError Encoding
-jsonToCBOR api = jsonToCBORTypeName (apiNormalForm api)
+jsonToCBORTypeName :: NormAPI -> TypeName -> Value -> Encoding
+jsonToCBORTypeName napi tn v =
+    case Map.lookup tn napi of
+      Just (NRecordType nrt) -> jsonToCBORRecord napi nrt v
+      Just (NUnionType  nut) -> jsonToCBORUnion  napi nut v
+      Just (NEnumType   net) -> jsonToCBOREnum   napi net v
+      Just (NTypeSynonym ty) -> jsonToCBORType   napi ty  v
+      Just (NNewtype     bt) -> jsonToCBORBasic       bt  v
+      Nothing                -> error $ "serialiseJSONWithSchema: missing definition for type " ++ _TypeName tn
 
-jsonToCBORTypeName :: NormAPI -> TypeName -> Value -> Either ValueError Encoding
-jsonToCBORTypeName napi tn v = do
-    t <- Map.lookup tn napi ?! InvalidAPI (TypeDoesNotExist tn)
-    case t of
-      NRecordType nrt -> jsonToCBORRecord napi nrt v
-      NUnionType  nut -> jsonToCBORUnion  napi nut v
-      NEnumType   net -> jsonToCBOREnum   napi net v
-      NTypeSynonym ty -> jsonToCBORType   napi ty  v
-      NNewtype     bt -> jsonToCBORBasic       bt  v
-
-jsonToCBORType :: NormAPI -> APIType -> Value -> Either ValueError Encoding
+jsonToCBORType :: NormAPI -> APIType -> Value -> Encoding
 jsonToCBORType napi ty0 v = case (ty0, v) of
-    (TyList  ty, Array arr) -> encode <$> traverse (jsonToCBORType napi ty) (Vec.toList arr)
-    (TyList  _ , _)         -> Left $ JSONError $ expectedArray v
-    (TyMaybe _ , Null)      -> pure $ encode (Nothing :: Maybe ())
-    (TyMaybe ty, _)         -> encode . Just <$> jsonToCBORType napi ty v
+    (TyList  ty, Array arr) -> encode $ map (jsonToCBORType napi ty) (Vec.toList arr)
+    (TyList  _ , _)         -> error "serialiseJSONWithSchema: expected array"
+    (TyMaybe _ , Null)      -> encode (Nothing :: Maybe ())
+    (TyMaybe ty, _)         -> encode . Just $ jsonToCBORType napi ty v
     (TyName  tn, _)         -> jsonToCBORTypeName napi tn v
     (TyBasic bt, _)         -> jsonToCBORBasic bt v
-    (TyJSON    , _)         -> pure $ encodeJSON v
+    (TyJSON    , _)         -> encodeJSON v
 
 -- | Encode a record as a map from field names to values.  Crucially,
 -- the fields are in ascending order by field name.
-jsonToCBORRecord :: NormAPI -> NormRecordType -> Value -> Either ValueError Encoding
-jsonToCBORRecord napi nrt (Object hm) = encodeRecord <$> traverse f (Map.toAscList nrt)
+jsonToCBORRecord :: NormAPI -> NormRecordType -> Value -> Encoding
+jsonToCBORRecord napi nrt v = case v of
+    Object hm -> encodeRecord $ map (f hm) $ Map.toAscList nrt
+    _         -> error "serialiseJSONWithSchema: expected object"
   where
-    f (fn, ty) = do let t = T.pack $ _FieldName fn
-                    v <- HMap.lookup t hm ?! JSONError MissingField
-                    (,) t <$> jsonToCBORType napi ty v
-jsonToCBORRecord _ _ v = Left $ JSONError $ expectedObject v
+    f hm (fn, ty) = case HMap.lookup t hm of
+                      Nothing -> error $ "serialiseJSONWithSchema: missing field " ++ _FieldName fn
+                      Just v' -> (t, jsonToCBORType napi ty v')
+      where
+        t = T.pack $ _FieldName fn
 
 -- | Encode a union as a single-element map from the field name to the value.
-jsonToCBORUnion :: NormAPI -> NormUnionType -> Value -> Either ValueError Encoding
+jsonToCBORUnion :: NormAPI -> NormUnionType -> Value -> Encoding
 jsonToCBORUnion napi nut v = case v of
-    Object hm | [(k, r)] <- HMap.toList hm
-              , Just ty <- Map.lookup (FieldName $ T.unpack k) nut
-              -> encodeUnion k <$> jsonToCBORType napi ty r
-    _ -> Left $ JSONError $ expectedObject v
+    Object hm | [(k, r)] <- HMap.toList hm -> case Map.lookup (FieldName $ T.unpack k) nut of
+       Just ty -> encodeUnion k $ jsonToCBORType napi ty r
+       Nothing -> error "serialiseJSONWithSchema: unexpected alternative in union"
+    _ -> error "serialiseJSONWithSchema: expected single-field object"
 
 -- | Encode an enumerated value as its name; we do not check that it
 -- actually belongs to the type here.
-jsonToCBOREnum :: NormAPI -> NormEnumType -> Value -> Either ValueError Encoding
+jsonToCBOREnum :: NormAPI -> NormEnumType -> Value -> Encoding
 jsonToCBOREnum _ _ v = case v of
-                         String t -> pure $ encode t
-                         _        -> Left $ JSONError $ expectedString v
+                         String t -> encode t
+                         _        -> error "serialiseJSONWithSchema: expected string"
 
-jsonToCBORBasic :: BasicType -> Value -> Either ValueError Encoding
+jsonToCBORBasic :: BasicType -> Value -> Encoding
 jsonToCBORBasic bt v = case (bt, v) of
-    (BTstring, String t) -> pure $ encode t
-    (BTstring, _)        -> Left $ JSONError $ expectedString v
+    (BTstring, String t) -> encode t
+    (BTstring, _)        -> error "serialiseJSONWithSchema: expected string"
     (BTbinary, String t) -> case B64.decode $ TE.encodeUtf8 t of
-                              Left  _  -> Left $ JSONError $ BadFormat FmtBinary "binary" t
-                              Right bs -> pure $ encode bs
-    (BTbinary, _)        -> Left $ JSONError $ expectedString v
-    (BTbool  , Bool b)   -> pure $ encode b
-    (BTbool  , _)        -> Left $ JSONError $ expectedBool v
-    (BTint   , Number n) -> case floatingOrInteger n :: Either Double Int of
-                              Right i -> pure $ encodeInt i
-                              Left  _ -> Left $ JSONError $ expectedInt v
-    (BTint   , _)        -> Left $ JSONError $ expectedInt v
-    (BTutc   , String t) -> pure $ encodeTag 0 <> encode t -- encodeUTCTime <$> (parseUTC' t ?! JSONError (BadFormat FmtUTC "utc" t))
-    (BTutc   , _)        -> Left $ JSONError $ expectedString v
+                              Left  err-> error $ "serialiseJSONWithSchema: base64-decoding failed: " ++ err
+                              Right bs -> encode bs
+    (BTbinary, _)        -> error "serialiseJSONWithSchema: expected string"
+    (BTbool  , Bool b)   -> encode b
+    (BTbool  , _)        -> error "serialiseJSONWithSchema: expected bool"
+    (BTint   , Number n) | Right i <- (floatingOrInteger n :: Either Double Int) -> encode i
+    (BTint   , _)        -> error "serialiseJSONWithSchema: expected integer"
+    (BTutc   , String t) -> encodeTag 0 <> encode t
+    (BTutc   , _)        -> error "serialiseJSONWithSchema: expected string"
 
 
 -- | Encode a record as a map from field names to values; the field
