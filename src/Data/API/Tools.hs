@@ -30,7 +30,6 @@ module Data.API.Tools
     , cborTool'
     , jsonTestsTool
     , cborTestsTool
-    , jsonTestsToolCBOR
     , cborToJSONTestsTool
     , jsonToCBORTestsTool
     , lensTool
