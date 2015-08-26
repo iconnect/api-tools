@@ -21,7 +21,7 @@ $(generate         DSL.example)
 $(generateAPITools DSL.example
                    [ enumTool
                    , jsonTool'
-                   , cborTool'
+                   , cborTool
                    , quickCheckTool
                    , lensTool
                    , safeCopyTool
@@ -115,7 +115,7 @@ instance SafeCopy JS.Value where
 $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True }) example2
                    [ enumTool
                    , jsonTool'
-                   , cborTool'
+                   , cborTool
                    , quickCheckTool
                    , lensTool
                    , safeCopyTool

@@ -27,6 +27,7 @@ module Data.API.Tools
     , deepSeqTool
     , jsonTool
     , jsonTool'
+    , cborTool
     , cborTool'
     , jsonTestsTool
     , cborTestsTool
