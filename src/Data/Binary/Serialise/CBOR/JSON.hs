@@ -2,6 +2,7 @@
 module Data.Binary.Serialise.CBOR.JSON (
     cborToJson,
     jsonToCbor,
+    encodeJSON,
   ) where
 
 import qualified Data.Aeson          as JSON
@@ -28,8 +29,11 @@ import Data.Monoid
 import Control.Applicative
 
 instance Serialise JSON.Value where
-  encode = encode . jsonToCbor
+  encode = encodeJSON
   decode = cborToJson <$> decode
+
+encodeJSON :: JSON.Value -> Encoding
+encodeJSON = encode . jsonToCbor
 
 -- Most of the types in CBOR have direct analogs in JSON.  However, some
 -- do not, and someone implementing a CBOR-to-JSON converter has to

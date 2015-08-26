@@ -1,12 +1,9 @@
-{-# LANGUAGE CPP #-}
-
 module Data.API.JSONToCBOR
-    ( jsonToCBOR
-    , postprocessJSON
-    , Direction(..)
+    ( serialiseJSONWithSchema
+    , deserialiseJSONWithSchema
+      -- * Encoding utilities
+    , encodeRecord
     , encodeUnion
-    , encodeUTCTime
-    , encodeUTCTime'
     ) where
 
 import           Data.API.Changes
@@ -17,25 +14,18 @@ import           Data.API.Utils
 import           Control.Applicative
 import           Data.Aeson hiding (encode)
 import qualified Data.ByteString.Base64         as B64
+import qualified Data.ByteString.Lazy           as LBS
 import qualified Data.HashMap.Strict            as HMap
 import qualified Data.Map                       as Map
 import           Data.Monoid
 import           Data.Traversable
 import qualified Data.Vector                    as Vec
 import           Data.Binary.Serialise.CBOR     as CBOR
-import           Data.Binary.Serialise.CBOR.JSON ()
+import           Data.Binary.Serialise.CBOR.JSON (cborToJson, encodeJSON)
 import           Data.Binary.Serialise.CBOR.Encoding
 import           Data.Scientific
-import           Data.Time
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
-
-#if MIN_VERSION_time(1,5,0)
-import Data.Time.Format (formatTime, defaultTimeLocale)
-#else
-import Data.Time.Format (formatTime)
-import System.Locale    (defaultTimeLocale)
-#endif
 
 -- TODO this should be in binary-serialise-cbor
 instance Serialise Encoding where
@@ -46,6 +36,11 @@ instance Serialise Encoding where
 -- schema-dependent fashion.  This is necessary because the JSON
 -- representation carries less information than we need in CBOR
 -- (e.g. it lacks a distinction between bytestrings and text).
+serialiseJSONWithSchema :: API -> TypeName -> Value -> Encoding
+serialiseJSONWithSchema api tn v = case jsonToCBOR api tn v of
+    Right e  -> e
+    Left err -> error $ "serialiseJSONWithSchema could not pre-process: " ++ prettyValueError err
+
 jsonToCBOR :: API -> TypeName -> Value -> Either ValueError Encoding
 jsonToCBOR api = jsonToCBORTypeName (apiNormalForm api)
 
@@ -67,7 +62,7 @@ jsonToCBORType napi ty0 v = case (ty0, v) of
     (TyMaybe ty, _)         -> encode . Just <$> jsonToCBORType napi ty v
     (TyName  tn, _)         -> jsonToCBORTypeName napi tn v
     (TyBasic bt, _)         -> jsonToCBORBasic bt v
-    (TyJSON    , _)         -> pure $ encode v
+    (TyJSON    , _)         -> pure $ encodeJSON v
 
 -- | Encode a record as a map from field names to values.  Crucially,
 -- the fields are in ascending order by field name.
@@ -79,11 +74,6 @@ jsonToCBORRecord napi nrt (Object hm) = encodeRecord <$> traverse f (Map.toAscLi
                     (,) t <$> jsonToCBORType napi ty v
 jsonToCBORRecord _ _ v = Left $ JSONError $ expectedObject v
 
-encodeRecord :: CBOR.Serialise a => [(T.Text, a)] -> Encoding
-encodeRecord fs = encodeMapLen (fromIntegral (length fs)) <> mconcat (map encodeField fs)
-  where
-    encodeField (t, v) = encode t <> encode v
-
 -- | Encode a union as a single-element map from the field name to the value.
 jsonToCBORUnion :: NormAPI -> NormUnionType -> Value -> Either ValueError Encoding
 jsonToCBORUnion napi nut v = case v of
@@ -91,10 +81,6 @@ jsonToCBORUnion napi nut v = case v of
               , Just ty <- Map.lookup (FieldName $ T.unpack k) nut
               -> encodeUnion k <$> jsonToCBORType napi ty r
     _ -> Left $ JSONError $ expectedObject v
-
-encodeUnion :: CBOR.Serialise a => T.Text -> a -> Encoding
-encodeUnion t e = encodeMapLen 1 <> encodeString t <> CBOR.encode e
-
 
 -- | Encode an enumerated value as its name; we do not check that it
 -- actually belongs to the type here.
@@ -120,18 +106,18 @@ jsonToCBORBasic bt v = case (bt, v) of
     (BTutc   , String t) -> pure $ encodeTag 0 <> encode t -- encodeUTCTime <$> (parseUTC' t ?! JSONError (BadFormat FmtUTC "utc" t))
     (BTutc   , _)        -> Left $ JSONError $ expectedString v
 
--- | Encode a UTCTime to match Aeson
--- TODO: this is a pain, dubiously necessary and changes with Aeson versions
-encodeUTCTime :: UTCTime -> Encoding
-encodeUTCTime t = encodeTag 0 <> encode (formatTime defaultTimeLocale fmt t)
- where
-   fmt = "%FT%T." ++ take 3 (formatTime defaultTimeLocale "%q" t) ++ "Z"
 
--- | Encode a UTCTime to match generated ToJSON instances (not the
--- same as 'encodeUTCTime', of course...)
-encodeUTCTime' :: UTCTime -> Encoding
-encodeUTCTime' t = encodeTag 0 <> encode (mkUTC' t)
+-- | Encode a record as a map from field names to values; the field
+-- names must be in alphabetical order!
+encodeRecord :: CBOR.Serialise a => [(T.Text, a)] -> Encoding
+encodeRecord fs = encodeMapLen (fromIntegral (length fs)) <> mconcat (map encodeField fs)
+  where
+    encodeField (t, v) = encode t <> encode v
 
+-- | Encode an element of a union as single-element map from a field
+-- name to a value.
+encodeUnion :: CBOR.Serialise a => T.Text -> a -> Encoding
+encodeUnion t e = encodeMapLen 1 <> encodeString t <> CBOR.encode e
 
 
 data Direction = AesonToCBOR | CBORToAeson
@@ -142,6 +128,11 @@ data Direction = AesonToCBOR | CBORToAeson
 -- representation of 'Maybe' does not round-trip (because 'Nothing' is
 -- encoded as 'Null' and @'Just' x@ as @'toJSON' x@), so CBOR uses a
 -- different representation (as an empty or 1-element list).
+deserialiseJSONWithSchema :: API -> TypeName -> LBS.ByteString -> Value
+deserialiseJSONWithSchema api tn bs = case postprocessJSON CBORToAeson api tn (cborToJson (deserialise bs)) of
+    Right v  -> v
+    Left err -> error $ "deserialiseJSONWithSchema could not post-process: " ++ prettyValueError err
+
 postprocessJSON :: Direction -> API -> TypeName -> Value -> Either ValueError Value
 postprocessJSON dir api = postprocessJSONTypeName dir (apiNormalForm api)
 
@@ -167,7 +158,7 @@ postprocessJSONType dir napi ty0 v = case ty0 of
                                                   _:_:_ -> Left $ JSONError $ SyntaxError "over-long array when converting Maybe value"
                     (CBORToAeson, _)         -> Left $ JSONError $ expectedArray v
                     (AesonToCBOR, Null)      -> pure $ Array $ Vec.empty
-                    (AesonToCBOR, v)         -> pure $ Array $ Vec.singleton v
+                    (AesonToCBOR, _)         -> pure $ Array $ Vec.singleton v
     TyName tn  -> postprocessJSONTypeName dir napi tn v
     TyBasic _  -> pure v
     TyJSON     -> pure v
@@ -177,8 +168,8 @@ postprocessJSONRecord dir napi nrt v = case v of
     Object hm -> Object <$> HMap.traverseWithKey f hm
     _         -> Left $ JSONError $ expectedObject v
   where
-    f t v = do ty <- Map.lookup (FieldName $ T.unpack t) nrt ?! JSONError UnexpectedField
-               postprocessJSONType dir napi ty v
+    f t v' = do ty <- Map.lookup (FieldName $ T.unpack t) nrt ?! JSONError UnexpectedField
+                postprocessJSONType dir napi ty v'
 
 postprocessJSONUnion :: Direction -> NormAPI -> NormUnionType -> Value -> Either ValueError Value
 postprocessJSONUnion dir napi nut v = case v of

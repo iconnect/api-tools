@@ -22,7 +22,6 @@ module Data.API.Tools.JSONTests
     , prop_jsonToCBOR
     ) where
 
-import           Data.API.Changes
 import           Data.API.JSON
 import           Data.API.JSONToCBOR
 import           Data.API.Tools.Combinators
@@ -37,11 +36,15 @@ import           Language.Haskell.TH
 import           Test.QuickCheck
 import           Test.QuickCheck.Property       as QCProperty
 
--- | Tool to generate a list of tests of type @[('String', 'Property')]@
--- with the given name.  This depends on 'jsonTool' and 'quickCheckTool'.
+-- | Tool to generate a list of JSON round-trip tests of type
+-- @[('String', 'Property')]@ with the given name.  This depends on
+-- 'jsonTool' and 'quickCheckTool'.
 jsonTestsTool :: Name -> APITool
 jsonTestsTool = testsTool 'prop_resultsMatchRoundtrip
 
+-- | Tool to generate a list of CBOR round-trip tests of type
+-- @[('String', 'Property')]@ with the given name.  This depends on
+-- 'cborTool' and 'quickCheckTool'.
 cborTestsTool :: Name -> APITool
 cborTestsTool = testsTool 'prop_cborRoundtrip
 
@@ -62,10 +65,17 @@ generateProp prop_nm an = [e| ($ty, property ($(varE prop_nm) :: $(nodeT an) -> 
     ty = stringE $ _TypeName $ anName an
 
 
--- TODO not really tools at all?
+-- | Tool to generate a list of CBOR-to-JSON conversion tests of type
+-- @[('String', 'Property')]@.  The first name must be the 'API' being
+-- tested, and the second should be the name of the declaration to be
+-- produced.  This depends on 'cborTool', 'jsonTool' and 'quickCheckTool'.
 cborToJSONTestsTool :: Name -> Name -> APITool
 cborToJSONTestsTool = schemaTestsTool 'prop_cborToJSON
 
+-- | Tool to generate a list of JSON-to-CBOR conversion tests of type
+-- @[('String', 'Property')]@.  The first name must be the 'API' being
+-- tested, and the second should be the name of the declaration to be
+-- produced.  This depends on 'cborTool', 'jsonTool' and 'quickCheckTool'.
 jsonToCBORTestsTool :: Name -> Name -> APITool
 jsonToCBORTestsTool = schemaTestsTool 'prop_jsonToCBOR
 
@@ -74,9 +84,9 @@ jsonToCBORTestsTool = schemaTestsTool 'prop_jsonToCBOR
 schemaTestsTool :: Name -> Name -> Name -> APITool
 schemaTestsTool prop_nm api_nm nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Property)] |] (props api)
   where
-    props api = listE $ map (genProp api) [ an | ThNode an <- api ]
+    props api = listE $ map genProp [ an | ThNode an <- api ]
 
-    genProp api an = [e| ($ty, property ($(varE prop_nm) $(varE api_nm) tn :: $(nodeT an) -> QCProperty.Result)) |]
+    genProp an = [e| ($ty, property ($(varE prop_nm) $(varE api_nm) tn :: $(nodeT an) -> QCProperty.Result)) |]
       where
         tn = anName an
         ty = stringE $ _TypeName $ anName an
@@ -111,23 +121,33 @@ prop_cborRoundtrip :: forall a . (Eq a, Serialise a)
 prop_cborRoundtrip x = deserialise (serialise x) == x
 
 -- | QuickCheck property that 'toJSON' agrees with encoding to CBOR
--- and then decoding using the generic decoder
+-- directly and then decoding using the schema-aware generic decoder.
+-- From this and 'prop_resultsMatchRoundtrip' it follows that
+--
+-- > fromJSONWithErrs . deserialiseJSONWithSchema . serialise == id
 prop_cborToJSON :: forall a . (Eq a, Serialise a, JS.ToJSON a)
                    => API -> TypeName -> a -> QCProperty.Result
-prop_cborToJSON api tn x = case postprocessJSON CBORToAeson api tn (deserialise (serialise x)) of
-                         Right v | v == JS.toJSON x -> succeeded
-                                 | otherwise        -> failed { QCProperty.reason = "Post-processed: " ++ show v
-                                                                               ++ "\nDirect JSON:    " ++ show (JS.toJSON x) }
-                         Left err                   -> failed { QCProperty.reason = prettyValueError err }
+prop_cborToJSON api tn x
+  | v1 == v2  = succeeded
+  | otherwise = failed { QCProperty.reason = "Post-processed: " ++ show v1
+                                        ++ "\nDirect JSON:    " ++ show v2 }
+  where
+    v1 = deserialiseJSONWithSchema api tn (serialise x)
+    v2 = JS.toJSON x
 
--- | QuickCheck property that conversion 'toJSON', followed by
--- schema-aware 'jsonToCBOR' conversion, gives the same results as
--- direct conversion to CBOR via 'serialise'
+-- | QuickCheck property that direct encoding to CBOR agrees with
+-- conversion to JSON followed by the schema-aware generic encoder.
+-- From this and 'prop_cborRoundtrip' it follows that
+--
+-- > deserialise . serialiseJSONWithSchema . toJSON == id
 prop_jsonToCBOR :: forall a . (Eq a, Serialise a, JS.ToJSON a)
                 => API -> TypeName -> a -> QCProperty.Result
-prop_jsonToCBOR api tn x = case jsonToCBOR api tn (JS.toJSON x) of
-                             Right v  | serialise v == serialise x -> succeeded
-                                      | otherwise -> failed { QCProperty.reason = "Failed with JSON: " ++ show (JS.toJSON x)
-                                                                                ++ "\n serialise v: " ++ show (serialise v)
-                                                                                ++ "\n serialise x: " ++ show (serialise x) }
-                             Left err -> failed { QCProperty.reason = prettyValueError err }
+prop_jsonToCBOR api tn x
+  | e1 == e2  = succeeded
+  | otherwise = failed { QCProperty.reason = "Failed with JSON:      " ++ show v
+                                        ++ "\nGeneric serialisation: " ++ show e1
+                                        ++ "\nDirect serialisation:  " ++ show e2 }
+  where
+    v  = JS.toJSON x
+    e1 = serialise $ serialiseJSONWithSchema api tn v
+    e2 = serialise x
