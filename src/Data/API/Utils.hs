@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Data.API.Utils
     ( mkUTC
     , mkUTC'
@@ -12,7 +13,11 @@ import           Data.Aeson
 import           Data.Maybe
 import qualified Data.Text                      as T
 import           Data.Time
-import           System.Locale
+
+#if MIN_VERSION_time(1,5,0)
+#else
+import           System.Locale (defaultTimeLocale)
+#endif
 
 
 mkUTC :: UTCTime -> Value
