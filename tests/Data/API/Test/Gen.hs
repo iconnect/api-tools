@@ -26,6 +26,7 @@ $(generateAPITools DSL.example
                    , lensTool
                    , safeCopyTool
                    , exampleTool
+                   , deepSeqTool
                    , samplesTool   (mkName "exampleSamples")
                    , jsonTestsTool (mkName "exampleTestsJSON")
                    , cborTestsTool (mkName "exampleTestsCBOR")
@@ -120,6 +121,7 @@ $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True })
                    , lensTool
                    , safeCopyTool
                    , exampleTool
+                   , deepSeqTool
                    , samplesTool   (mkName "example2Samples")
                    , jsonTestsTool (mkName "example2TestsJSON")
                    , cborTestsTool (mkName "example2TestsCBOR")
