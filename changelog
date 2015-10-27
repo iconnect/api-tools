@@ -1,5 +1,8 @@
 -*-change-log-*-
 
+0.6.0.1 Adam Gundry <adam@well-typed.com> October 2015
+	* Support building on GHC 7.10.2 and relax dependencies
+
 0.6 Adam Gundry <adam@well-typed.com> August 2015
 	* Add tool to generate CBOR Serialise instances, and related code
 
