@@ -46,4 +46,6 @@ gen_su = mkTool $ \ ts (an, su) -> do
         f (fn,_) = match (nodeAltConP an fn [varP y]) (normalB [e|rnf $(varE y)|]) []
 
 gen_se :: Tool (APINode, SpecEnum)
-gen_se = mkTool $ \ ts (an, _) -> optionalInstanceD ts ''NFData [nodeRepT an] []
+gen_se = mkTool $ \ ts (an, _) ->
+    optionalInstanceD ts ''NFData [nodeRepT an]
+        [simpleD 'rnf [e| \ x -> seq x () |] ]
