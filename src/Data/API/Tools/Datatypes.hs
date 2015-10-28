@@ -1,6 +1,8 @@
 {-# LANGUAGE TemplateHaskell            #-}
 module Data.API.Tools.Datatypes
     ( datatypesTool
+    , datatypesTool'
+    , defaultDerivedClasses
     , type_nm
     , rep_type_nm
     , nodeT
@@ -33,16 +35,21 @@ import           Text.Regex
 
 -- | Tool to generate datatypes and type synonyms corresponding to an API
 datatypesTool :: APITool
-datatypesTool = apiNodeTool $ apiSpecTool (mkTool     $ uncurry . gen_sn_dt)
-                                          (simpleTool $ uncurry gen_sr_dt)
-                                          (simpleTool $ uncurry gen_su_dt)
-                                          (simpleTool $ uncurry gen_se_dt)
-                                          (simpleTool $ uncurry gen_sy)
+datatypesTool = datatypesTool' defaultDerivedClasses
+
+-- | Tool to generate datatypes and type synonyms corresponding to an
+-- API, where the function specifies the derived classes for each datatype.
+datatypesTool' :: (APINode -> [Name]) -> APITool
+datatypesTool' deriv = apiNodeTool $ apiSpecTool (mkTool     (gen_sn_dt deriv))
+                                                 (simpleTool (gen_sr_dt deriv))
+                                                 (simpleTool (gen_su_dt deriv))
+                                                 (simpleTool (gen_se_dt deriv))
+                                                 (simpleTool gen_sy)
 
 
 -- | Generate a type synonym definition
-gen_sy :: APINode -> APIType -> Q [Dec]
-gen_sy as ty = return [TySynD (type_nm as) [] $ mk_type ty]
+gen_sy :: (APINode, APIType) -> Q [Dec]
+gen_sy (as, ty) = return [TySynD (type_nm as) [] $ mk_type ty]
 
 
 -- | Generate a newtype definition, like this:
@@ -58,21 +65,14 @@ gen_sy as ty = return [TySynD (type_nm as) [] $ mk_type ty]
 -- > mkEmailAddress :: T.Text -> Maybe EmailAddress
 -- > mkEmailAddress t = ... -- check filter
 
-gen_sn_dt :: ToolSettings -> APINode -> SpecNewtype -> Q [Dec]
-gen_sn_dt ts as sn = (nd :) <$> if smart then sc else return []
+gen_sn_dt :: (APINode -> [Name]) -> ToolSettings -> (APINode, SpecNewtype) -> Q [Dec]
+gen_sn_dt deriv ts (as, sn) = (nd :) <$> if smart then sc else return []
   where
-    nd  = NewtypeD [] nm [] c $ derive_leaf_nms ++ iss
+    nd  = NewtypeD [] nm [] c (deriv as)
     c   = RecC (newtype_con_nm smart as) [(newtype_prj_nm as,NotStrict,wrapped_ty)]
     wrapped_ty = mk_type $ TyBasic (snType sn)
 
     nm  = rep_type_nm as
-
-    iss = case snType sn of
-            BTstring -> [''IsString]
-            BTbinary -> []
-            BTbool   -> []
-            BTint    -> []
-            BTutc    -> []
 
     smart = newtypeSmartConstructors ts && isJust (snFilter sn)
 
@@ -99,12 +99,11 @@ gen_sn_dt ts as sn = (nd :) <$> if smart then sc else return []
 -- >         }
 -- >     deriving (Show,Eq,Typeable)
 
-gen_sr_dt :: APINode -> SpecRecord -> Q [Dec]
-gen_sr_dt as sr = return [DataD [] nm [] cs derive_node_nms] -- [show_nm,eq_nm]
+gen_sr_dt :: (APINode -> [Name]) -> (APINode, SpecRecord) -> Q [Dec]
+gen_sr_dt deriv (as, sr) = return [DataD [] nm [] cs (deriv as)]
   where
     cs = [RecC nm [(pref_field_nm as fnm,IsStrict,mk_type (ftType fty)) |
                                                 (fnm,fty)<-srFields sr]]
-
     nm = rep_type_nm as
 
 
@@ -113,12 +112,11 @@ gen_sr_dt as sr = return [DataD [] nm [] cs derive_node_nms] -- [show_nm,eq_nm]
 -- > data Foo = F_Bar Int | F_Baz Bool
 -- >     deriving (Show,Typeable)
 
-gen_su_dt :: APINode -> SpecUnion -> Q [Dec]
-gen_su_dt as su = return [DataD [] nm [] cs derive_node_nms] -- [show_nm,eq_nm]
+gen_su_dt :: (APINode -> [Name]) -> (APINode, SpecUnion) -> Q [Dec]
+gen_su_dt deriv (as, su) = return [DataD [] nm [] cs (deriv as)]
   where
     cs = [NormalC (pref_con_nm as fnm) [(IsStrict,mk_type ty)] |
                                             (fnm,(ty,_))<-suFields su]
-
     nm = rep_type_nm as
 
 
@@ -136,11 +134,10 @@ gen_su_dt as su = return [DataD [] nm [] cs derive_node_nms] -- [show_nm,eq_nm]
 -- >     | FR_60
 -- >     deriving (Show,Eq,Ord,Bounded,Enum,Typeable)
 
-gen_se_dt :: APINode -> SpecEnum -> Q [Dec]
-gen_se_dt as se = return [DataD [] nm [] cs $ derive_leaf_nms ++ [''Bounded, ''Enum]]
+gen_se_dt :: (APINode -> [Name]) -> (APINode, SpecEnum) -> Q [Dec]
+gen_se_dt deriv (as, se) = return [DataD [] nm [] cs (deriv as)]
   where
     cs = [NormalC (pref_con_nm as fnm) [] | (fnm,_) <- seAlts se ]
-
     nm = rep_type_nm as
 
 
@@ -162,6 +159,21 @@ basic_type bt =
       BTint    -> ConT ''Int
       BTutc    -> ConT ''UTCTime
 
+
+-- | Default names of classes for which to derive instances, depending
+-- on the type of API node.
+defaultDerivedClasses :: APINode -> [Name]
+defaultDerivedClasses an = case anSpec an of
+    SpNewtype sn -> case snType sn of
+                      BTstring -> ''IsString : derive_leaf_nms
+                      BTbinary -> derive_leaf_nms
+                      BTbool   -> derive_leaf_nms
+                      BTint    -> derive_leaf_nms
+                      BTutc    -> derive_leaf_nms
+    SpRecord  _  -> derive_node_nms
+    SpUnion   _  -> derive_node_nms
+    SpEnum    _  -> derive_leaf_nms ++ [''Bounded, ''Enum]
+    SpSynonym _  -> []
 
 derive_leaf_nms :: [Name]
 derive_leaf_nms = [''Show,''Eq,''Ord,''Typeable]
