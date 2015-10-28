@@ -8,6 +8,7 @@ module Data.API.PP
     , indent
     ) where
 
+import           Data.API.Scan (keywords)
 import           Data.API.JSON
 import           Data.API.Types
 
@@ -55,7 +56,8 @@ instance PP TypeName where
   pp = _TypeName
 
 instance PP FieldName where
-  pp = _FieldName
+  pp (FieldName fn) | fn `elem` keywords = "'" ++ fn ++ "'"
+                    | otherwise          = fn
 
 instance PP APIType where
   pp (TyList  ty) = "[" ++ pp ty ++ "]"
