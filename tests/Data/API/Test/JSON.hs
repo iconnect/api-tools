@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
@@ -62,7 +63,11 @@ basicValueDecoding = sequence_ [ help (JS.String "12")  (12 :: Int) True
 -- | Test that the correct errors are generated for bad JSON data
 errorDecoding :: [TestTree]
 errorDecoding = [ help "not enough input" ""         (proxy :: Int)
+#if MIN_VERSION_aeson(0,10,0)
+                      [(SyntaxError "Error in $: not enough input", [])]
+#else
                       [(SyntaxError "not enough input", [])]
+#endif
                 , help "object for int"   "{}"       (proxy :: Int)
                       [(Expected ExpInt "Int" (JS.Object HMap.empty), [])]
                 , help "missing alt"      "{}"       (proxy :: AUnion)
