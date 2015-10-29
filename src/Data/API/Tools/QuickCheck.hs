@@ -110,6 +110,7 @@ arbitraryUTCRange (UTCRange (Just lo) (Just hi)) = QC.elements [lo, hi]
 arbitraryUTCRange (UTCRange Nothing   Nothing  ) = QC.arbitrary
 
 -- TODO: use a more arbitrary instance (quickcheck-instances?)
+-- (in particular, there are no subsecond-resolution times here)
 instance QC.Arbitrary UTCTime where
     arbitrary = QC.elements
         [ mk "2010-01-01T00:00:00Z"
@@ -119,6 +120,8 @@ instance QC.Arbitrary UTCTime where
         , mk "2009-11-12T20:57:54Z"
         , mk "2000-10-28T21:03:24Z"
         , mk "1965-03-10T09:23:01Z"
+        -- , mk "1965-03-10T09:23:01.001Z"
+        -- , mk "1965-03-10T09:23:01.000001Z"
         ]
       where
         mk  = fromJustNote lab . parseUTC'
