@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -8,12 +9,14 @@ module Data.API.Test.Gen where
 import           Data.API.Test.DSL hiding (example)
 import qualified Data.API.Test.DSL as DSL
 import           Data.API.Tools
+import           Data.API.Tools.Datatypes
 import           Data.API.Tools.Example
 
 import           Control.Applicative
 import qualified Data.Aeson                     as JS
 import           Data.SafeCopy
 import qualified Data.Text                      as T
+import           GHC.Generics
 import           Language.Haskell.TH
 import           Test.QuickCheck                ( Arbitrary(..) )
 
@@ -34,7 +37,8 @@ $(generateAPITools DSL.example
                    , jsonToCBORTestsTool 'DSL.example (mkName "exampleTestsJSONToCBOR")
                    ])
 
-$(generateWith (defaultToolSettings { newtypeSmartConstructors = True }) example2)
+$(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True }) example2
+                       [ datatypesTool' ((''Generic :) . defaultDerivedClasses) ])
 
 data Coord = Coord Int Int
     deriving (Eq,Show)
