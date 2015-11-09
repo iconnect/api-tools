@@ -6,6 +6,7 @@ module Data.API.Scan
     , PToken
     , AlexPosn(..)
     , Token(..)
+    , keywords
     ) where
 
 import           Data.API.Types
@@ -41,8 +42,8 @@ tokens :-
     ">="                                { simple    GtEq            }
     "?"                                 { simple    Query           }
     ","                                 { simple    Comma           }
-    version                             { simple    Version         }
-    with                                { simple    With            }    
+    version                             { simple    Version         } -- N.B. extend the 'keywords list below
+    with                                { simple    With            } -- when adding new keywords!
     integer                             { simple    Integer         }
     boolean                             { simple    Boolean         }
     utc                                 { simple    UTC             }
@@ -78,6 +79,14 @@ tokens :-
     "(*"(\n|[^\*]|\*[^\)])*"*)"         { block_comment             }
 
 {
+
+keywords :: [String]
+keywords = [ "version", "with", "integer", "boolean", "utc", "string"
+           , "binary", "json", "record", "union", "enum", "basic", "changes"
+           , "added", "removed", "renamed", "changed", "default", "field"
+           , "alternative", "migration", "to", "nothing", "true", "false"
+           , "read-only"
+           ]
 
 type PToken = (AlexPosn,Token)
 

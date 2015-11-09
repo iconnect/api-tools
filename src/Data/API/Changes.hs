@@ -64,6 +64,7 @@ import           Control.Monad
 import qualified Data.Aeson as JS
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Base64 as B64
+import qualified Data.Graph as Graph
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Maybe
@@ -1029,11 +1030,27 @@ instance PPLines ValidateFailure where
   ppLines (ChangelogIncomplete ver ver' diffs) =
       ("Changelog incomplete! Differences between log version ("
            ++ showVersionExtra ver ++ ") and latest version (" ++ showVersionExtra ver' ++ "):")
-      : indent (concatMap (uncurry ppDiff) $ Map.toList diffs)
+      : indent (ppDiffs diffs)
 
 instance PPLines APITableChange where
   ppLines (APIChange c _)  = ppLines c
   ppLines (ValidateData _) = []
+
+ppDiffs :: Map TypeName (MergeResult NormTypeDecl NormTypeDecl) -> [String]
+ppDiffs  = concatMap (uncurry ppDiff) . sortDiffs . Map.toList
+
+-- | Perform a topological sort of the differences, so that the
+-- pretty-printed form can be copied directly into the changelog.
+sortDiffs :: [(TypeName, MergeResult NormTypeDecl NormTypeDecl)]
+          -> [(TypeName, MergeResult NormTypeDecl NormTypeDecl)]
+sortDiffs = reverse . Graph.flattenSCCs . Graph.stronglyConnComp . map f
+  where
+    f (tn, mr) = ((tn, mr), tn, Set.toList (mergeResultFreeVars mr))
+
+mergeResultFreeVars :: MergeResult NormTypeDecl NormTypeDecl -> Set TypeName
+mergeResultFreeVars (OnlyInLeft  x) = typeDeclFreeVars x
+mergeResultFreeVars (OnlyInRight x) = typeDeclFreeVars x
+mergeResultFreeVars (InBoth x y)    = typeDeclFreeVars x `Set.union` typeDeclFreeVars y
 
 ppDiff :: TypeName -> MergeResult NormTypeDecl NormTypeDecl -> [String]
 ppDiff t (OnlyInLeft _)  = ["removed " ++ pp t]
