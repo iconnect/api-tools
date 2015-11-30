@@ -80,12 +80,18 @@ data APINode
 newtype TypeName = TypeName { _TypeName :: T.Text }
     deriving (Eq, Ord,Show, IsString)
 
+instance NFData TypeName where
+  rnf (TypeName t) = rnf t
+
 -- | FieldName identifies recod fields and union alternatives
 --   must contain a valid identifier valid in Haskell and
 --   any API client wrappers (e.g., if Ruby wrappers are to be
 --   generated the names should easily map into Ruby)
 newtype FieldName = FieldName { _FieldName :: T.Text }
     deriving (Show,Eq,Ord,IsString)
+
+instance NFData FieldName where
+  rnf (FieldName t) = rnf t
 
 -- | Markdown comments are represented by strings
 

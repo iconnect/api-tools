@@ -18,6 +18,7 @@ import           Data.API.NormalForm
 import           Data.API.Types
 
 import           Control.Applicative
+import           Control.DeepSeq
 import qualified Data.Aeson                     as JS
 import qualified Data.Binary.Serialise.CBOR          as CBOR
 import qualified Data.Binary.Serialise.CBOR.Decoding as CBOR
@@ -47,6 +48,19 @@ data Value = String  !T.Text
            | Record  ![(FieldName, Value)]
            | JSON    !JS.Value
     deriving (Eq, Show)
+
+instance NFData Value where
+  rnf (String t)   = rnf t
+  rnf (UTCTime t)  = rnf t
+  rnf (Bytes b)    = rnf b
+  rnf (Bool b)     = rnf b
+  rnf (Int i)      = rnf i
+  rnf (List xs)    = rnf xs
+  rnf (Maybe mb)   = rnf mb
+  rnf (Union fn v) = rnf fn `seq` rnf v
+  rnf (Enum fn)    = rnf fn
+  rnf (Record xs)  = rnf xs
+  rnf (JSON v)     = rnf v
 
 instance JS.ToJSON Value where
   toJSON v0 = case v0 of
