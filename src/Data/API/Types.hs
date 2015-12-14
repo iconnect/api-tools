@@ -77,16 +77,14 @@ data APINode
     deriving (Eq,Show)
 
 -- | TypeName must contain a valid Haskell type constructor
-
-newtype TypeName = TypeName { _TypeName :: String }
+newtype TypeName = TypeName { _TypeName :: T.Text }
     deriving (Eq, Ord,Show, IsString)
 
 -- | FieldName identifies recod fields and union alternatives
 --   must contain a valid identifier valid in Haskell and
 --   any API client wrappers (e.g., if Ruby wrappers are to be
 --   generated the names should easily map into Ruby)
-
-newtype FieldName = FieldName { _FieldName :: String }
+newtype FieldName = FieldName { _FieldName :: T.Text }
     deriving (Show,Eq,Ord,IsString)
 
 -- | Markdown comments are represented by strings
@@ -314,10 +312,10 @@ liftPrefix :: Prefix -> ExpQ
 liftPrefix ci = let s = CI.original ci in [e| CI.mk s |]
 
 instance Lift TypeName where
-  lift (TypeName s) = [e| TypeName s |]
+  lift (TypeName s) = [e| TypeName $(litE (stringL (T.unpack s))) |]
 
 instance Lift FieldName where
-  lift (FieldName s) = [e| FieldName s |]
+  lift (FieldName s) = [e| FieldName $(litE (stringL (T.unpack s))) |]
 
 instance Lift Spec where
   lift (SpNewtype s) = [e| SpNewtype s |]

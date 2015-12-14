@@ -220,7 +220,7 @@ gen_in = mkTool $ \ ts an -> case anConvert an of
    where
     bdy = do x <- newName "x"
              lamE [varP x] [e| parseJSONWithErrs $(varE x) >>= $inj |]
-    inj = varE $ mkName $ _FieldName inj_fn
+    inj = fieldNameVarE inj_fn
 
 
 gen_pr :: Tool APINode
@@ -229,7 +229,7 @@ gen_pr = mkTool $ \ ts an -> case anConvert an of
   Just (_, prj_fn) -> optionalInstanceD ts ''ToJSON [nodeT an] [simpleD 'toJSON bdy]
    where
     bdy = [e| toJSON . $prj |]
-    prj = varE $ mkName $ _FieldName prj_fn
+    prj = fieldNameVarE prj_fn
 
 
 -- | Generate 'FromJSON' instances like this:
@@ -260,10 +260,3 @@ json_string_p :: Ord a => [T.Text] -> (T.Text->Maybe a) -> Value -> ParserWithEr
 json_string_p xs p (String t) | Just val <- p t = pure val
                               | otherwise       = failWith $ UnexpectedEnumVal xs t
 json_string_p _  _ v                            = failWith $ expectedString v
-
-
-fieldNameE :: FieldName -> ExpQ
-fieldNameE = stringE . _FieldName
-
-typeNameE :: TypeName -> ExpQ
-typeNameE = stringE . _TypeName

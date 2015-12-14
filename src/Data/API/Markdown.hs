@@ -26,6 +26,7 @@ import           Data.API.Utils
 
 import qualified Data.CaseInsensitive       as CI
 import           Data.Char
+import qualified Data.Text                  as T
 import           Text.Printf
 import           Control.Applicative
 import           Control.Lens
@@ -42,7 +43,7 @@ data MarkdownMethods
 defaultMarkdownMethods :: MarkdownMethods
 defaultMarkdownMethods =
     MDM { mdmSummaryPostfix = const ""
-        , mdmLink           = _TypeName
+        , mdmLink           = T.unpack . _TypeName
         , mdmPp             = (++)
         , mdmFieldDefault   = \ _ _ -> Nothing
         }
@@ -107,13 +108,13 @@ enum_ mdm an SpecEnum{..} =
 
     dhs          = (replicate lnx '-',replicate 7 '-')
 
-    lnx          = maximum $ 0 : map (length . _FieldName . fst) seAlts
+    lnx          = maximum $ 0 : map (T.length . _FieldName . fst) seAlts
 
     rws          = map fmt seAlts
 
     hdr          = ("Enumeration","Comment")
 
-    fmt (fn0,ct) = (_FieldName fn0,mdmPp mdm "" $ cln ct)
+    fmt (fn0,ct) = (T.unpack (_FieldName fn0), mdmPp mdm "" $ cln ct)
 
     cln ct       = reverse $ dropWhile isSpace $ reverse $ map tr ct
       where
@@ -143,7 +144,7 @@ mk_md_record_table mdm fds = map f $ hdr : dhs : rws
 
     fmt (fn0,fty) = ( fn, type_md mdm ty, flg_md, mdmPp mdm "" $ cleanComment ct )
       where
-        fn  = _FieldName fn0
+        fn  = T.unpack (_FieldName fn0)
         ty  = ftType fty
         ct  = ftComment fty
 
@@ -174,7 +175,7 @@ mk_md_union_table mdm fds = map f $ hdr : dhs : rws
 
     fmt (fn0,(ty,ct)) = ("_" ++ fn ++ "_",type_md mdm ty,mdmPp mdm "" $ cleanComment ct)
       where
-        fn  = _FieldName fn0
+        fn  = T.unpack (_FieldName fn0)
 
 cleanComment :: MDComment -> MDComment
 cleanComment ct = reverse $ dropWhile isSpace $ reverse $ map tr ct
@@ -220,7 +221,7 @@ basic_type_md bt =
       BTutc    -> "utc"
 
 type_name_md, prefix_md, comment_md :: APINode -> MDComment
-type_name_md = _TypeName   . anName
+type_name_md = T.unpack . _TypeName . anName
 prefix_md    = CI.original . anPrefix
 comment_md   =               anComment
 

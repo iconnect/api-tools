@@ -62,7 +62,7 @@ testsTool prop_nm nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Propert
 generateProp :: Name -> APINode -> ExpQ
 generateProp prop_nm an = [e| ($ty, property ($(varE prop_nm) :: $(nodeT an) -> Bool)) |]
   where
-    ty = stringE $ _TypeName $ anName an
+    ty = typeNameE $ anName an
 
 
 -- | Tool to generate a list of CBOR-to-JSON conversion tests of type
@@ -89,7 +89,7 @@ schemaTestsTool prop_nm api_nm nm = simpleTool $ \ api -> simpleSigD nm [t| [(St
     genProp an = [e| ($ty, property ($(varE prop_nm) $(varE api_nm) tn :: $(nodeT an) -> QCProperty.Result)) |]
       where
         tn = anName an
-        ty = stringE $ _TypeName $ anName an
+        ty = typeNameE $ anName an
 
 
 -- | QuickCheck property that a 'Value' decodes to an expected Haskell

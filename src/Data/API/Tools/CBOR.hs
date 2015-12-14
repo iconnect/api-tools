@@ -192,7 +192,7 @@ encoder api (TyName tn)     = case Map.lookup tn api of
                                 Just (NTypeSynonym ty) -> encoder api ty
                                 Just _                 -> [e| encode |]
                                 Nothing                -> reportWarning ("encoder: missing type declaration for "
-                                                                            ++ _TypeName tn)
+                                                                            ++ T.unpack (_TypeName tn))
                                                        >> [e| encode |]
 encoder _ _                 = [e| encode |]
 
@@ -280,12 +280,5 @@ gen_pr = mkTool $ \ ts an -> case anConvert an of
                                                                        , simpleD 'decode bdy_out
                                                                        ]
    where
-    bdy_in = [e| encode . $prj |]
-    prj = varE $ mkName $ _FieldName prj_fn
-
-    bdy_out = [e| decode >>= $inj |]
-    inj = varE $ mkName $ _FieldName inj_fn
-
-
-fieldNameE :: FieldName -> ExpQ
-fieldNameE = stringE . _FieldName
+    bdy_in  = [e| encode . $(fieldNameVarE prj_fn) |]
+    bdy_out = [e| decode >>= $(fieldNameVarE inj_fn) |]

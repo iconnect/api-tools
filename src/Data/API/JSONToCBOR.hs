@@ -45,7 +45,8 @@ jsonToCBORTypeName napi tn v =
       Just (NEnumType   net) -> jsonToCBOREnum   napi net v
       Just (NTypeSynonym ty) -> jsonToCBORType   napi ty  v
       Just (NNewtype     bt) -> jsonToCBORBasic       bt  v
-      Nothing                -> error $ "serialiseJSONWithSchema: missing definition for type " ++ _TypeName tn
+      Nothing                -> error $ "serialiseJSONWithSchema: missing definition for type "
+                                          ++ T.unpack (_TypeName tn)
 
 jsonToCBORType :: NormAPI -> APIType -> Value -> Term
 jsonToCBORType napi ty0 v = case (ty0, v) of
@@ -65,16 +66,14 @@ jsonToCBORRecord napi nrt v = case v of
     Object hm -> TMap $ map (f hm) $ Map.toAscList nrt
     _         -> error "serialiseJSONWithSchema: expected object"
   where
-    f hm (fn, ty) = case HMap.lookup t hm of
-                      Nothing -> error $ "serialiseJSONWithSchema: missing field " ++ _FieldName fn
-                      Just v' -> (TString t, jsonToCBORType napi ty v')
-      where
-        t = T.pack $ _FieldName fn
+    f hm (fn, ty) = case HMap.lookup (_FieldName fn) hm of
+                      Nothing -> error $ "serialiseJSONWithSchema: missing field " ++ T.unpack (_FieldName fn)
+                      Just v' -> (TString (_FieldName fn), jsonToCBORType napi ty v')
 
 -- | Encode a union as a single-element map from the field name to the value.
 jsonToCBORUnion :: NormAPI -> NormUnionType -> Value -> Term
 jsonToCBORUnion napi nut v = case v of
-    Object hm | [(k, r)] <- HMap.toList hm -> case Map.lookup (FieldName $ T.unpack k) nut of
+    Object hm | [(k, r)] <- HMap.toList hm -> case Map.lookup (FieldName k) nut of
        Just ty -> TMap [(TString k, jsonToCBORType napi ty r)]
        Nothing -> error "serialiseJSONWithSchema: unexpected alternative in union"
     _ -> error "serialiseJSONWithSchema: expected single-field object"
@@ -146,12 +145,12 @@ postprocessJSONRecord napi nrt v = case v of
     Object hm -> Object <$> HMap.traverseWithKey f hm
     _         -> Left $ JSONError $ expectedObject v
   where
-    f t v' = do ty <- Map.lookup (FieldName $ T.unpack t) nrt ?! JSONError UnexpectedField
+    f t v' = do ty <- Map.lookup (FieldName t) nrt ?! JSONError UnexpectedField
                 postprocessJSONType napi ty v'
 
 postprocessJSONUnion :: NormAPI -> NormUnionType -> Value -> Either ValueError Value
 postprocessJSONUnion napi nut v = case v of
     Object hm | [(k, r)] <- HMap.toList hm
-              , Just ty <- Map.lookup (FieldName $ T.unpack k) nut
+              , Just ty <- Map.lookup (FieldName k) nut
               -> Object . HMap.singleton k <$> postprocessJSONType napi ty r
     _ -> Left $ JSONError $ expectedObject v

@@ -824,11 +824,12 @@ withString :: (T.Text -> Position -> Either (ValueError, Position) T.Text)
 withString alter (JS.String s) p = JS.String <$> alter s p
 withString _     v             p = Left (JSONError $ expectedString v, p)
 
+-- AMG TODO: inline fieldKey and fromFieldKey
 fieldKey :: FieldName -> T.Text
-fieldKey (FieldName fname) = T.pack fname
+fieldKey = _FieldName
 
 fromFieldKey :: T.Text -> FieldName
-fromFieldKey = FieldName . T.unpack
+fromFieldKey = FieldName
 
 compatibleDefaultValue :: NormAPI -> APIType -> DefaultValue -> Bool
 compatibleDefaultValue _   (TyList  _) DefValList  = True

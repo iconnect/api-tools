@@ -21,6 +21,7 @@ module Data.API.Doc.Types
 import           Data.API.PP
 import           Data.API.Types
 
+import qualified Data.Text                      as T
 import           Text.Printf
 
 type URL        = String
@@ -103,7 +104,7 @@ renderBodyType _  (OtherBody s) = s
 renderAPIType :: DocInfo -> APIType -> String
 renderAPIType di (TyList  ty  ) = "[" ++ renderAPIType di ty ++ "]"
 renderAPIType di (TyMaybe ty  ) = "?" ++ renderAPIType di ty
-renderAPIType di (TyName  tn  ) = mk_link (doc_info_type_url di tn) (_TypeName tn)
+renderAPIType di (TyName  tn  ) = mk_link (doc_info_type_url di tn) (T.unpack (_TypeName tn))
 renderAPIType _  (TyBasic bt  ) = pp bt
 renderAPIType _  TyJSON         = "json"
 

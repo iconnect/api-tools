@@ -53,11 +53,13 @@ instance PPLines JS.Value where
   ppLines v = lines $ BL.unpack $ JS.encodePretty v
 
 instance PP TypeName where
-  pp = _TypeName
+  pp = T.unpack . _TypeName
 
 instance PP FieldName where
-  pp (FieldName fn) | fn `elem` keywords = "'" ++ fn ++ "'"
-                    | otherwise          = fn
+  pp (FieldName fn_t) | fn `elem` keywords = "'" ++ fn ++ "'"
+                      | otherwise          = fn
+    where
+      fn = T.unpack fn_t
 
 instance PP APIType where
   pp (TyList  ty) = "[" ++ pp ty ++ "]"

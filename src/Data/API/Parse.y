@@ -98,8 +98,8 @@ Thing
 
 Node :: { APINode }
 Node
-    : Prefix '::' typeiden Comments '=' Spec With
-                                        { APINode (TypeName $3) $4 $1 $6 $7 }
+    : Prefix '::' TypeName Comments '=' Spec With
+                                        { APINode $3 $4 $1 $6 $7 }
 
 Spec :: { Spec }
 Spec
@@ -188,7 +188,7 @@ Type :: { APIType }
 Type
     : '?' Type                          { TyMaybe            $2             }
     | '[' Type ']'                      { TyList             $2             }
-    | typeiden                          { TyName   (TypeName $1)            }
+    | TypeName                          { TyName             $1             }
     | BasicType                         { TyBasic            $1             }
     | json                              { TyJSON                            }
 
@@ -206,7 +206,7 @@ BasicType
 
 FieldName :: { FieldName }
 FieldName
-    : VarIdentifier                     { FieldName $1                      }
+    : VarIdentifier                     { FieldName (T.pack $1)             }
 
 VarIdentifier :: { String }
     : variden                           { $1                                }
@@ -216,7 +216,7 @@ VarIdentifier :: { String }
     | to                                { "to"                              }
 
 TypeName :: { TypeName }
-    : typeiden                          { TypeName $1                       }
+    : typeiden                          { TypeName (T.pack $1)              }
 
 APIChangelog :: { APIChangelog }
 APIChangelog
