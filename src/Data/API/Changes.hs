@@ -710,32 +710,30 @@ applyChangeToData :: APIChange -> CustomMigrationsTagged
 applyChangeToData (ChAddField tname fname ftype mb_defval) _ =
   case mb_defval <|> defaultValueForType ftype of
     Just defval -> let newFieldValue = defaultValueAsJsValue defval
-                   in withObject (\ v _ -> pure $ HMap.insert (fieldKey fname) newFieldValue v)
+                   in withObject (\ v _ -> pure $ HMap.insert (_FieldName fname) newFieldValue v)
     Nothing     -> \ _ p -> Left (InvalidAPI (DefaultMissing tname fname), p)
 
 applyChangeToData (ChDeleteField _ fname) _ =
-    withObject (\ v _ -> pure $ HMap.delete (fieldKey fname) v)
+    withObject (\ v _ -> pure $ HMap.delete (_FieldName fname) v)
 
 applyChangeToData (ChRenameField _ fname fname') _ =
-    withObject $ \rec p -> case HMap.lookup k_fname rec of
+    withObject $ \rec p -> case HMap.lookup (_FieldName fname) rec of
                            Just field -> renameField field rec
-                           Nothing    -> Left (JSONError MissingField, InField k_fname : p)
+                           Nothing    -> Left (JSONError MissingField, InField (_FieldName fname) : p)
   where
-    k_fname       = fieldKey fname
-    k_fname'      = fieldKey fname'
-    renameField x = pure . HMap.insert k_fname' x . HMap.delete k_fname
+    renameField x = pure . HMap.insert (_FieldName fname') x . HMap.delete (_FieldName fname)
 
 applyChangeToData (ChChangeField _ fname _ftype tag) custom =
-    withObjectField (fieldKey fname) (liftMigration $ fieldMigration custom tag)
+    withObjectField (_FieldName fname) (liftMigration $ fieldMigration custom tag)
 
 applyChangeToData (ChRenameUnionAlt _ fname fname') _ = withObject $ \un p ->
     case HMap.toList un of
-        [(k, r)] | k == fieldKey fname -> return $ HMap.singleton (fieldKey fname') r
-                 | otherwise           -> return un
+        [(k, r)] | k == _FieldName fname -> return $ HMap.singleton (_FieldName fname') r
+                 | otherwise             -> return un
         _ -> Left (JSONError $ SyntaxError "Not singleton", p)
 
 applyChangeToData (ChRenameEnumVal _ fname fname') _ = withString $ \s _ ->
-    if s == fieldKey fname then return (fieldKey fname')
+    if s == _FieldName fname then return (_FieldName fname')
                            else return s
 
 applyChangeToData (ChCustomType _ tag)   custom = liftMigration $ typeMigration custom tag
@@ -784,7 +782,7 @@ withObjectMatchingFields :: Map FieldName a
                          -> (a -> JS.Value -> Position -> Either (ValueError, Position) JS.Value)
                          -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 withObjectMatchingFields m f (JS.Object obj) p = do
-    zs <- matchMaps (Map.mapKeys fieldKey m) (hmapToMap obj) ?!? toErr
+    zs <- matchMaps (Map.mapKeys _FieldName m) (hmapToMap obj) ?!? toErr
     obj' <- Map.traverseWithKey (\ k (ty, val) -> (f ty val (InField k : p))) zs
     return $ JS.Object $ mapToHMap obj'
   where
@@ -802,7 +800,7 @@ withObjectMatchingUnion :: Map FieldName a
                          -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 withObjectMatchingUnion m f (JS.Object obj) p
   | [(k, r)] <- HMap.toList obj
-  = do x  <- Map.lookup (fromFieldKey k) m ?! (JSONError UnexpectedField, InField k : p)
+  = do x  <- Map.lookup (FieldName k) m ?! (JSONError UnexpectedField, InField k : p)
        r' <- f x r (InField k : p)
        return $ JS.Object $ HMap.singleton k r'
 withObjectMatchingUnion _ _ _ p = Left (JSONError $ SyntaxError "Not singleton", p)
@@ -824,12 +822,6 @@ withString :: (T.Text -> Position -> Either (ValueError, Position) T.Text)
 withString alter (JS.String s) p = JS.String <$> alter s p
 withString _     v             p = Left (JSONError $ expectedString v, p)
 
--- AMG TODO: inline fieldKey and fromFieldKey
-fieldKey :: FieldName -> T.Text
-fieldKey = _FieldName
-
-fromFieldKey :: T.Text -> FieldName
-fromFieldKey = FieldName
 
 compatibleDefaultValue :: NormAPI -> APIType -> DefaultValue -> Bool
 compatibleDefaultValue _   (TyList  _) DefValList  = True
@@ -843,7 +835,7 @@ compatibleDefaultValue env (TyName tname)  defval  =
       Just (NTypeSynonym t) -> compatibleDefaultValue env t defval
       Just (NNewtype    bt) -> compatibleBasicDefaultValue bt defval
       Just (NEnumType vals) -> case defval of
-                                 DefValString s -> fromFieldKey s `Set.member` vals
+                                 DefValString s -> FieldName s `Set.member` vals
                                  _              -> False
       _                     -> False
 compatibleDefaultValue _ _ _ = False
@@ -885,7 +877,7 @@ dataMatchesNormAPI root api db = void $ valueMatches (TyName root) db []
     declMatches (NRecordType flds) = withObjectMatchingFields flds valueMatches
     declMatches (NUnionType alts)  = withObjectMatchingUnion  alts valueMatches
     declMatches (NEnumType vals)   = withString $ \ s p ->
-        if fromFieldKey s `Set.member` vals
+        if FieldName s `Set.member` vals
            then return s
            else Left (JSONError UnexpectedField, InField s : p)
     declMatches (NTypeSynonym t)   = valueMatches t
