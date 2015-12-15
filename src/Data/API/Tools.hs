@@ -33,6 +33,8 @@ module Data.API.Tools
     , cborTestsTool
     , cborToJSONTestsTool
     , jsonToCBORTestsTool
+    , jsonGenericValueTestsTool
+    , cborGenericValueTestsTool
     , lensTool
     , quickCheckTool
     , safeCopyTool

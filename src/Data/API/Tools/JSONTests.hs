@@ -12,6 +12,8 @@ module Data.API.Tools.JSONTests
     , cborTestsTool
     , cborToJSONTestsTool
     , jsonToCBORTestsTool
+    , jsonGenericValueTestsTool
+    , cborGenericValueTestsTool
 
       -- * Properties
     , prop_decodesTo
@@ -28,10 +30,12 @@ import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.TH
 import           Data.API.Types
+import           Data.API.Value
 
 import qualified Data.Aeson                     as JS
 import           Data.Binary.Serialise.CBOR
 import           Data.Binary.Serialise.CBOR.JSON ()
+import           Data.Monoid
 import           Language.Haskell.TH
 import           Test.QuickCheck
 import           Test.QuickCheck.Property       as QCProperty
@@ -78,6 +82,12 @@ cborToJSONTestsTool = schemaTestsTool 'prop_cborToJSON
 -- produced.  This depends on 'cborTool', 'jsonTool' and 'quickCheckTool'.
 jsonToCBORTestsTool :: Name -> Name -> APITool
 jsonToCBORTestsTool = schemaTestsTool 'prop_jsonToCBOR
+
+jsonGenericValueTestsTool :: Name -> Name -> APITool
+jsonGenericValueTestsTool = schemaTestsTool 'prop_jsonGeneric
+
+cborGenericValueTestsTool :: Name -> Name -> APITool
+cborGenericValueTestsTool = schemaTestsTool 'prop_cborGeneric
 
 -- | Tool to generate a list of tests of properties that take the API
 -- and the type name as arguments, and return a 'QCProperty.Result'.

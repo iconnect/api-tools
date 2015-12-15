@@ -21,6 +21,7 @@ import           Control.Applicative
 import           Data.Binary.Serialise.CBOR.Class
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
+import           Data.Binary.Serialise.CBOR.Extra
 import           Data.List (foldl', foldl1', sortBy)
 import qualified Data.Map                       as Map
 import           Data.Monoid
@@ -196,19 +197,6 @@ encoder api (TyName tn)     = case Map.lookup tn api of
                                                        >> [e| encode |]
 encoder _ _                 = [e| encode |]
 
-encodeListWith :: (a -> Encoding) -> [a] -> Encoding
-encodeListWith _ [] = encodeListLen 0
-encodeListWith f xs = encodeListLenIndef
-                        <> foldr (\x r -> f x <> r) encodeBreak xs
-
-encodeMaybeWith :: (a -> Encoding) -> Maybe a -> Encoding
-encodeMaybeWith _ Nothing  = encodeListLen 0
-encodeMaybeWith f (Just x) = encodeListLen 1 <> f x
-
--- We can assume the record has at least 1 field.
-encodeRecordFields :: [Encoding] -> Encoding
-encodeRecordFields l = foldl1' (<>) l
-
 
 {-
 instance Serialise Foo where
@@ -237,18 +225,6 @@ gen_su_to api = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''Serialise [node
 
     alt an (fn, _) = [e| ( $(fieldNameE fn) , fmap $(nodeAltConE an fn) decode ) |]
 
--- | Encode an element of a union as single-element map from a field
--- name to a value.
-encodeUnion :: T.Text -> Encoding -> Encoding
-encodeUnion t e = encodeMapLen 1 <> encodeString t <> e
-
-decodeUnion :: [(T.Text, Decoder a)] -> Decoder a
-decodeUnion ds = do
-    _   <- decodeMapLen -- should always be 1
-    dfn <- decodeString
-    case lookup dfn ds of
-      Nothing -> fail "Unexpected field in union in CBOR"
-      Just d -> d
 
 {-
 instance Serialise FrameRate where
