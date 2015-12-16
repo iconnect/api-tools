@@ -66,8 +66,6 @@ import           Data.API.Value as Value
 import           Control.Applicative
 import           Control.Monad
 import qualified Data.Aeson as JS
-import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Base64 as B64
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Maybe
@@ -826,31 +824,7 @@ withString _     v             p = Left (JSONError $ expectedString v, p)
 
 
 compatibleDefaultValue :: NormAPI -> APIType -> DefaultValue -> Bool
-compatibleDefaultValue _   (TyList  _) DefValList  = True
-compatibleDefaultValue _   (TyMaybe _) DefValMaybe = True
-compatibleDefaultValue api (TyMaybe ty)    defval  = compatibleDefaultValue api ty defval
-compatibleDefaultValue _   (TyBasic bt)    defval  =
-    compatibleBasicDefaultValue bt defval
-compatibleDefaultValue _   TyJSON          _       = True
-compatibleDefaultValue env (TyName tname)  defval  =
-    case Map.lookup tname env of
-      Just (NTypeSynonym t) -> compatibleDefaultValue env t defval
-      Just (NNewtype    bt) -> compatibleBasicDefaultValue bt defval
-      Just (NEnumType vals) -> case defval of
-                                 DefValString s -> FieldName s `Set.member` vals
-                                 _              -> False
-      _                     -> False
-compatibleDefaultValue _ _ _ = False
-
-compatibleBasicDefaultValue :: BasicType -> DefaultValue -> Bool
-compatibleBasicDefaultValue BTstring (DefValString _) = True
-compatibleBasicDefaultValue BTbinary (DefValString v) = case B64.decode (B.pack (T.unpack v)) of
-                                                           Left _  -> False
-                                                           Right _ -> True
-compatibleBasicDefaultValue BTbool   (DefValBool _)   = True
-compatibleBasicDefaultValue BTint    (DefValInt _)    = True
-compatibleBasicDefaultValue BTutc    (DefValUtc _)    = True
-compatibleBasicDefaultValue _         _                = False
+compatibleDefaultValue api ty dv = isJust (fromDefaultValue api ty dv)
 
 -- | Check if there is a "default" default value for a field of the
 -- given type: list and maybe have @[]@ and @nothing@ respectively.
