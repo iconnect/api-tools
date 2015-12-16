@@ -40,6 +40,7 @@ Library
         Data.API.Changes
         Data.API.Doc
         Data.API.Doc.Subst
+        Data.API.Error
         Data.API.JSON
         Data.API.JSONToCBOR
         Data.API.Markdown
