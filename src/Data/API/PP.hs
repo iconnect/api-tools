@@ -9,7 +9,6 @@ module Data.API.PP
     ) where
 
 import           Data.API.Scan (keywords)
-import           Data.API.JSON
 import           Data.API.Types
 
 import qualified Data.Aeson                     as JS
@@ -90,6 +89,3 @@ instance PPLines t => PPLines [t] where
 
 instance (PPLines s, PPLines t) => PPLines (s, t) where
   ppLines (s, t) = ppLines s ++ ppLines t
-
-instance PPLines Step where
-  ppLines s = [prettyStep s]

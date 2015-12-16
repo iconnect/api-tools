@@ -38,6 +38,7 @@ Library
         Data.API.API.DSL
         Data.API.API.Gen
         Data.API.Changes
+        Data.API.Changes.Types
         Data.API.Doc
         Data.API.Doc.Subst
         Data.API.Error
