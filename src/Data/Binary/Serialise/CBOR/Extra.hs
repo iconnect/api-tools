@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 module Data.Binary.Serialise.CBOR.Extra
     ( encodeListWith
     , encodeMaybeWith
@@ -10,11 +11,11 @@ module Data.Binary.Serialise.CBOR.Extra
     , serialiseEncoding
     , deserialiseWithOrFail
     , readFileDeserialiseWith
+    , (<$!>)
     ) where
 
 import           Control.Exception
 import qualified Data.Binary.Get as Bin
-import           Data.Binary.Serialise.CBOR
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
 import qualified Data.Binary.Serialise.CBOR.Read as CBOR.Read
@@ -26,6 +27,18 @@ import           Data.List (foldl1')
 import           Data.Monoid
 import qualified Data.Text                      as T
 import           System.IO
+
+#if MIN_VERSION_base(4,8,0)
+import           Control.Monad ((<$!>))
+#else
+-- | Strict version of '<$>', which is available in base >= 4.8.0
+(<$!>) :: Monad m => (a -> b) -> m a -> m b
+{-# INLINE (<$!>) #-}
+f <$!> m = do
+  x <- m
+  let z = f x
+  z `seq` return z
+#endif
 
 encodeListWith :: (a -> Encoding) -> [a] -> Encoding
 encodeListWith _ [] = encodeListLen 0

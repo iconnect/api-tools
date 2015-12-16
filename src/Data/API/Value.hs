@@ -181,28 +181,28 @@ encode v0 = case v0 of
 decode :: NormAPI -> APIType -> CBOR.Decoder Value
 decode api ty0 = case ty0 of
     TyName tn  -> decodeDecl api (lookupTyName api tn)
-    TyList ty  -> List <$> decodeListWith (decode api ty)
-    TyMaybe ty -> Maybe <$> decodeMaybeWith (decode api ty)
-    TyJSON     -> JSON <$> CBOR.decode
+    TyList ty  -> List  <$!> decodeListWith (decode api ty)
+    TyMaybe ty -> Maybe <$!> decodeMaybeWith (decode api ty)
+    TyJSON     -> JSON  <$!> CBOR.decode
     TyBasic bt -> decodeBasic bt
 
 decodeBasic :: BasicType -> CBOR.Decoder Value
 decodeBasic bt = case bt of
-    BTstring -> String <$> CBOR.decode
-    BTbinary -> Bytes  <$> CBOR.decode
-    BTbool   -> Bool   <$> CBOR.decode
-    BTint    -> Int    <$> CBOR.decode
+    BTstring -> String <$!> CBOR.decode
+    BTbinary -> Bytes  <$!> CBOR.decode
+    BTbool   -> Bool   <$!> CBOR.decode
+    BTint    -> Int    <$!> CBOR.decode
     BTutc    -> do _ <- CBOR.decodeTag
-                   UTCTime <$> CBOR.decode
+                   UTCTime <$!> CBOR.decode
 
 decodeDecl :: NormAPI -> NormTypeDecl -> CBOR.Decoder Value
 decodeDecl api d = case d of
     NRecordType nrt -> do _ <- CBOR.decodeMapLen
-                          Record <$> traverse decodeField (Map.toList nrt)
+                          go [] (Map.toList nrt)
     NUnionType  nut -> do _ <- CBOR.decodeMapLen
                           k <- CBOR.decodeString
                           case lookupMap (FieldName k) nut of
-                            Just (fn, ty) -> Union fn <$> decode api ty
+                            Just (fn, ty) -> Union fn <$!> decode api ty
                             Nothing       -> fail $ "unexpected union alternative: " ++ T.unpack k
     NEnumType   net -> do k <- CBOR.decodeString
                           case lookupSet (FieldName k) net of
@@ -211,9 +211,10 @@ decodeDecl api d = case d of
     NTypeSynonym ty -> decode api ty
     NNewtype     bt -> decodeBasic bt
   where
-    decodeField (fn, ty) = do _  <- CBOR.decodeString
-                              !v <- decode api ty
-                              return (fn, v)
+    go xs []            = pure (Record (reverse xs))
+    go xs ((fn, ty):ys) = do _  <- CBOR.decodeString
+                             !v <- decode api ty
+                             go ((fn, v):xs) ys
 
 
 
