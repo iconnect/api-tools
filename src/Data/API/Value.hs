@@ -15,6 +15,7 @@ module Data.API.Value
 
       -- * QuickCheck test infrastructure
     , arbitrary
+    , arbitraryJSONValue
     , prop_jsonRoundTrip
     , prop_jsonGeneric
     , prop_cborRoundTrip
@@ -34,6 +35,7 @@ import qualified Data.Binary.Serialise.CBOR.Decoding as CBOR
 import qualified Data.Binary.Serialise.CBOR.Encoding as CBOR
 import           Data.Binary.Serialise.CBOR.Extra
 import           Data.Binary.Serialise.CBOR.JSON
+import qualified Data.HashMap.Strict            as HMap
 import           Data.List (sortBy)
 import qualified Data.Map.Strict                as Map
 import           Data.Monoid
@@ -225,7 +227,7 @@ arbitraryOfType api ty0 = case ty0 of
     TyName  tn -> arbitraryOfDecl api (lookupTyName api tn)
     TyList  ty -> List  <$> QC.listOf (arbitraryOfType api ty)
     TyMaybe ty -> Maybe <$> QC.oneof [pure Nothing, Just <$> arbitraryOfType api ty]
-    TyJSON     -> JSON . JS.String <$> QC.arbitrary -- TODO
+    TyJSON     -> JSON  <$> arbitraryJSONValue
     TyBasic bt -> arbitraryOfBasicType bt
 
 arbitraryOfBasicType :: BasicType -> QC.Gen Value
@@ -234,7 +236,8 @@ arbitraryOfBasicType bt = case bt of
     BTbinary -> Bytes   <$> QC.arbitrary
     BTbool   -> Bool    <$> QC.arbitrary
     BTint    -> Int     <$> QC.arbitrary
-    BTutc    -> UTCTime <$> QC.arbitrary -- TODO
+    BTutc    -> UTCTime <$> QC.arbitrary -- Deliberately generates invalid UTC,
+                                         -- because it shouldn't matter
 
 arbitraryOfDecl :: NormAPI -> NormTypeDecl -> QC.Gen Value
 arbitraryOfDecl api d = case d of
@@ -243,7 +246,18 @@ arbitraryOfDecl api d = case d of
                           Union fn <$> arbitraryOfType api ty
     NEnumType   net -> Enum <$> QC.elements (Set.toList net)
     NTypeSynonym ty -> arbitraryOfType api ty
-    NNewtype     bt -> arbitraryOfBasicType bt -- TODO: filters?
+    NNewtype     bt -> arbitraryOfBasicType bt
+
+arbitraryJSONValue :: QC.Gen JS.Value
+arbitraryJSONValue =
+    QC.sized $ \ size ->
+        QC.oneof [ JS.Object . HMap.fromList <$> QC.resize (size `div` 2) (QC.listOf ((,) <$> QC.arbitrary <*> arbitraryJSONValue))
+                 , JS.Array . V.fromList <$> QC.resize (size `div` 2) (QC.listOf arbitraryJSONValue)
+                 , JS.String <$> QC.arbitrary
+                 , JS.Number . fromInteger <$> QC.arbitrary
+                 , JS.Bool <$> QC.arbitrary
+                 , pure JS.Null
+                 ]
 
 
 lookupTyName :: NormAPI -> TypeName -> NormTypeDecl
