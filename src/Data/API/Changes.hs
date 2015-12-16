@@ -513,9 +513,6 @@ applyAPIChangeToAPI root custom (ChCustomAll tag) api = do
          , Map.singleton root (UpdateHere Nothing))
 
 
-lookupType :: TypeName -> NormAPI -> Either ApplyFailure NormTypeDecl
-lookupType tname api = Map.lookup tname api ?! TypeDoesNotExist tname
-
 expectRecordType :: NormTypeDecl -> Maybe (Map FieldName APIType)
 expectRecordType (NRecordType rinfo) = Just rinfo
 expectRecordType _                   = Nothing
@@ -691,27 +688,6 @@ updateTypeAt' upds alter (UpdateNamed tname) v p = case Map.lookup tname upds of
     Nothing  -> pure v
 
 
-expectRecord :: Value.Value -> Position -> Either (ValueError, Position) Value.Record
-expectRecord (Record xs) _ = pure xs
-expectRecord v           p = Left (JSONError (Expected ExpObject "Record" (JS.toJSON v)), p)
-
-expectEnum :: Value.Value -> Position -> Either (ValueError, Position) FieldName
-expectEnum (Enum s) _ = pure s
-expectEnum v        p = Left (JSONError (Expected ExpString "Enum" (JS.toJSON v)), p)
-
-expectUnion :: Value.Value -> Position -> Either (ValueError, Position) (FieldName, Value.Value)
-expectUnion (Union fname v) _ = pure (fname, v)
-expectUnion v               p = Left (JSONError (Expected ExpObject "Union" (JS.toJSON v)), p)
-
-expectList :: Value.Value -> Position -> Either (ValueError, Position) [Value.Value]
-expectList (List xs) _ = pure xs
-expectList v         p = Left (JSONError (Expected ExpArray "List" (JS.toJSON v)), p)
-
-expectMaybe :: Value.Value -> Position -> Either (ValueError, Position) (Maybe Value.Value)
-expectMaybe (Maybe v) _ = pure v
-expectMaybe v         p = Left (JSONError (Expected ExpArray "Maybe" (JS.toJSON v)), p)
-
-
 -- | This actually applies the change to the data value, assuming it
 -- is already in the correct place
 applyChangeToData' :: NormAPI -> APIChange -> CustomMigrationsTagged Record Value
@@ -882,61 +858,6 @@ dataMatchesNormAPI root api db = void $ valueMatches (TyName root) db []
                             Left []          -> Left (JSONError $ SyntaxError "expectDecodes", p)
 
 type Decode t = JS.Value -> Either [(JSONError, Position)] t
-
-
-
-matchesNormAPI :: NormAPI -> APIType -> Value -> Position -> Either (ValueError, Position) ()
-matchesNormAPI api ty0 v0 p = case ty0 of
-    TyName tn  -> do d <- lookupType tn api ?!? (\ f -> (InvalidAPI f, p))
-                     matchesNormAPIDecl api d v0 p
-    TyList ty  -> case v0 of
-                    List vs -> mapM_ (\ (i, v) -> matchesNormAPI api ty v (InElem i : p)) (zip [0..] vs)
-                    _       -> Left (JSONError (expectedArray js_v), p)
-    TyMaybe ty -> case v0 of
-                    Maybe Nothing -> return ()
-                    Maybe (Just v) -> matchesNormAPI api ty v p
-                    _              -> Left (JSONError (Expected ExpObject "Maybe" js_v), p)
-    TyJSON     -> case v0 of
-                    JSON _ -> return ()
-                    _      -> Left (JSONError (Expected ExpObject "JSON" js_v), p)
-    TyBasic bt -> matchesNormAPIBasic bt v0 p
-  where
-    js_v = JS.toJSON v0
-
-matchesNormAPIBasic :: BasicType -> Value -> Position -> Either (ValueError, Position) ()
-matchesNormAPIBasic bt v p = case (bt, v) of
-    (BTstring, String _) -> return ()
-    (BTstring, _)        -> Left (JSONError (expectedString js_v), p)
-    (BTbinary, Bytes _)  -> return ()
-    (BTbinary, _)        -> Left (JSONError (expectedString js_v), p)
-    (BTbool, Bool _)     -> return ()
-    (BTbool, _)          -> Left (JSONError (expectedBool js_v), p)
-    (BTint, Int _)       -> return ()
-    (BTint, _)           -> Left (JSONError (expectedInt js_v), p)
-    (BTutc, Value.UTCTime _) -> return ()
-    (BTutc, _)           -> Left (JSONError (Expected ExpString "UTCTime" js_v), p)
-  where
-    js_v = JS.toJSON v
-
-matchesNormAPIDecl :: NormAPI -> NormTypeDecl -> Value -> Position -> Either (ValueError, Position) ()
-matchesNormAPIDecl api d v0 p = case d of
-    NRecordType nrt -> do xs <- expectRecord v0 p
-                          case compare (length xs) (Map.size nrt) of
-                            LT -> Left (JSONError MissingField, p)
-                            EQ -> mapM_ matchesNormAPIField (zip (Map.toList nrt) xs)
-                            GT -> Left (JSONError UnexpectedField, p)
-    NUnionType  nut -> do (fn, v) <- expectUnion v0 p
-                          case Map.lookup fn nut of
-                            Just ty -> matchesNormAPI api ty v (InField (_FieldName fn) : p)
-                            Nothing -> Left (JSONError UnexpectedField, InField (_FieldName fn) : p)
-    NEnumType   net -> do fn <- expectEnum v0 p
-                          unless (Set.member fn net) $ Left (JSONError (UnexpectedEnumVal (map _FieldName (Set.toList net)) (_FieldName fn)), p)
-    NTypeSynonym ty -> matchesNormAPI api ty v0 p
-    NNewtype     bt -> matchesNormAPIBasic bt v0 p
-  where
-    matchesNormAPIField ((fn, ty), (fn', v))
-        | fn == fn' = matchesNormAPI api ty v (InField (_FieldName fn) : p)
-        | otherwise = Left (JSONError (SyntaxError (unlines ["record out of order: ", show fn, show fn', show d, show v0])), p)
 
 
 -------------------------------------

@@ -14,6 +14,15 @@ module Data.API.Value
     , encode
     , decode
 
+      -- * Data validation
+    , matchesNormAPI
+    , expectRecord
+    , expectEnum
+    , expectUnion
+    , expectList
+    , expectMaybe
+    , lookupType
+
       -- * Manipulating records
     , insertField
     , renameField
@@ -31,12 +40,14 @@ module Data.API.Value
     , prop_cborGeneric
     ) where
 
+import           Data.API.Error
 import           Data.API.JSON
 import           Data.API.NormalForm
 import           Data.API.Types
 import           Data.API.Utils
 
 import           Control.Applicative
+import           Control.Monad
 import           Control.DeepSeq
 import qualified Data.Aeson                     as JS
 import qualified Data.Binary.Serialise.CBOR          as CBOR
@@ -254,6 +265,84 @@ decodeDecl api d = case d of
                              !v <- decode api ty
                              go ((fn, v):xs) ys
 
+
+-- | Check that the value is of the given type in the schema,
+-- reporting the first error encountered if it does not conform.
+matchesNormAPI :: NormAPI -> APIType -> Value -> Position -> Either (ValueError, Position) ()
+matchesNormAPI api ty0 v0 p = case ty0 of
+    TyName tn  -> do d <- lookupType tn api ?!? (\ f -> (InvalidAPI f, p))
+                     matchesNormAPIDecl api d v0 p
+    TyList ty  -> case v0 of
+                    List vs -> mapM_ (\ (i, v) -> matchesNormAPI api ty v (InElem i : p)) (zip [0..] vs)
+                    _       -> Left (JSONError (expectedArray js_v), p)
+    TyMaybe ty -> case v0 of
+                    Maybe Nothing -> return ()
+                    Maybe (Just v) -> matchesNormAPI api ty v p
+                    _              -> Left (JSONError (Expected ExpObject "Maybe" js_v), p)
+    TyJSON     -> case v0 of
+                    JSON _ -> return ()
+                    _      -> Left (JSONError (Expected ExpObject "JSON" js_v), p)
+    TyBasic bt -> matchesNormAPIBasic bt v0 p
+  where
+    js_v = JS.toJSON v0
+
+matchesNormAPIBasic :: BasicType -> Value -> Position -> Either (ValueError, Position) ()
+matchesNormAPIBasic bt v p = case (bt, v) of
+    (BTstring, String _) -> return ()
+    (BTstring, _)        -> Left (JSONError (expectedString js_v), p)
+    (BTbinary, Bytes _)  -> return ()
+    (BTbinary, _)        -> Left (JSONError (expectedString js_v), p)
+    (BTbool, Bool _)     -> return ()
+    (BTbool, _)          -> Left (JSONError (expectedBool js_v), p)
+    (BTint, Int _)       -> return ()
+    (BTint, _)           -> Left (JSONError (expectedInt js_v), p)
+    (BTutc, UTCTime _)   -> return ()
+    (BTutc, _)           -> Left (JSONError (Expected ExpString "UTCTime" js_v), p)
+  where
+    js_v = JS.toJSON v
+
+matchesNormAPIDecl :: NormAPI -> NormTypeDecl -> Value -> Position -> Either (ValueError, Position) ()
+matchesNormAPIDecl api d v0 p = case d of
+    NRecordType nrt -> do xs <- expectRecord v0 p
+                          case compare (length xs) (Map.size nrt) of
+                            LT -> Left (JSONError MissingField, p)
+                            EQ -> mapM_ matchesNormAPIField (zip (Map.toList nrt) xs)
+                            GT -> Left (JSONError UnexpectedField, p)
+    NUnionType  nut -> do (fn, v) <- expectUnion v0 p
+                          case Map.lookup fn nut of
+                            Just ty -> matchesNormAPI api ty v (InField (_FieldName fn) : p)
+                            Nothing -> Left (JSONError UnexpectedField, InField (_FieldName fn) : p)
+    NEnumType   net -> do fn <- expectEnum v0 p
+                          unless (Set.member fn net) $ Left (JSONError (UnexpectedEnumVal (map _FieldName (Set.toList net)) (_FieldName fn)), p)
+    NTypeSynonym ty -> matchesNormAPI api ty v0 p
+    NNewtype     bt -> matchesNormAPIBasic bt v0 p
+  where
+    matchesNormAPIField ((fn, ty), (fn', v))
+        | fn == fn' = matchesNormAPI api ty v (InField (_FieldName fn) : p)
+        | otherwise = Left (JSONError (SyntaxError (unlines ["record out of order: ", show fn, show fn', show d, show v0])), p)
+
+expectRecord :: Value -> Position -> Either (ValueError, Position) Record
+expectRecord (Record xs) _ = pure xs
+expectRecord v           p = Left (JSONError (Expected ExpObject "Record" (JS.toJSON v)), p)
+
+expectEnum :: Value -> Position -> Either (ValueError, Position) FieldName
+expectEnum (Enum s) _ = pure s
+expectEnum v        p = Left (JSONError (Expected ExpString "Enum" (JS.toJSON v)), p)
+
+expectUnion :: Value -> Position -> Either (ValueError, Position) (FieldName, Value)
+expectUnion (Union fname v) _ = pure (fname, v)
+expectUnion v               p = Left (JSONError (Expected ExpObject "Union" (JS.toJSON v)), p)
+
+expectList :: Value -> Position -> Either (ValueError, Position) [Value]
+expectList (List xs) _ = pure xs
+expectList v         p = Left (JSONError (Expected ExpArray "List" (JS.toJSON v)), p)
+
+expectMaybe :: Value -> Position -> Either (ValueError, Position) (Maybe Value)
+expectMaybe (Maybe v) _ = pure v
+expectMaybe v         p = Left (JSONError (Expected ExpArray "Maybe" (JS.toJSON v)), p)
+
+lookupType :: TypeName -> NormAPI -> Either ApplyFailure NormTypeDecl
+lookupType tname api = Map.lookup tname api ?! TypeDoesNotExist tname
 
 
 -- | Given a schema, generate an arbitrary type corresponding to the
