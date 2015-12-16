@@ -1,20 +1,29 @@
 {-# LANGUAGE BangPatterns #-}
+
+-- | This module defines a generic representation of values belonging
+-- to a schema, for use during data migration.
 module Data.API.Value
-    ( Value(..)
+    ( -- * Types
+      Value(..)
     , Record
 
+      -- * Converting to and from generic values
     , fromDefaultValue
     , fromJSON
     , parseJSON
     , encode
     , decode
 
+      -- * Manipulating records
     , insertField
     , renameField
     , deleteField
+    , findField
+    , joinRecords
 
       -- * QuickCheck test infrastructure
     , arbitrary
+    , arbitraryOfType
     , arbitraryJSONValue
     , prop_jsonRoundTrip
     , prop_jsonGeneric
@@ -49,8 +58,19 @@ import qualified Test.QuickCheck.Property       as QCP
 import           Prelude
 
 
+-- | Generic representation of a data value belonging to a schema
+-- type.  This representation has the following properties:
+--
+--  * it is straightforward to convert into either CBOR or JSON;
+--
+--  * decoding CBOR or parsing JSON requires the schema, and takes
+--    advantage of it by introducing type distinctions and interning
+--    field names;
+--
+--  * decoding CBOR is relatively efficient.
 data Value = String  !T.Text
            | UTCTime !T.Text
+             -- ^ A time represented as a string, not decoded for efficiency
            | Bytes   !Binary
            | Bool    !Bool
            | Int     !Int
@@ -62,6 +82,12 @@ data Value = String  !T.Text
            | JSON    !JS.Value
     deriving (Eq, Show)
 
+-- | A record is represented as a list of (field name, value) pairs.
+--
+-- Invariant: these are in ascending order by field name, and there
+-- are no duplicates.
+--
+-- TODO: consider if it would be worth using 'Map.Map' instead.
 type Record = [(FieldName, Value)]
 
 instance NFData Value where
@@ -77,22 +103,11 @@ instance NFData Value where
   rnf (Record xs)  = rnf xs
   rnf (JSON v)     = rnf v
 
-instance JS.ToJSON Value where
-  toJSON v0 = case v0 of
-                String t       -> JS.String t
-                UTCTime t      -> JS.String t
-                Bytes b        -> JS.toJSON b
-                Bool b         -> JS.Bool b
-                Int i          -> JS.toJSON i
-                List vs        -> JS.toJSON vs
-                Maybe Nothing  -> JS.Null
-                Maybe (Just v) -> JS.toJSON v
-                Union fn v     -> JS.object [_FieldName fn JS..= v]
-                Enum fn        -> JS.String (_FieldName fn)
-                Record xs      -> JS.object $ map (\ (fn, v) -> _FieldName fn JS..= v) xs
-                JSON js        -> js
 
-
+-- | Convert a 'DefaultValue' into a generic 'Value', failing if the
+-- type is not compatible.  This requires type information so that it
+-- can introduce type distinctions absent in 'DefaultValue', e.g. when
+-- 'DefValList' is used at type @'TyMaybe' ('TyList' t)@.
 fromDefaultValue :: NormAPI -> APIType -> DefaultValue -> Maybe Value
 fromDefaultValue api ty0 dv = case (ty0, dv) of
     (TyList  _, DefValList)    -> pure (List [])
@@ -122,6 +137,25 @@ fromDefaultValueBasic bt dv = case (bt, dv) of
     _                          -> Nothing
 
 
+
+instance JS.ToJSON Value where
+  toJSON v0 = case v0 of
+                String t       -> JS.String t
+                UTCTime t      -> JS.String t
+                Bytes b        -> JS.toJSON b
+                Bool b         -> JS.Bool b
+                Int i          -> JS.toJSON i
+                List vs        -> JS.toJSON vs
+                Maybe Nothing  -> JS.Null
+                Maybe (Just v) -> JS.toJSON v
+                Union fn v     -> JS.object [_FieldName fn JS..= v]
+                Enum fn        -> JS.String (_FieldName fn)
+                Record xs      -> JS.object $ map (\ (fn, v) -> _FieldName fn JS..= v) xs
+                JSON js        -> js
+
+-- | Parse a generic 'Value' from a JSON 'JS.Value', given the schema
+-- and expected type.  This is not particularly optimized.  For the
+-- other direction, use 'JS.toJSON'.
 fromJSON :: NormAPI -> APIType -> JS.Value -> Either [(JSONError, Position)] (Value, [(JSONWarning, Position)])
 fromJSON api ty v = runParserWithErrsTop defaultParseFlags (parseJSON api ty v)
 
@@ -161,6 +195,8 @@ parseJSONDecl api tn d = case d of
     parseField hm (fn, ty) = (,) fn <$> withField (_FieldName fn) (parseJSON api ty) hm
 
 
+
+-- | Efficiently encode a generic 'Value' in CBOR format.
 encode :: Value -> CBOR.Encoding
 encode v0 = case v0 of
     String t   -> CBOR.encodeString t
@@ -178,6 +214,8 @@ encode v0 = case v0 of
     JSON js    -> encodeJSON js
 
 
+-- | Efficiently decode CBOR as a generic 'Value', given the schema
+-- and expected type.
 decode :: NormAPI -> APIType -> CBOR.Decoder Value
 decode api ty0 = case ty0 of
     TyName tn  -> decodeDecl api (lookupTyName api tn)
@@ -218,11 +256,15 @@ decodeDecl api d = case d of
 
 
 
+-- | Given a schema, generate an arbitrary type corresponding to the
+-- schema and an arbitrary value of that type.
 arbitrary :: NormAPI -> QC.Gen (APIType, Value)
 arbitrary api = do tn <- QC.elements (Map.keys api)
                    v  <- arbitraryOfType api (TyName tn)
                    return (TyName tn, v)
 
+-- | Given a schema and a type, generate an arbitrary value of that
+-- type.
 arbitraryOfType :: NormAPI -> APIType -> QC.Gen Value
 arbitraryOfType api ty0 = case ty0 of
     TyName  tn -> arbitraryOfDecl api (lookupTyName api tn)
@@ -249,6 +291,10 @@ arbitraryOfDecl api d = case d of
     NTypeSynonym ty -> arbitraryOfType api ty
     NNewtype     bt -> arbitraryOfBasicType bt
 
+-- | A reasonably varied generator for JSON 'JS.Value's.
+--
+-- Hack alert: we do not generate 'JS.Null', because Aeson fails to
+-- round-trip @'Just' 'JS.Null' :: 'Maybe' 'JS.Value'@.
 arbitraryJSONValue :: QC.Gen JS.Value
 arbitraryJSONValue =
     QC.sized $ \ size ->
@@ -257,15 +303,10 @@ arbitraryJSONValue =
                  , JS.String <$> QC.arbitrary
                  , JS.Number . fromInteger <$> QC.arbitrary
                  , JS.Bool <$> QC.arbitrary
-                 , pure JS.Null
+                 -- , pure JS.Null
                  ]
 
 
-lookupTyName :: NormAPI -> TypeName -> NormTypeDecl
-lookupTyName api tn = case Map.lookup tn api of
-                        Just d  -> d
-                        Nothing -> error $ "lookupTyName: missing declaration for "
-                                               ++ T.unpack (_TypeName tn)
 
 -- | QuickCheck property that converting a 'Value' to and from JSON
 -- gives back the original value.
@@ -280,7 +321,7 @@ prop_jsonRoundTrip api
           Left err                      -> QCP.failed { QCP.reason = "Parse error: " ++ prettyJSONErrorPositions err }
 
 -- | QuickCheck property that the type-specific JSON serialisation
--- agrees with deserialising as generic JSON and then serialising again
+-- agrees with deserialising as generic JSON and then serialising again.
 prop_jsonGeneric :: JS.ToJSON a => API -> TypeName -> a -> QCP.Result
 prop_jsonGeneric api tn x = case fromJSON napi (TyName tn) js_v of
     Right (v, ws) | JS.toJSON v /= js_v -> QCP.failed { QCP.reason = "Expected " ++ show js_v
@@ -292,6 +333,8 @@ prop_jsonGeneric api tn x = case fromJSON napi (TyName tn) js_v of
     napi = apiNormalForm api
     js_v = JS.toJSON x
 
+-- | QuickCheck property that converting a 'Value' to and from CBOR
+-- gives back the original value.
 prop_cborRoundTrip :: NormAPI -> QC.Property
 prop_cborRoundTrip api
   = QC.forAll (arbitrary api) $ \ (ty, v) ->
@@ -301,9 +344,8 @@ prop_cborRoundTrip api
                   | otherwise -> QCP.succeeded
          Left err             -> QCP.failed { QCP.reason = "Parse error: " ++ err }
 
-
 -- | QuickCheck property that the type-specific CBOR serialisation
--- agrees with deserialising as generic CBOR and then serialising again
+-- agrees with deserialising as generic CBOR and then serialising again.
 prop_cborGeneric :: CBOR.Serialise a => API -> TypeName -> a -> QCP.Result
 prop_cborGeneric api tn x = case deserialiseWithOrFail (decode napi (TyName tn)) bs of
     Right v | bs' <- serialiseEncoding (encode v)
@@ -315,13 +357,30 @@ prop_cborGeneric api tn x = case deserialiseWithOrFail (decode napi (TyName tn))
     bs = serialiseEncoding (CBOR.encode x)
 
 
+-- | Look up a type in a schema, failing with an error if it is missing.
+lookupTyName :: NormAPI -> TypeName -> NormTypeDecl
+lookupTyName api tn = case Map.lookup tn api of
+                        Just d  -> d
+                        Nothing -> error $ "lookupTyName: missing declaration for "
+                                               ++ T.unpack (_TypeName tn)
+
+-- | Look up a key in a set, returning a pointer to the set's copy of
+-- the key.  This is useful during deserialisation because it means we
+-- can share a single key, avoiding retaining deserialised copies.
 lookupSet :: Ord a => a -> Set.Set a -> Maybe a
 lookupSet k s = flip Set.elemAt s <$> Set.lookupIndex k s
 
+-- | Look up a key in a map, returning both the value and the map's
+-- copy of the key.  This is useful during deserialisation because it
+-- means we can share a single key, avoiding retaining deserialised
+-- copies.
 lookupMap :: Ord k => k -> Map.Map k a -> Maybe (k, a)
 lookupMap k m = flip Map.elemAt m <$> Map.lookupIndex k m
 
 
+-- | Insert a (field, value) pair into a record, replacing the
+-- existing field if it is present and preserving the ordering
+-- invariant.
 insertField :: FieldName -> Value -> Record -> Record
 insertField fname v [] = [(fname, v)]
 insertField fname v xxs@(x@(fn, _):xs) = case compare fname fn of
@@ -329,11 +388,26 @@ insertField fname v xxs@(x@(fn, _):xs) = case compare fname fn of
                                             EQ -> (fname, v) : xs
                                             LT -> (fname, v) : xxs
 
+-- | Delete a field from a record, trivially preserving the ordering
+-- invariant.
 deleteField :: FieldName -> Record -> Record
 deleteField fname = filter ((fname /=) . fst)
 
+-- | Rename a field in a record, preserving the ordering invariant.
 renameField :: FieldName -> FieldName -> Record -> Record
 renameField fname fname' = sortBy (comparing fst) . map f
   where
     f x@(fn, v) | fn == fname = (fname', v)
                 | otherwise   = x
+
+-- | Split a record at a given field, returning the preceding fields,
+-- value and succeeding fields.  Fails if the field is absent.
+findField :: FieldName -> Record -> Maybe (Record, Value, Record)
+findField fname xs = case break ((fname ==) . fst) xs of
+                       (ys, (_, v):zs) -> Just (ys, v, zs)
+                       (_, [])         -> Nothing
+
+-- | Join together two records with a (field, value) pair in between.
+-- The ordering invariant is not checked!
+joinRecords :: Record -> FieldName -> Value -> Record -> Record
+joinRecords ys fname v zs = ys ++ (fname, v) : zs

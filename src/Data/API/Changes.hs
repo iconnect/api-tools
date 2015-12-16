@@ -879,10 +879,10 @@ applyChangeToData' _ (ChRenameField _ fname fname') _ v p =
 
 applyChangeToData' _ (ChChangeField _ fname _ftype tag) custom v p = do
     xs <- expectRecord v p
-    case break ((fname ==) . fst) xs of
-        (ys, (_, v'):zs)  -> do v'' <- liftMigration (fieldMigration custom tag) v' (InField (_FieldName fname):p)
-                                return (Record (ys ++ (fname, v'') : zs))
-        _ -> Left (JSONError MissingField, InField (_FieldName fname) : p)
+    case findField fname xs of
+        Just (ys, v', zs)  -> do v'' <- liftMigration (fieldMigration custom tag) v' (InField (_FieldName fname):p)
+                                 return (Record (joinRecords ys fname v'' zs))
+        Nothing            -> Left (JSONError MissingField, InField (_FieldName fname) : p)
 
 applyChangeToData' _ (ChRenameUnionAlt _ fname fname') _ v p = do
     (fn, v') <- expectUnion v p
