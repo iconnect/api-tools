@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 module Data.API.Value
     ( Value(..)
+    , fromDefaultValue
     , parseJSON
     , encode
     , decode
@@ -16,6 +17,7 @@ module Data.API.Value
 import           Data.API.JSON
 import           Data.API.NormalForm
 import           Data.API.Types
+import           Data.API.Utils
 
 import           Control.Applicative
 import           Control.DeepSeq
@@ -76,6 +78,17 @@ instance JS.ToJSON Value where
                 Enum fn        -> JS.String (_FieldName fn)
                 Record xs      -> JS.object $ map (\ (fn, v) -> _FieldName fn JS..= v) xs
                 JSON js        -> js
+
+
+fromDefaultValue :: DefaultValue -> Value
+fromDefaultValue dv = case dv of
+    DefValList     -> List []
+    DefValMaybe    -> Maybe Nothing
+    DefValString s -> String s
+    DefValBool   b -> Bool b
+    DefValInt    n -> Int n
+    DefValUtc    t -> UTCTime (mkUTC' t)
+
 
 fromJSON :: NormAPI -> APIType -> JS.Value -> Either [(JSONError, Position)] (Value, [(JSONWarning, Position)])
 fromJSON api ty v = runParserWithErrsTop defaultParseFlags (parseJSON api ty v)

@@ -5,6 +5,7 @@
 -- JSON data between different versions of a schema.
 module Data.API.Changes
     ( migrateDataDump
+    , migrateDataDump'
 
       -- * Validating changelogs
     , validateChanges
@@ -58,6 +59,7 @@ import           Data.API.NormalForm
 import           Data.API.PP
 import           Data.API.Types
 import           Data.API.Utils
+import           Data.API.Value as Value
 
 import           Control.Applicative
 import           Control.Monad
@@ -106,6 +108,22 @@ migrateDataDump startApi endApi changelog custom root chks db = do
     (changes, warnings) <- validateChanges' startApi endApi changelog custom' root chks
                                                            ?!? ValidateFailure
     db' <- applyChangesToDatabase root custom' db changes  ?!? uncurry ValueError
+    return (db', warnings)
+
+migrateDataDump' :: (Read db, Read rec, Read fld)
+                => (API, Version)               -- ^ Starting schema and version
+                -> (API, VersionExtra)          -- ^ Ending schema and version
+                -> APIChangelog                 -- ^ Log of changes, containing both versions
+                -> CustomMigrations db rec fld  -- ^ Custom migration functions
+                -> TypeName                     -- ^ Name of the dataset's type
+                -> DataChecks                   -- ^ How thoroughly to validate changes
+                -> Value.Value                  -- ^ Dataset to be migrated
+                -> Either MigrateFailure (Value.Value, [MigrateWarning])
+migrateDataDump' startApi endApi changelog custom root chks db = do
+    let custom' = readCustomMigrations custom
+    (changes, warnings) <- validateChanges' startApi endApi changelog custom' root chks
+                                                           ?!? ValidateFailure
+    db' <- applyChangesToDatabase' root custom' db changes  ?!? uncurry ValueError
     return (db', warnings)
 
 data MigrateFailure
@@ -751,6 +769,128 @@ applyChangeToData (ChDeleteEnumVal _ _)  _ = pure . pure
 liftMigration :: (a -> Either ValueError b)
                  -> (a -> Position -> Either (ValueError, Position) b)
 liftMigration f v p = f v ?!? flip (,) p
+
+
+---------------------------------------------------------------------
+-- Performing data transformation (new generic value representation)
+--
+
+applyChangesToDatabase' :: TypeName -> CustomMigrationsTagged
+                        -> Value.Value -> [APITableChange]
+                        -> Either (ValueError, Position) Value.Value
+applyChangesToDatabase' root custom = foldM (applyChangeToDatabase' root custom)
+  -- just apply each of the individual changes in sequence to the whole dataset
+
+applyChangeToDatabase' :: TypeName -> CustomMigrationsTagged
+                       -> Value.Value -> APITableChange
+                       -> Either (ValueError, Position) Value.Value
+applyChangeToDatabase' root custom v (APIChange c upds) =
+    updateTypeAt' upds (applyChangeToData' c custom) (UpdateNamed root) v []
+applyChangeToDatabase' root _      v (ValidateData api) = do
+    -- dataMatchesNormAPI root api v -- AMG TODO
+    return v
+
+
+-- | Apply an update at the given position in a declaration's value
+updateDeclAt' :: Map TypeName UpdateDeclPos
+              -> (Value.Value -> Position -> Either (ValueError, Position) Value.Value)
+              -> UpdateDeclPos
+              -> Value.Value -> Position -> Either (ValueError, Position) Value.Value
+updateDeclAt' _    alter (UpdateHere Nothing)    v p = alter v p
+updateDeclAt' upds alter (UpdateHere (Just upd)) v p = flip alter p =<< updateDeclAt' upds alter upd v p
+updateDeclAt' upds alter (UpdateRecord upd_flds) v p =
+  case v of
+    Record xs -> Record <$> forM xs (\ (fn, v') ->
+      case Map.lookup fn upd_flds of
+        Just Nothing -> pure (fn, v')
+        Just (Just utp) -> (,) fn <$> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
+        Nothing -> error "TODO updateDeclAt' missing field")
+    _ -> error "TODO updateDeclAt' not Record"
+updateDeclAt' upds alter (UpdateUnion upd_alts)  v p =
+  case v of
+    Union fn v' ->
+      case Map.lookup fn upd_alts of
+        Just Nothing    -> pure v
+        Just (Just utp) -> Union fn <$> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
+        Nothing         -> error "TODO updateDeclAt' missing alternative"
+    _ -> error "TODO updatDeclAt' not Union"
+updateDeclAt' upds alter (UpdateType upd)        v p = updateTypeAt' upds alter upd v p
+
+-- | Apply an update at the given position in a type's value
+updateTypeAt' :: Map TypeName UpdateDeclPos
+             -> (Value.Value -> Position -> Either (ValueError, Position) Value.Value)
+             -> UpdateTypePos
+             -> Value.Value -> Position -> Either (ValueError, Position) Value.Value
+updateTypeAt' upds alter (UpdateList upd)    v p =
+  case v of
+    List xs -> List <$> traverse (\ v' -> updateTypeAt' upds alter upd v' p) xs -- TODO indices
+    _       -> error "TODO updateTypeAt' not List"
+updateTypeAt' upds alter (UpdateMaybe upd)   v p =
+  case v of
+    Maybe Nothing -> pure v
+    Maybe (Just v') -> Maybe . Just <$> updateTypeAt' upds alter upd v' p
+    _ -> error "TODO updateTypeAt' not Maybe"
+updateTypeAt' upds alter (UpdateNamed tname) v p = case Map.lookup tname upds of
+    Just upd -> updateDeclAt' upds alter upd v p
+    Nothing  -> pure v
+
+
+-- | This actually applies the change to the data value, assuming it
+-- is already in the correct place
+applyChangeToData' :: APIChange -> CustomMigrationsTagged
+                  -> Value.Value -> Position -> Either (ValueError, Position) Value.Value
+
+applyChangeToData' (ChAddField tname fname ftype mb_defval) _ v p =
+  case mb_defval <|> defaultValueForType ftype of
+    Just defval -> case v of
+        Record xs -> pure (Record (insert (fromDefaultValue defval) xs))
+        _ -> error "applyChangeToData' expected Record"
+  where
+    insert df [] = [(fname, df)]
+    insert df xxs@(x@(fn, v):xs) = case compare fname fn of
+                                     LT -> x : insert df xs
+                                     EQ -> (fn, df) : xs
+                                     GT -> (fname, df) : xxs
+
+applyChangeToData' (ChDeleteField _ fname) _ v p =
+  case v of
+    Record xs -> pure (Record (filter ((fname /=) . fst) xs))
+    _ -> error "applyChangeToData' expected Record"
+
+applyChangeToData' (ChRenameField _ fname fname') _ v p =
+  case v of
+    Record xs -> pure (Record (map f xs))
+    _ -> error "TODO applyChangeToData' expected Record"
+  where
+    f x@(fn, v) | fn == fname = (fname', v)
+                | otherwise   = x
+
+applyChangeToData' (ChChangeField _ fname _ftype tag) custom v p =
+    error "AMG TODO custom" -- withObjectField (_FieldName fname) (liftMigration $ fieldMigration custom tag)
+
+applyChangeToData' (ChRenameUnionAlt _ fname fname') _ v p =
+  case v of
+    Union fn v' | fn == fname -> pure (Union fname' v')
+                | otherwise   -> pure v
+    _ -> error "TODO applyChangeToData' expected Union"
+
+applyChangeToData' (ChRenameEnumVal _ fname fname') _ v p =
+  case v of
+    Enum fn | fn == fname -> pure (Enum fname')
+            | otherwise   -> pure v
+    _ -> error "TODO applyChangeToData' expected Enum"
+
+applyChangeToData' (ChCustomType _ tag)   custom v p = error "AMG TODO custom" -- liftMigration $ typeMigration custom tag
+applyChangeToData' (ChCustomAll tag)      custom v p = error "AMG TODO custom" -- withObject (liftMigration $ databaseMigration custom tag)
+
+applyChangeToData' (ChAddType _ _)        _ v _ = pure v
+applyChangeToData' (ChDeleteType _)       _ v _ = pure v
+applyChangeToData' (ChRenameType _ _)     _ v _ = pure v
+applyChangeToData' (ChAddUnionAlt _ _ _)  _ v _ = pure v
+applyChangeToData' (ChDeleteUnionAlt _ _) _ v _ = pure v
+applyChangeToData' (ChAddEnumVal _ _)     _ v _ = pure v
+applyChangeToData' (ChDeleteEnumVal _ _)  _ v _ = pure v
+
 
 -------------------------------------
 -- Utils for manipulating JS.Values
