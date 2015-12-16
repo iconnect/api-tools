@@ -1,7 +1,10 @@
 {-# LANGUAGE BangPatterns #-}
 module Data.API.Value
     ( Value(..)
+    , Record
+
     , fromDefaultValue
+    , fromJSON
     , parseJSON
     , encode
     , decode
@@ -47,9 +50,11 @@ data Value = String  !T.Text
            | Maybe   !(Maybe Value)
            | Union   !FieldName !Value
            | Enum    !FieldName
-           | Record  ![(FieldName, Value)]
+           | Record  !Record
            | JSON    !JS.Value
     deriving (Eq, Show)
+
+type Record = [(FieldName, Value)]
 
 instance NFData Value where
   rnf (String t)   = rnf t
@@ -80,14 +85,33 @@ instance JS.ToJSON Value where
                 JSON js        -> js
 
 
-fromDefaultValue :: DefaultValue -> Value
-fromDefaultValue dv = case dv of
-    DefValList     -> List []
-    DefValMaybe    -> Maybe Nothing
-    DefValString s -> String s
-    DefValBool   b -> Bool b
-    DefValInt    n -> Int n
-    DefValUtc    t -> UTCTime (mkUTC' t)
+fromDefaultValue :: NormAPI -> APIType -> DefaultValue -> Maybe Value
+fromDefaultValue api ty0 dv = case (ty0, dv) of
+    (TyList  _, DefValList)    -> pure (List [])
+    (TyMaybe _, DefValMaybe)   -> pure (Maybe Nothing)
+    (TyMaybe ty, _)            -> Maybe . Just <$> fromDefaultValue api ty dv
+    (TyBasic bt, _)            -> fromDefaultValueBasic bt dv
+    (TyJSON,    _)             -> pure (JSON (defaultValueAsJsValue dv))
+    (TyName tname, _)          -> do d <- Map.lookup tname api
+                                     case d of
+                                       NTypeSynonym ty -> fromDefaultValue api ty dv
+                                       NNewtype bt     -> fromDefaultValueBasic bt dv
+                                       NEnumType vals | DefValString s <- dv
+                                                      , FieldName s `Set.member` vals
+                                                      -> pure (Enum (FieldName s))
+                                       _ -> Nothing
+    _ -> Nothing
+
+fromDefaultValueBasic :: BasicType -> DefaultValue -> Maybe Value
+fromDefaultValueBasic bt dv = case (bt, dv) of
+    (BTstring, DefValString s) -> Just (String s)
+    (BTbinary, DefValString s) -> case base64ToBinary s of
+                                    Right b -> Just (Bytes b)
+                                    Left  _ -> Nothing
+    (BTbool, DefValBool b)     -> Just (Bool b)
+    (BTint, DefValInt i)       -> Just (Int i)
+    (BTutc, DefValUtc u)       -> Just (UTCTime (mkUTC' u))
+    _                          -> Nothing
 
 
 fromJSON :: NormAPI -> APIType -> JS.Value -> Either [(JSONError, Position)] (Value, [(JSONWarning, Position)])

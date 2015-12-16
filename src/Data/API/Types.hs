@@ -30,6 +30,7 @@ module Data.API.Types
     , mkRegEx
     , inIntRange
     , inUTCRange
+    , base64ToBinary
     ) where
 
 import           Data.API.Utils
@@ -283,9 +284,12 @@ withBinary :: String -> (Binary->Parser a) -> Value -> Parser a
 withBinary lab f = withText lab g
   where
     g t =
-        case B64.decode $ T.encodeUtf8 t of
+        case base64ToBinary t of
           Left  _  -> typeMismatch lab (String t)
-          Right bs -> f $ Binary bs
+          Right bs -> f bs
+
+base64ToBinary :: T.Text -> Either String Binary
+base64ToBinary t = Binary <$> B64.decode (T.encodeUtf8 t)
 
 
 deriveJSON defaultOptions ''Thing
