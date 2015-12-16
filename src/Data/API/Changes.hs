@@ -71,7 +71,6 @@ import qualified Data.Graph as Graph
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Maybe
-import           Data.Ord
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.HashMap.Strict as HMap
@@ -743,10 +742,10 @@ applyChangeToData (ChDeleteField _ fname) _ =
 
 applyChangeToData (ChRenameField _ fname fname') _ =
     withObject $ \rec p -> case HMap.lookup (_FieldName fname) rec of
-                           Just field -> renameField field rec
+                           Just field -> rename field rec
                            Nothing    -> Left (JSONError MissingField, InField (_FieldName fname) : p)
   where
-    renameField x = pure . HMap.insert (_FieldName fname') x . HMap.delete (_FieldName fname)
+    rename x = pure . HMap.insert (_FieldName fname') x . HMap.delete (_FieldName fname)
 
 applyChangeToData (ChChangeField _ fname _ftype tag) custom =
     withObjectField (_FieldName fname) (liftMigration $ fieldMigration custom tag)
@@ -805,22 +804,20 @@ updateDeclAt' :: Map TypeName UpdateDeclPos
               -> Value.Value -> Position -> Either (ValueError, Position) Value.Value
 updateDeclAt' _    alter (UpdateHere Nothing)    v p = alter v p
 updateDeclAt' upds alter (UpdateHere (Just upd)) v p = flip alter p =<< updateDeclAt' upds alter upd v p
-updateDeclAt' upds alter (UpdateRecord upd_flds) v p =
-  case v of
-    Record xs -> Record <$> forM xs (\ (fn, v') ->
-      case Map.lookup fn upd_flds of
-        Just Nothing -> pure (fn, v')
-        Just (Just utp) -> (,) fn <$> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
-        Nothing -> error "TODO updateDeclAt' missing field")
-    _ -> error "TODO updateDeclAt' not Record"
-updateDeclAt' upds alter (UpdateUnion upd_alts)  v p =
-  case v of
-    Union fn v' ->
-      case Map.lookup fn upd_alts of
+updateDeclAt' upds alter (UpdateRecord upd_flds) v p = do
+    xs <- expectRecord v p
+    Record <$> mapM update xs
+  where
+    update (fn, v') = case Map.lookup fn upd_flds of
+                        Just Nothing    -> pure (fn, v')
+                        Just (Just utp) -> (,) fn <$> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
+                        Nothing         -> Left (JSONError UnexpectedField, (InField (_FieldName fn) : p))
+updateDeclAt' upds alter (UpdateUnion upd_alts)  v p = do
+    (fn, v') <- expectUnion v p
+    case Map.lookup fn upd_alts of
         Just Nothing    -> pure v
         Just (Just utp) -> Union fn <$> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
-        Nothing         -> error "TODO updateDeclAt' missing alternative"
-    _ -> error "TODO updatDeclAt' not Union"
+        Nothing         -> Left (JSONError UnexpectedField, InField (_FieldName fn) : p)
 updateDeclAt' upds alter (UpdateType upd)        v p = updateTypeAt' upds alter upd v p
 
 -- | Apply an update at the given position in a type's value
@@ -828,18 +825,38 @@ updateTypeAt' :: Map TypeName UpdateDeclPos
              -> (Value.Value -> Position -> Either (ValueError, Position) Value.Value)
              -> UpdateTypePos
              -> Value.Value -> Position -> Either (ValueError, Position) Value.Value
-updateTypeAt' upds alter (UpdateList upd)    v p =
-  case v of
-    List xs -> List <$> traverse (\ v' -> updateTypeAt' upds alter upd v' p) xs -- TODO indices
-    _       -> error "TODO updateTypeAt' not List"
-updateTypeAt' upds alter (UpdateMaybe upd)   v p =
-  case v of
-    Maybe Nothing -> pure v
-    Maybe (Just v') -> Maybe . Just <$> updateTypeAt' upds alter upd v' p
-    _ -> error "TODO updateTypeAt' not Maybe"
+updateTypeAt' upds alter (UpdateList upd)    v p = do
+    xs <- expectList v p
+    List <$> traverse (\ (i, v') -> updateTypeAt' upds alter upd v' (InElem i : p)) (zip [0..] xs)
+updateTypeAt' upds alter (UpdateMaybe upd)   v p = do
+    mb <- expectMaybe v p
+    case mb of
+      Nothing -> pure v
+      Just v' -> Maybe . Just <$> updateTypeAt' upds alter upd v' p
 updateTypeAt' upds alter (UpdateNamed tname) v p = case Map.lookup tname upds of
     Just upd -> updateDeclAt' upds alter upd v p
     Nothing  -> pure v
+
+
+expectRecord :: Value.Value -> Position -> Either (ValueError, Position) Value.Record
+expectRecord (Record xs) _ = pure xs
+expectRecord v           p = Left (JSONError (Expected ExpObject "Record" (JS.toJSON v)), p)
+
+expectEnum :: Value.Value -> Position -> Either (ValueError, Position) FieldName
+expectEnum (Enum s) _ = pure s
+expectEnum v        p = Left (JSONError (Expected ExpString "Enum" (JS.toJSON v)), p)
+
+expectUnion :: Value.Value -> Position -> Either (ValueError, Position) (FieldName, Value.Value)
+expectUnion (Union fname v) _ = pure (fname, v)
+expectUnion v               p = Left (JSONError (Expected ExpObject "Union" (JS.toJSON v)), p)
+
+expectList :: Value.Value -> Position -> Either (ValueError, Position) [Value.Value]
+expectList (List xs) _ = pure xs
+expectList v         p = Left (JSONError (Expected ExpArray "List" (JS.toJSON v)), p)
+
+expectMaybe :: Value.Value -> Position -> Either (ValueError, Position) (Maybe Value.Value)
+expectMaybe (Maybe v) _ = pure v
+expectMaybe v         p = Left (JSONError (Expected ExpArray "Maybe" (JS.toJSON v)), p)
 
 
 -- | This actually applies the change to the data value, assuming it
@@ -849,56 +866,36 @@ applyChangeToData' :: NormAPI -> APIChange -> CustomMigrationsTagged Record Valu
 
 applyChangeToData' api (ChAddField tname fname ftype mb_defval) _ v p =
   case mb_defval <|> defaultValueForType ftype of
-    Just defval -> case v of
-        Record xs -> case fromDefaultValue api ftype defval of
-                       Just v' -> pure (Record (insert v' xs))
-                       Nothing -> error "invalid default value"
-        _ -> error "applyChangeToData' expected Record"
-  where
-    insert df [] = [(fname, df)]
-    insert df xxs@(x@(fn, v):xs) = case compare fname fn of
-                                     GT -> x : insert df xs
-                                     EQ -> (fname, df) : xs
-                                     LT -> (fname, df) : xxs
+    Just defval -> case fromDefaultValue api ftype defval of
+                     Just v' -> Record . insertField fname v' <$> expectRecord v p
+                     Nothing -> Left (InvalidAPI (FieldBadDefaultValue tname fname ftype defval), p)
+    Nothing -> Left (InvalidAPI (DefaultMissing tname fname), p)
 
 applyChangeToData' _ (ChDeleteField _ fname) _ v p =
-  case v of
-    Record xs -> pure (Record (filter ((fname /=) . fst) xs))
-    _ -> error "applyChangeToData' expected Record"
+    Record . deleteField fname <$> expectRecord v p
 
 applyChangeToData' _ (ChRenameField _ fname fname') _ v p =
-  case v of
-    Record xs -> pure (Record (sortBy (comparing fst) (map f xs)))
-    _ -> error "TODO applyChangeToData' expected Record"
-  where
-    f x@(fn, v) | fn == fname = (fname', v)
-                | otherwise   = x
+    Record . renameField fname fname' <$> expectRecord v p
 
-applyChangeToData' _ (ChChangeField _ fname _ftype tag) custom v p =
-  case v of
-    Record xs | (ys, (_, v'):zs) <- break ((fname ==) . fst) xs
-                          -> do v'' <- liftMigration (fieldMigration custom tag) v' (InField (_FieldName fname):p)
+applyChangeToData' _ (ChChangeField _ fname _ftype tag) custom v p = do
+    xs <- expectRecord v p
+    case break ((fname ==) . fst) xs of
+        (ys, (_, v'):zs)  -> do v'' <- liftMigration (fieldMigration custom tag) v' (InField (_FieldName fname):p)
                                 return (Record (ys ++ (fname, v'') : zs))
-              | otherwise -> error "TODO missing field"
-    _ -> error "TODO applyChangeToData' expected Record"
+        _ -> Left (JSONError MissingField, InField (_FieldName fname) : p)
 
-applyChangeToData' _ (ChRenameUnionAlt _ fname fname') _ v p =
-  case v of
-    Union fn v' | fn == fname -> pure (Union fname' v')
-                | otherwise   -> pure v
-    _ -> error "TODO applyChangeToData' expected Union"
+applyChangeToData' _ (ChRenameUnionAlt _ fname fname') _ v p = do
+    (fn, v') <- expectUnion v p
+    pure $ if fn == fname then Union fname' v' else v
 
-applyChangeToData' _ (ChRenameEnumVal _ fname fname') _ v p =
-  case v of
-    Enum fn | fn == fname -> pure (Enum fname')
-            | otherwise   -> pure v
-    _ -> error "TODO applyChangeToData' expected Enum"
+applyChangeToData' _ (ChRenameEnumVal _ fname fname') _ v p = do
+    fn <- expectEnum v p
+    pure $ if fn == fname then Enum fname' else v
 
 applyChangeToData' _ (ChCustomType _ tag)   custom v p = liftMigration (typeMigration custom tag) v p
-applyChangeToData' _ (ChCustomAll tag)      custom v p =
-  case v of
-    Record xs -> Record <$> liftMigration (databaseMigration custom tag) xs p
-    _ -> error "TODO applyChangeToData' expected Record"
+applyChangeToData' _ (ChCustomAll tag)      custom v p = do
+    xs <- expectRecord v p
+    Record <$> liftMigration (databaseMigration custom tag) xs p
 
 applyChangeToData' _ (ChAddType _ _)        _ v _ = pure v
 applyChangeToData' _ (ChDeleteType _)       _ v _ = pure v
@@ -1068,11 +1065,10 @@ type Decode t = JS.Value -> Either [(JSONError, Position)] t
 
 matchesNormAPI :: NormAPI -> APIType -> Value -> Position -> Either (ValueError, Position) ()
 matchesNormAPI api ty0 v0 p = case ty0 of
-    TyName tn  -> case Map.lookup tn api of
-                    Just d  -> matchesNormAPIDecl api d v0 p
-                    Nothing -> error "TODO missing ty decl"
+    TyName tn  -> do d <- lookupType tn api ?!? (\ f -> (InvalidAPI f, p))
+                     matchesNormAPIDecl api d v0 p
     TyList ty  -> case v0 of
-                    List vs -> mapM_ (\ v -> matchesNormAPI api ty v (InElem 0 : p)) vs -- TODO index
+                    List vs -> mapM_ (\ (i, v) -> matchesNormAPI api ty v (InElem i : p)) (zip [0..] vs)
                     _       -> Left (JSONError (expectedArray js_v), p)
     TyMaybe ty -> case v0 of
                     Maybe Nothing -> return ()
@@ -1102,24 +1098,23 @@ matchesNormAPIBasic bt v p = case (bt, v) of
 
 matchesNormAPIDecl :: NormAPI -> NormTypeDecl -> Value -> Position -> Either (ValueError, Position) ()
 matchesNormAPIDecl api d v0 p = case d of
-    NRecordType nrt -> case v0 of
-                         Record xs | length xs == Map.size nrt -> mapM_ matchesNormAPIField (zip (Map.toList nrt) xs)
-                                   | otherwise -> error "TODO record wrong size"
-                         _         -> error "TODO bad record"
-    NUnionType  nut -> case v0 of
-                         Union fn v | Just ty <- Map.lookup fn nut -> matchesNormAPI api ty v (InField (_FieldName fn) : p)
-                                    | otherwise -> error "TODO bad union elem"
-                         _ -> error "TODO not a union"
-    NEnumType   net -> case v0 of
-                         Enum fn | Set.member fn net -> return ()
-                                 | otherwise -> error "TODO bad enum alt"
-                         _ -> error "TODO not an enum"
+    NRecordType nrt -> do xs <- expectRecord v0 p
+                          case compare (length xs) (Map.size nrt) of
+                            LT -> Left (JSONError MissingField, p)
+                            EQ -> mapM_ matchesNormAPIField (zip (Map.toList nrt) xs)
+                            GT -> Left (JSONError UnexpectedField, p)
+    NUnionType  nut -> do (fn, v) <- expectUnion v0 p
+                          case Map.lookup fn nut of
+                            Just ty -> matchesNormAPI api ty v (InField (_FieldName fn) : p)
+                            Nothing -> Left (JSONError UnexpectedField, InField (_FieldName fn) : p)
+    NEnumType   net -> do fn <- expectEnum v0 p
+                          unless (Set.member fn net) $ Left (JSONError (UnexpectedEnumVal (map _FieldName (Set.toList net)) (_FieldName fn)), p)
     NTypeSynonym ty -> matchesNormAPI api ty v0 p
     NNewtype     bt -> matchesNormAPIBasic bt v0 p
   where
     matchesNormAPIField ((fn, ty), (fn', v))
         | fn == fn' = matchesNormAPI api ty v (InField (_FieldName fn) : p)
-        | otherwise = error $ unlines ["TODO record out of order: ", show fn, show fn', show d, show v0]
+        | otherwise = Left (JSONError (SyntaxError (unlines ["record out of order: ", show fn, show fn', show d, show v0])), p)
 
 
 -------------------------------------

@@ -9,6 +9,10 @@ module Data.API.Value
     , encode
     , decode
 
+    , insertField
+    , renameField
+    , deleteField
+
       -- * QuickCheck test infrastructure
     , arbitrary
     , prop_jsonRoundTrip
@@ -30,8 +34,10 @@ import qualified Data.Binary.Serialise.CBOR.Decoding as CBOR
 import qualified Data.Binary.Serialise.CBOR.Encoding as CBOR
 import           Data.Binary.Serialise.CBOR.Extra
 import           Data.Binary.Serialise.CBOR.JSON
+import           Data.List (sortBy)
 import qualified Data.Map.Strict                as Map
 import           Data.Monoid
+import           Data.Ord
 import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import           Data.Traversable
@@ -299,3 +305,20 @@ lookupSet k s = flip Set.elemAt s <$> Set.lookupIndex k s
 
 lookupMap :: Ord k => k -> Map.Map k a -> Maybe (k, a)
 lookupMap k m = flip Map.elemAt m <$> Map.lookupIndex k m
+
+
+insertField :: FieldName -> Value -> Record -> Record
+insertField fname v [] = [(fname, v)]
+insertField fname v xxs@(x@(fn, _):xs) = case compare fname fn of
+                                            GT -> x : insertField fname v xs
+                                            EQ -> (fname, v) : xs
+                                            LT -> (fname, v) : xxs
+
+deleteField :: FieldName -> Record -> Record
+deleteField fname = filter ((fname /=) . fst)
+
+renameField :: FieldName -> FieldName -> Record -> Record
+renameField fname fname' = sortBy (comparing fst) . map f
+  where
+    f x@(fn, v) | fn == fname = (fname', v)
+                | otherwise   = x
