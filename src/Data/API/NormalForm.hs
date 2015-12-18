@@ -36,6 +36,7 @@ module Data.API.NormalForm
 import           Data.API.PP
 import           Data.API.Types
 
+import           Control.DeepSeq
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Set (Set)
@@ -64,6 +65,13 @@ data NormTypeDecl
     | NTypeSynonym APIType
     | NNewtype     BasicType
   deriving (Eq, Show)
+
+instance NFData NormTypeDecl where
+  rnf (NRecordType  x) = rnf x
+  rnf (NUnionType   x) = rnf x
+  rnf (NEnumType    x) = rnf x
+  rnf (NTypeSynonym x) = rnf x
+  rnf (NNewtype     x) = rnf x
 
 -- | The canonical form of a record type is a map from fields to
 -- values...

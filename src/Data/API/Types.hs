@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -65,6 +66,10 @@ data Thing
     | ThNode    APINode
     deriving (Eq,Show)
 
+instance NFData Thing where
+  rnf (ThComment x) = rnf x
+  rnf (ThNode    x) = rnf x
+
 -- | Specifies an individual element/type of the API
 
 data APINode
@@ -77,22 +82,19 @@ data APINode
         }
     deriving (Eq,Show)
 
+instance NFData APINode where
+  rnf (APINode a b c d e) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e
+
 -- | TypeName must contain a valid Haskell type constructor
 newtype TypeName = TypeName { _TypeName :: T.Text }
-    deriving (Eq, Ord,Show, IsString)
-
-instance NFData TypeName where
-  rnf (TypeName t) = rnf t
+    deriving (Eq, Ord, Show, NFData, IsString)
 
 -- | FieldName identifies recod fields and union alternatives
 --   must contain a valid identifier valid in Haskell and
 --   any API client wrappers (e.g., if Ruby wrappers are to be
 --   generated the names should easily map into Ruby)
 newtype FieldName = FieldName { _FieldName :: T.Text }
-    deriving (Show,Eq,Ord,IsString)
-
-instance NFData FieldName where
-  rnf (FieldName t) = rnf t
+    deriving (Eq, Ord, Show, NFData, IsString)
 
 -- | Markdown comments are represented by strings
 
@@ -118,6 +120,13 @@ data Spec
     | SpSynonym APIType
     deriving (Eq,Show)
 
+instance NFData Spec where
+  rnf (SpNewtype x) = rnf x
+  rnf (SpRecord  x) = rnf x
+  rnf (SpUnion   x) = rnf x
+  rnf (SpEnum    x) = rnf x
+  rnf (SpSynonym x) = rnf x
+
 -- | SpecNewtype elements are isomorphisms of string, inetgers or booleans
 
 data SpecNewtype =
@@ -127,11 +136,19 @@ data SpecNewtype =
         }
     deriving (Eq,Show)
 
+instance NFData SpecNewtype where
+  rnf (SpecNewtype x y) = rnf x `seq` rnf y
+
 data Filter
     = FtrStrg RegEx
     | FtrIntg IntRange
     | FtrUTC  UTCRange
     deriving (Eq,Show)
+
+instance NFData Filter where
+  rnf (FtrStrg x) = rnf x
+  rnf (FtrIntg x) = rnf x
+  rnf (FtrUTC  x) = rnf x
 
 data IntRange
     = IntRange
@@ -139,6 +156,9 @@ data IntRange
         , ir_hi :: Maybe Int
         }
     deriving (Eq, Show)
+
+instance NFData IntRange where
+  rnf (IntRange x y) = rnf x `seq` rnf y
 
 inIntRange :: Int -> IntRange -> Bool
 _ `inIntRange` IntRange Nothing   Nothing   = True
@@ -152,6 +172,9 @@ data UTCRange
         , ur_hi :: Maybe UTCTime
         }
     deriving (Eq, Show)
+
+instance NFData UTCRange where
+  rnf (UTCRange x y) = rnf x `seq` rnf y
 
 inUTCRange :: UTCTime -> UTCRange -> Bool
 _ `inUTCRange` UTCRange Nothing   Nothing   = True
@@ -168,6 +191,9 @@ data RegEx =
 
 mkRegEx :: T.Text -> RegEx
 mkRegEx txt = RegEx txt $ mkRegexWithOpts (T.unpack txt) False True
+
+instance NFData RegEx where
+  rnf (RegEx x !_) = rnf x
 
 instance ToJSON RegEx where
     toJSON RegEx{..} = String re_text
@@ -188,6 +214,9 @@ data SpecRecord = SpecRecord
     }
     deriving (Eq,Show)
 
+instance NFData SpecRecord where
+  rnf (SpecRecord x) = rnf x
+
 -- | In addition to the type and comment, record fields may carry a
 -- flag indicating that they are read-only, and may have a default
 -- value, which must be of a compatible type.
@@ -200,6 +229,9 @@ data FieldType = FieldType
     }
     deriving (Eq,Show)
 
+instance NFData FieldType where
+  rnf (FieldType a b c d) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d
+
 -- | SpecUnion is your classsic union type
 
 data SpecUnion = SpecUnion
@@ -207,12 +239,18 @@ data SpecUnion = SpecUnion
     }
     deriving (Eq,Show)
 
+instance NFData SpecUnion where
+  rnf (SpecUnion x) = rnf x
+
 -- | SpecEnum is your classic enumerated type
 
 data SpecEnum = SpecEnum
     { seAlts :: [(FieldName,MDComment)]
     }
     deriving (Eq,Show)
+
+instance NFData SpecEnum where
+  rnf (SpecEnum x) = rnf x
 
 -- | Conversion possibly converts to an internal representation.  If
 -- specified, a conversion is a pair of an injection function name and
@@ -232,6 +270,13 @@ data APIType
 instance IsString APIType where
   fromString = TyName . fromString
 
+instance NFData APIType where
+  rnf (TyList  ty) = rnf ty
+  rnf (TyMaybe ty) = rnf ty
+  rnf (TyName  tn) = rnf tn
+  rnf (TyBasic bt) = rnf bt
+  rnf TyJSON       = ()
+
 -- | the basic JSON types (N.B., no floating point numbers, yet)
 data BasicType
     = BTstring -- ^ a JSON UTF-8 string
@@ -240,6 +285,9 @@ data BasicType
     | BTint    -- ^ a JSON integral number
     | BTutc    -- ^ a JSON UTC string
     deriving (Eq, Show)
+
+instance NFData BasicType where
+  rnf !_ = ()
 
 -- | A default value for a field
 data DefaultValue
@@ -250,6 +298,14 @@ data DefaultValue
     | DefValInt    Int
     | DefValUtc    UTCTime
     deriving (Eq, Show)
+
+instance NFData DefaultValue where
+  rnf DefValList       = ()
+  rnf DefValMaybe      = ()
+  rnf (DefValString t) = rnf t
+  rnf (DefValBool   b) = rnf b
+  rnf (DefValInt    i) = rnf i
+  rnf (DefValUtc    u) = rnf u
 
 -- | Convert a default value to an Aeson 'Value'.  This differs from
 -- 'toJSON' as it will not round-trip with 'fromJSON': UTC default
