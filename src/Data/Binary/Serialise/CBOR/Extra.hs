@@ -10,11 +10,9 @@ module Data.Binary.Serialise.CBOR.Extra
     , decodeMaybeWith
     , serialiseEncoding
     , deserialiseWithOrFail
-    , readFileDeserialiseWith
     , (<$!>)
     ) where
 
-import           Control.Exception
 import qualified Data.Binary.Get as Bin
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
@@ -26,7 +24,6 @@ import qualified Data.ByteString.Builder as BS
 import           Data.List (foldl1')
 import           Data.Monoid
 import qualified Data.Text                      as T
-import           System.IO
 
 #if MIN_VERSION_base(4,8,0)
 import           Control.Monad ((<$!>))
@@ -95,11 +92,3 @@ deserialiseWithOrFail dec = supplyAllInput (CBOR.Read.deserialiseIncremental dec
         BS.Chunk chunk bs' ->  supplyAllInput (k (Just chunk)) bs'
         BS.Empty           ->  supplyAllInput (k Nothing)      BS.Empty
     supplyAllInput (Bin.Fail _ _ msg) _ = Left msg
-
-readFileDeserialiseWith :: Decoder a -> FilePath -> IO a
-readFileDeserialiseWith dec fname =
-    withFile fname ReadMode $ \hnd -> do
-      input <- BS.hGetContents hnd
-      case deserialiseWithOrFail dec input of
-        Left  err -> throwIO (userError err)
-        Right x   -> return x
