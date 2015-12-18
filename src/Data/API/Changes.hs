@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-deprecations #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
 -- | This module deals with validating API changelogs and migrating
