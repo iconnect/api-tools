@@ -593,7 +593,7 @@ applyChangeToData (ChDeleteField _ fname) _ =
 applyChangeToData (ChRenameField _ fname fname') _ =
     withObject $ \rec p -> case HMap.lookup (_FieldName fname) rec of
                            Just field -> rename field rec
-                           Nothing    -> Left (JSONError MissingField, InField (_FieldName fname) : p)
+                           Nothing    -> Left (JSONError MissingField, inField fname : p)
   where
     rename x = pure . HMap.insert (_FieldName fname') x . HMap.delete (_FieldName fname)
 
@@ -660,14 +660,14 @@ updateDeclAt' upds alter (UpdateRecord upd_flds) v p = do
   where
     update x@(Field fn v') = case Map.lookup fn upd_flds of
         Just Nothing    -> pure x
-        Just (Just utp) -> Field fn <$!> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
-        Nothing         -> Left (JSONError UnexpectedField, (InField (_FieldName fn) : p))
+        Just (Just utp) -> Field fn <$!> updateTypeAt' upds alter utp v' (inField fn : p)
+        Nothing         -> Left (JSONError UnexpectedField, inField fn : p)
 updateDeclAt' upds alter (UpdateUnion upd_alts)  v p = do
     (fn, v') <- expectUnion v p
     case Map.lookup fn upd_alts of
         Just Nothing    -> pure v
-        Just (Just utp) -> Union fn <$!> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
-        Nothing         -> Left (JSONError UnexpectedField, InField (_FieldName fn) : p)
+        Just (Just utp) -> Union fn <$!> updateTypeAt' upds alter utp v' (inField fn : p)
+        Nothing         -> Left (JSONError UnexpectedField, inField fn : p)
 updateDeclAt' upds alter (UpdateType upd)        v p = updateTypeAt' upds alter upd v p
 
 -- | Apply an update at the given position in a type's value
@@ -709,9 +709,9 @@ applyChangeToData' _ (ChRenameField _ fname fname') _ v p =
 applyChangeToData' _ (ChChangeField _ fname _ftype tag) custom v p = do
     xs <- expectRecord v p
     case findField fname xs of
-        Just (ys, v', zs)  -> do v'' <- liftMigration (fieldMigration custom tag) v' (InField (_FieldName fname):p)
+        Just (ys, v', zs)  -> do v'' <- liftMigration (fieldMigration custom tag) v' (inField fname:p)
                                  pure (Record (joinRecords ys fname v'' zs))
-        Nothing            -> Left (JSONError MissingField, InField (_FieldName fname) : p)
+        Nothing            -> Left (JSONError MissingField, inField fname : p)
 
 applyChangeToData' _ (ChRenameUnionAlt _ fname fname') _ v p = do
     (fn, v') <- expectUnion v p

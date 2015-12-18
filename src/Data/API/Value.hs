@@ -321,15 +321,15 @@ matchesNormAPIDecl api d v0 p = case d of
                             GT -> Left (JSONError UnexpectedField, p)
     NUnionType  nut -> do (fn, v) <- expectUnion v0 p
                           case Map.lookup fn nut of
-                            Just ty -> matchesNormAPI api ty v (InField (_FieldName fn) : p)
-                            Nothing -> Left (JSONError UnexpectedField, InField (_FieldName fn) : p)
+                            Just ty -> matchesNormAPI api ty v (inField fn : p)
+                            Nothing -> Left (JSONError UnexpectedField, inField fn : p)
     NEnumType   net -> do fn <- expectEnum v0 p
                           unless (Set.member fn net) $ Left (JSONError (UnexpectedEnumVal (map _FieldName (Set.toList net)) (_FieldName fn)), p)
     NTypeSynonym ty -> matchesNormAPI api ty v0 p
     NNewtype     bt -> matchesNormAPIBasic bt v0 p
   where
     matchesNormAPIField ((fn, ty), Field fn' v)
-        | fn == fn' = matchesNormAPI api ty v (InField (_FieldName fn) : p)
+        | fn == fn' = matchesNormAPI api ty v (inField fn : p)
         | otherwise = Left (JSONError (SyntaxError (unlines ["record out of order: ", show fn, show fn', show d, show v0])), p)
 
 expectRecord :: Value -> Position -> Either (ValueError, Position) Record

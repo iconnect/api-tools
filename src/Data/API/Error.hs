@@ -11,6 +11,7 @@ module Data.API.Error
     , FormatExpected(..)
     , Position
     , Step(..)
+    , inField
     , prettyJSONErrorPositions
     , prettyJSONError
     , prettyStep
@@ -135,6 +136,9 @@ type Position = [Step]
 -- of an array.
 data Step = InField T.Text | InElem Int
   deriving (Eq, Show)
+
+inField :: FieldName -> Step
+inField fn = InField (_FieldName fn)
 
 -- | Human-readable description of a single step in a position
 prettyStep :: Step -> String
