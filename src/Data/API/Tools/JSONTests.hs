@@ -83,9 +83,13 @@ cborToJSONTestsTool = schemaTestsTool 'prop_cborToJSON
 jsonToCBORTestsTool :: Name -> Name -> APITool
 jsonToCBORTestsTool = schemaTestsTool 'prop_jsonToCBOR
 
+-- | Tool to generate a list of tests that the 'JS.Value' generic
+-- representation agrees with the type-specific JSON representation.
 jsonGenericValueTestsTool :: Name -> Name -> APITool
 jsonGenericValueTestsTool = schemaTestsTool 'prop_jsonGeneric
 
+-- | Tool to generate a list of tests that the 'Value' generic
+-- representation agrees with the type-specific CBOR representation.
 cborGenericValueTestsTool :: Name -> Name -> APITool
 cborGenericValueTestsTool = schemaTestsTool 'prop_cborGeneric
 
