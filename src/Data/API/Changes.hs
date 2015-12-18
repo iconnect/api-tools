@@ -656,7 +656,7 @@ updateDeclAt' _    alter (UpdateHere Nothing)    v p = alter v p
 updateDeclAt' upds alter (UpdateHere (Just upd)) v p = flip alter p =<< updateDeclAt' upds alter upd v p
 updateDeclAt' upds alter (UpdateRecord upd_flds) v p = do
     xs <- expectRecord v p
-    Record <$> mapM update xs
+    Record <$!> mapM update xs
   where
     update x@(Field fn v') = case Map.lookup fn upd_flds of
         Just Nothing    -> pure x
@@ -666,7 +666,7 @@ updateDeclAt' upds alter (UpdateUnion upd_alts)  v p = do
     (fn, v') <- expectUnion v p
     case Map.lookup fn upd_alts of
         Just Nothing    -> pure v
-        Just (Just utp) -> Union fn <$> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
+        Just (Just utp) -> Union fn <$!> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
         Nothing         -> Left (JSONError UnexpectedField, InField (_FieldName fn) : p)
 updateDeclAt' upds alter (UpdateType upd)        v p = updateTypeAt' upds alter upd v p
 
@@ -677,12 +677,12 @@ updateTypeAt' :: Map TypeName UpdateDeclPos
              -> Value.Value -> Position -> Either (ValueError, Position) Value.Value
 updateTypeAt' upds alter (UpdateList upd)    v p = do
     xs <- expectList v p
-    List <$> traverse (\ (i, v') -> updateTypeAt' upds alter upd v' (InElem i : p)) (zip [0..] xs)
+    List <$!> traverse (\ (i, v') -> updateTypeAt' upds alter upd v' (InElem i : p)) (zip [0..] xs)
 updateTypeAt' upds alter (UpdateMaybe upd)   v p = do
     mb <- expectMaybe v p
     case mb of
       Nothing -> pure v
-      Just v' -> Maybe . Just <$> updateTypeAt' upds alter upd v' p
+      Just v' -> Maybe . Just <$!> updateTypeAt' upds alter upd v' p
 updateTypeAt' upds alter (UpdateNamed tname) v p = case Map.lookup tname upds of
     Just upd -> updateDeclAt' upds alter upd v p
     Nothing  -> pure v
@@ -696,35 +696,35 @@ applyChangeToData' :: NormAPI -> APIChange -> CustomMigrationsTagged Record Valu
 applyChangeToData' api (ChAddField tname fname ftype mb_defval) _ v p =
   case mb_defval <|> defaultValueForType ftype of
     Just defval -> case fromDefaultValue api ftype defval of
-                     Just v' -> Record . insertField fname v' <$> expectRecord v p
+                     Just v' -> Record . insertField fname v' <$!> expectRecord v p
                      Nothing -> Left (InvalidAPI (FieldBadDefaultValue tname fname ftype defval), p)
     Nothing -> Left (InvalidAPI (DefaultMissing tname fname), p)
 
 applyChangeToData' _ (ChDeleteField _ fname) _ v p =
-    Record . deleteField fname <$> expectRecord v p
+    Record . deleteField fname <$!> expectRecord v p
 
 applyChangeToData' _ (ChRenameField _ fname fname') _ v p =
-    Record . renameField fname fname' <$> expectRecord v p
+    Record . renameField fname fname' <$!> expectRecord v p
 
 applyChangeToData' _ (ChChangeField _ fname _ftype tag) custom v p = do
     xs <- expectRecord v p
     case findField fname xs of
         Just (ys, v', zs)  -> do v'' <- liftMigration (fieldMigration custom tag) v' (InField (_FieldName fname):p)
-                                 return (Record (joinRecords ys fname v'' zs))
+                                 pure (Record (joinRecords ys fname v'' zs))
         Nothing            -> Left (JSONError MissingField, InField (_FieldName fname) : p)
 
 applyChangeToData' _ (ChRenameUnionAlt _ fname fname') _ v p = do
     (fn, v') <- expectUnion v p
-    pure $ if fn == fname then Union fname' v' else v
+    pure $! if fn == fname then Union fname' v' else v
 
 applyChangeToData' _ (ChRenameEnumVal _ fname fname') _ v p = do
     fn <- expectEnum v p
-    pure $ if fn == fname then Enum fname' else v
+    pure $! if fn == fname then Enum fname' else v
 
 applyChangeToData' _ (ChCustomType _ tag)   custom v p = liftMigration (typeMigration custom tag) v p
 applyChangeToData' _ (ChCustomAll tag)      custom v p = do
     xs <- expectRecord v p
-    Record <$> liftMigration (databaseMigration custom tag) xs p
+    Record <$!> liftMigration (databaseMigration custom tag) xs p
 
 applyChangeToData' _ (ChAddType _ _)        _ v _ = pure v
 applyChangeToData' _ (ChDeleteType _)       _ v _ = pure v
