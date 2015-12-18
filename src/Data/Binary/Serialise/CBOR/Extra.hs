@@ -27,6 +27,7 @@ f <$!> m = do
   x <- m
   let z = f x
   z `seq` return z
+infixl 4 <$!>
 #endif
 
 encodeListWith :: (a -> Encoding) -> [a] -> Encoding

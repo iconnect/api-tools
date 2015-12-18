@@ -61,10 +61,12 @@ import           Data.API.NormalForm
 import           Data.API.Types
 import           Data.API.Utils
 import           Data.API.Value as Value
+import           Data.Binary.Serialise.CBOR.Extra
 
 import           Control.Applicative
-import           Control.Monad
+import           Control.Monad (guard, foldM, void)
 import qualified Data.Aeson as JS
+import           Data.List
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Maybe
@@ -73,9 +75,8 @@ import qualified Data.Set as Set
 import qualified Data.HashMap.Strict as HMap
 import qualified Data.Vector as V
 import qualified Data.Text as T
-import           Data.Version
 import           Data.Time
-import           Data.List
+import           Data.Version
 import           Language.Haskell.TH
 import           Safe
 
@@ -676,7 +677,7 @@ updateTypeAt' :: Map TypeName UpdateDeclPos
              -> Value.Value -> Position -> Either (ValueError, Position) Value.Value
 updateTypeAt' upds alter (UpdateList upd)    v p = do
     xs <- expectList v p
-    List <$!> traverse (\ (i, v') -> updateTypeAt' upds alter upd v' (InElem i : p)) (zip [0..] xs)
+    List <$!> mapM (\ (i, v') -> updateTypeAt' upds alter upd v' (InElem i : p)) (zip [0..] xs)
 updateTypeAt' upds alter (UpdateMaybe upd)   v p = do
     mb <- expectMaybe v p
     case mb of
