@@ -48,13 +48,13 @@ testDatabaseMigration DuplicateRecursive x = do
 
 testDatabaseMigration' :: TestDatabaseMigration -> Value.Record -> Either ValueError Value.Record
 testDatabaseMigration' DuplicateBar r = do
-    let x = Map.fromList r
+    let x = Value.recordToMap r
     bar <- Map.lookup "bar" x ?! CustomMigrationError "missing bar" JS.Null
-    return $ Map.toList $ Map.insert "bar2" bar x
+    return $ Value.mapToRecord $ Map.insert "bar2" bar x
 testDatabaseMigration' DuplicateRecursive r = do
-    let x = Map.fromList r
+    let x = Value.recordToMap r
     recur <- Map.lookup "recur" x ?! CustomMigrationError "missing recur" JS.Null
-    return $ Map.toList $ Map.insert "recur2" recur x
+    return $ Value.mapToRecord $ Map.insert "recur2" recur x
 
 testDatabaseMigrationSchema :: TestDatabaseMigration -> NormAPI -> Either ApplyFailure (Maybe NormAPI)
 testDatabaseMigrationSchema DuplicateBar _ = Right Nothing
@@ -83,18 +83,18 @@ testRecordMigration DuplicateNew = mkRecordMigration $ \ x -> do
 
 testRecordMigration' :: TestRecordMigration -> Value.Value -> Either ValueError Value.Value
 testRecordMigration' CopyIDtoC = mkRecordMigration' $ \ rec -> do
-    let x = Map.fromList rec
+    let x = Value.recordToMap rec
     i <- Map.lookup "id" x ?! CustomMigrationError "missing id" JS.Null
     b <- Map.lookup "c" x  ?! CustomMigrationError "missing b" JS.Null
     r <- case (i, b) of
         (Value.Int j, Value.String t)
             -> return $ Value.String $ t `T.append` T.pack (show j)
         _   -> Left $ CustomMigrationError "bad data" JS.Null
-    return $ Map.toList $ Map.insert "c" r x
+    return $ Value.mapToRecord $ Map.insert "c" r x
 testRecordMigration' DuplicateNew = mkRecordMigration' $ \ rec -> do
-    let x = Map.fromList rec
+    let x = Value.recordToMap rec
     new <- Map.lookup "new" x ?! CustomMigrationError "missing new" JS.Null
-    return $ Map.toList $ Map.insert "newnew" new x
+    return $ Value.mapToRecord $ Map.insert "newnew" new x
 
 testRecordMigrationSchema :: TestRecordMigration -> NormTypeDecl -> Either ApplyFailure (Maybe NormTypeDecl)
 testRecordMigrationSchema CopyIDtoC    = noSchemaChanges
@@ -111,7 +111,7 @@ testFieldMigration ConvertBinaryToString v@(JS.String s) =
 testFieldMigration ConvertBinaryToString v = Left $ CustomMigrationError "bad data" v
 
 testFieldMigration' :: TestFieldMigration -> Value.Value -> Either ValueError Value.Value
-testFieldMigration' ConvertBinaryToString v@(Value.Bytes bs) = return (Value.String (TE.decodeUtf8 (_Binary bs)))
+testFieldMigration' ConvertBinaryToString (Value.Bytes bs) = return (Value.String (TE.decodeUtf8 (_Binary bs)))
 testFieldMigration' ConvertBinaryToString v = Left $ CustomMigrationError "bad data" (JS.toJSON v)
 
 

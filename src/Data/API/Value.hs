@@ -6,6 +6,7 @@ module Data.API.Value
     ( -- * Types
       Value(..)
     , Record
+    , Field(..)
 
       -- * Converting to and from generic values
     , fromDefaultValue
@@ -24,6 +25,8 @@ module Data.API.Value
     , lookupType
 
       -- * Manipulating records
+    , recordToMap
+    , mapToRecord
     , insertField
     , renameField
     , deleteField
@@ -99,7 +102,12 @@ data Value = String  !T.Text
 -- are no duplicates.
 --
 -- TODO: consider if it would be worth using 'Map.Map' instead.
-type Record = [(FieldName, Value)]
+type Record = [Field]
+
+data Field = Field { fieldName  :: FieldName
+                   , fieldValue :: Value
+                   }
+    deriving (Eq, Show)
 
 instance NFData Value where
   rnf (String t)   = rnf t
@@ -113,6 +121,9 @@ instance NFData Value where
   rnf (Enum fn)    = rnf fn
   rnf (Record xs)  = rnf xs
   rnf (JSON v)     = rnf v
+
+instance NFData Field where
+  rnf (Field x y) = rnf x `seq` rnf y
 
 
 -- | Convert a 'DefaultValue' into a generic 'Value', failing if the
@@ -161,7 +172,7 @@ instance JS.ToJSON Value where
                 Maybe (Just v) -> JS.toJSON v
                 Union fn v     -> JS.object [_FieldName fn JS..= v]
                 Enum fn        -> JS.String (_FieldName fn)
-                Record xs      -> JS.object $ map (\ (fn, v) -> _FieldName fn JS..= v) xs
+                Record xs      -> JS.object $ map (\ (Field fn v) -> _FieldName fn JS..= v) xs
                 JSON js        -> js
 
 -- | Parse a generic 'Value' from a JSON 'JS.Value', given the schema
@@ -203,7 +214,7 @@ parseJSONDecl api tn d = case d of
     NTypeSynonym ty -> parseJSON api ty
     NNewtype     bt -> parseJSONBasic bt
   where
-    parseField hm (fn, ty) = (,) fn <$> withField (_FieldName fn) (parseJSON api ty) hm
+    parseField hm (fn, ty) = Field fn <$> withField (_FieldName fn) (parseJSON api ty) hm
 
 
 
@@ -220,8 +231,8 @@ encode v0 = case v0 of
     Union fn v -> encodeUnion (_FieldName fn) (encode v)
     Enum fn    -> CBOR.encode (_FieldName fn)
     Record xs  -> CBOR.encodeMapLen (fromIntegral (length xs))
-                  <> encodeRecordFields (map (\ (fn, v) -> CBOR.encode (_FieldName fn)
-                                                           <> encode v) xs)
+                  <> encodeRecordFields (map (\ (Field fn v) -> CBOR.encode (_FieldName fn)
+                                                                    <> encode v) xs)
     JSON js    -> encodeJSON js
 
 
@@ -263,7 +274,7 @@ decodeDecl api d = case d of
     go xs []            = pure (Record (reverse xs))
     go xs ((fn, ty):ys) = do _  <- CBOR.decodeString
                              !v <- decode api ty
-                             go ((fn, v):xs) ys
+                             go (Field fn v:xs) ys
 
 
 -- | Check that the value is of the given type in the schema,
@@ -317,7 +328,7 @@ matchesNormAPIDecl api d v0 p = case d of
     NTypeSynonym ty -> matchesNormAPI api ty v0 p
     NNewtype     bt -> matchesNormAPIBasic bt v0 p
   where
-    matchesNormAPIField ((fn, ty), (fn', v))
+    matchesNormAPIField ((fn, ty), Field fn' v)
         | fn == fn' = matchesNormAPI api ty v (InField (_FieldName fn) : p)
         | otherwise = Left (JSONError (SyntaxError (unlines ["record out of order: ", show fn, show fn', show d, show v0])), p)
 
@@ -373,7 +384,7 @@ arbitraryOfBasicType bt = case bt of
 
 arbitraryOfDecl :: NormAPI -> NormTypeDecl -> QC.Gen Value
 arbitraryOfDecl api d = case d of
-    NRecordType nrt -> Record <$> traverse (traverse (arbitraryOfType api)) (Map.toList nrt)
+    NRecordType nrt -> Record <$> traverse (\ (fn, ty) -> Field fn <$> arbitraryOfType api ty) (Map.toList nrt)
     NUnionType  nut -> do (fn, ty) <- QC.elements (Map.toList nut)
                           Union fn <$> arbitraryOfType api ty
     NEnumType   net -> Enum <$> QC.elements (Set.toList net)
@@ -467,36 +478,42 @@ lookupMap :: Ord k => k -> Map.Map k a -> Maybe (k, a)
 lookupMap k m = flip Map.elemAt m <$> Map.lookupIndex k m
 
 
+recordToMap :: Record -> Map.Map FieldName Value
+recordToMap = Map.fromList . map (\ (Field fn v) -> (fn, v))
+
+mapToRecord :: Map.Map FieldName Value -> Record
+mapToRecord = map (uncurry Field) . Map.toList
+
 -- | Insert a (field, value) pair into a record, replacing the
 -- existing field if it is present and preserving the ordering
 -- invariant.
 insertField :: FieldName -> Value -> Record -> Record
-insertField fname v [] = [(fname, v)]
-insertField fname v xxs@(x@(fn, _):xs) = case compare fname fn of
-                                            GT -> x : insertField fname v xs
-                                            EQ -> (fname, v) : xs
-                                            LT -> (fname, v) : xxs
+insertField fname v []                      = [Field fname v]
+insertField fname v xxs@(x@(Field fn _):xs) = case compare fname fn of
+                                                GT -> x : insertField fname v xs
+                                                EQ -> Field fname v : xs
+                                                LT -> Field fname v : xxs
 
 -- | Delete a field from a record, trivially preserving the ordering
 -- invariant.
 deleteField :: FieldName -> Record -> Record
-deleteField fname = filter ((fname /=) . fst)
+deleteField fname = filter ((fname /=) . fieldName)
 
 -- | Rename a field in a record, preserving the ordering invariant.
 renameField :: FieldName -> FieldName -> Record -> Record
-renameField fname fname' = sortBy (comparing fst) . map f
+renameField fname fname' = sortBy (comparing fieldName) . map f
   where
-    f x@(fn, v) | fn == fname = (fname', v)
-                | otherwise   = x
+    f x@(Field fn v) | fn == fname = Field fname' v
+                     | otherwise   = x
 
 -- | Split a record at a given field, returning the preceding fields,
 -- value and succeeding fields.  Fails if the field is absent.
 findField :: FieldName -> Record -> Maybe (Record, Value, Record)
-findField fname xs = case break ((fname ==) . fst) xs of
-                       (ys, (_, v):zs) -> Just (ys, v, zs)
-                       (_, [])         -> Nothing
+findField fname xs = case break ((fname ==) . fieldName) xs of
+                       (ys, (Field _ v):zs) -> Just (ys, v, zs)
+                       (_, [])              -> Nothing
 
 -- | Join together two records with a (field, value) pair in between.
 -- The ordering invariant is not checked!
 joinRecords :: Record -> FieldName -> Value -> Record -> Record
-joinRecords ys fname v zs = ys ++ (fname, v) : zs
+joinRecords ys fname v zs = ys ++ Field fname v : zs

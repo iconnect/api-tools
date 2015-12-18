@@ -658,10 +658,10 @@ updateDeclAt' upds alter (UpdateRecord upd_flds) v p = do
     xs <- expectRecord v p
     Record <$> mapM update xs
   where
-    update (fn, v') = case Map.lookup fn upd_flds of
-                        Just Nothing    -> pure (fn, v')
-                        Just (Just utp) -> (,) fn <$> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
-                        Nothing         -> Left (JSONError UnexpectedField, (InField (_FieldName fn) : p))
+    update x@(Field fn v') = case Map.lookup fn upd_flds of
+        Just Nothing    -> pure x
+        Just (Just utp) -> Field fn <$!> updateTypeAt' upds alter utp v' (InField (_FieldName fn) : p)
+        Nothing         -> Left (JSONError UnexpectedField, (InField (_FieldName fn) : p))
 updateDeclAt' upds alter (UpdateUnion upd_alts)  v p = do
     (fn, v') <- expectUnion v p
     case Map.lookup fn upd_alts of
