@@ -8,19 +8,11 @@ module Data.Binary.Serialise.CBOR.Extra
     , decodeUnion
     , decodeListWith
     , decodeMaybeWith
-    , serialiseEncoding
-    , deserialiseWithOrFail
     , (<$!>)
     ) where
 
-import qualified Data.Binary.Get as Bin
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
-import qualified Data.Binary.Serialise.CBOR.Read as CBOR.Read
-import qualified Data.Binary.Serialise.CBOR.Write as CBOR.Write
-import qualified Data.ByteString.Lazy as BS
-import qualified Data.ByteString.Lazy.Internal as BS
-import qualified Data.ByteString.Builder as BS
 import           Data.List (foldl1')
 import           Data.Monoid
 import qualified Data.Text                      as T
@@ -78,17 +70,3 @@ decodeMaybeWith dec = do
       1 -> do !x <- dec
               return (Just x)
       _ -> fail "unknown tag"
-
-
-serialiseEncoding :: Encoding -> BS.ByteString
-serialiseEncoding = BS.toLazyByteString . CBOR.Write.toBuilder
-
-deserialiseWithOrFail :: Decoder a -> BS.ByteString -> Either String a
-deserialiseWithOrFail dec = supplyAllInput (CBOR.Read.deserialiseIncremental dec)
-  where
-    supplyAllInput (Bin.Done _ _ x) _bs = Right x
-    supplyAllInput (Bin.Partial k)   bs =
-      case bs of
-        BS.Chunk chunk bs' ->  supplyAllInput (k (Just chunk)) bs'
-        BS.Empty           ->  supplyAllInput (k Nothing)      BS.Empty
-    supplyAllInput (Bin.Fail _ _ msg) _ = Left msg

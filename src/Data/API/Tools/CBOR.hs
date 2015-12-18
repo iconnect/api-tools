@@ -22,7 +22,7 @@ import           Data.Binary.Serialise.CBOR.Class
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
 import           Data.Binary.Serialise.CBOR.Extra
-import           Data.List (foldl', foldl1', sortBy)
+import           Data.List (foldl', sortBy)
 import qualified Data.Map                       as Map
 import           Data.Monoid
 import           Data.Ord (comparing)

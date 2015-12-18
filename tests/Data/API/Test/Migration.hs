@@ -19,7 +19,7 @@ import qualified Data.API.Value           as Value
 import qualified Data.Aeson               as JS
 import qualified Data.Aeson.Encode.Pretty as JS
 import qualified Data.Binary.Serialise.CBOR as CBOR
-import           Data.Binary.Serialise.CBOR.Extra
+import qualified Data.Binary.Serialise.CBOR.FlatTerm as CBOR
 import qualified Data.ByteString.Char8    as B
 import qualified Data.ByteString.Base64   as B64
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -205,8 +205,8 @@ validMigrationProperty' db =
   where
     failedBecause e = failed { reason = e }
 
-    db_generic = case deserialiseWithOrFail (Value.decode (apiNormalForm startSchema) (TyName root_))
-                                            (serialiseEncoding (CBOR.encode db)) of
+    db_generic = case CBOR.fromFlatTerm (Value.decode (apiNormalForm startSchema) (TyName root_))
+                                        (CBOR.toFlatTerm (CBOR.encode db)) of
                    Right v  -> v
                    Left err -> error err
 

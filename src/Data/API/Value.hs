@@ -57,6 +57,7 @@ import qualified Data.Binary.Serialise.CBOR          as CBOR
 import qualified Data.Binary.Serialise.CBOR.Decoding as CBOR
 import qualified Data.Binary.Serialise.CBOR.Encoding as CBOR
 import           Data.Binary.Serialise.CBOR.Extra
+import qualified Data.Binary.Serialise.CBOR.FlatTerm as CBOR
 import           Data.Binary.Serialise.CBOR.JSON
 import qualified Data.HashMap.Strict            as HMap
 import           Data.List (sortBy)
@@ -438,7 +439,7 @@ prop_jsonGeneric api tn x = case fromJSON napi (TyName tn) js_v of
 prop_cborRoundTrip :: NormAPI -> QC.Property
 prop_cborRoundTrip api
   = QC.forAll (arbitrary api) $ \ (ty, v) ->
-       case deserialiseWithOrFail (decode api ty) (serialiseEncoding (encode v)) of
+       case CBOR.fromFlatTerm (decode api ty) (CBOR.toFlatTerm (encode v)) of
          Right v' | v /= v'   -> QCP.failed { QCP.reason = "Expected " ++ show v
                                                              ++ " but got " ++ show v' }
                   | otherwise -> QCP.succeeded
@@ -447,14 +448,16 @@ prop_cborRoundTrip api
 -- | QuickCheck property that the type-specific CBOR serialisation
 -- agrees with deserialising as generic CBOR and then serialising again.
 prop_cborGeneric :: CBOR.Serialise a => API -> TypeName -> a -> QCP.Result
-prop_cborGeneric api tn x = case deserialiseWithOrFail (decode napi (TyName tn)) bs of
-    Right v | bs' <- serialiseEncoding (encode v)
+prop_cborGeneric api tn x
+  | not (CBOR.validFlatTerm bs) = QCP.failed { QCP.reason = "Invalid CBOR: " ++ show bs }
+  | otherwise = case CBOR.fromFlatTerm (decode napi (TyName tn)) bs of
+    Right v | bs' <- CBOR.toFlatTerm (encode v)
             , bs' /= bs -> QCP.failed { QCP.reason = "Expected " ++ show bs ++ " but got " ++ show bs' }
             | otherwise      -> QCP.succeeded
     Left err                 -> QCP.failed { QCP.reason = "Decode error: " ++ err }
   where
     napi = apiNormalForm api
-    bs = serialiseEncoding (CBOR.encode x)
+    bs = CBOR.toFlatTerm (CBOR.encode x)
 
 
 -- | Look up a type in a schema, failing with an error if it is missing.
