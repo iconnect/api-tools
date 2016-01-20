@@ -20,6 +20,7 @@ import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import           Data.Traversable
 import           Language.Haskell.TH
+import           Prelude
 
 
 -- | Build a traversal of the root type (first argument) that updates

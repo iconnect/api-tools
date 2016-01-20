@@ -20,6 +20,7 @@ import qualified Data.CaseInsensitive           as CI
 import qualified Data.Text                      as T
 import           Control.Applicative
 import           Text.Regex
+import           Prelude
 
 
 -- | Take an API spec and generate a JSON description of the API

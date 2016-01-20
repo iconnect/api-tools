@@ -25,6 +25,8 @@ import Data.Binary.Serialise.CBOR.Term as CBOR
 import Data.Binary.Serialise.CBOR
 
 import Control.Applicative
+import Prelude
+
 
 instance Serialise JSON.Value where
   encode = encodeJSON

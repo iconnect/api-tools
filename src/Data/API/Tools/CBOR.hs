@@ -1,8 +1,5 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE OverlappingInstances       #-}
 
 module Data.API.Tools.CBOR
     ( cborTool
@@ -29,12 +26,15 @@ import           Data.Ord (comparing)
 import qualified Data.Text                      as T
 import           Data.Time (UTCTime)
 import           Language.Haskell.TH
+import           Prelude
 
+#if !MIN_VERSION_aeson(0,8,1)
 #if MIN_VERSION_time(1,5,0)
 import Data.Time.Format (formatTime, defaultTimeLocale)
 #else
 import Data.Time.Format (formatTime)
 import System.Locale    (defaultTimeLocale)
+#endif
 #endif
 
 

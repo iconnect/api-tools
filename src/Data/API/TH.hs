@@ -22,6 +22,7 @@ import           Control.Applicative
 import           Control.Monad
 import qualified Data.Text                      as T
 import           Language.Haskell.TH
+import           Prelude
 
 
 -- | Construct an idiomatic expression (an expression in an

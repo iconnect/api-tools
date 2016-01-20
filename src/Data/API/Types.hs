@@ -54,6 +54,7 @@ import qualified Data.ByteString.Base64         as B64
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Syntax
 import           Text.Regex
+import           Prelude
 
 
 -- | an API spec is made up of a list of type/element specs, each

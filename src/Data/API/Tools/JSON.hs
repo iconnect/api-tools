@@ -24,6 +24,7 @@ import qualified Data.Map                       as Map
 import           Data.Monoid
 import qualified Data.Text                      as T
 import           Language.Haskell.TH
+import           Prelude
 
 
 -- | Tool to generate 'ToJSON' and 'FromJSONWithErrs' instances for

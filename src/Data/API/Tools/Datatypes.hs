@@ -31,6 +31,7 @@ import           Data.Time
 import           Data.Typeable
 import           Language.Haskell.TH
 import           Text.Regex
+import           Prelude
 
 
 -- | Tool to generate datatypes and type synonyms corresponding to an API

@@ -35,10 +35,11 @@ import           Data.API.Value
 import qualified Data.Aeson                     as JS
 import           Data.Binary.Serialise.CBOR
 import           Data.Binary.Serialise.CBOR.JSON ()
-import           Data.Monoid
 import           Language.Haskell.TH
 import           Test.QuickCheck
 import           Test.QuickCheck.Property       as QCProperty
+import           Prelude
+
 
 -- | Tool to generate a list of JSON round-trip tests of type
 -- @[('String', 'Property')]@ with the given name.  This depends on

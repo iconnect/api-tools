@@ -24,6 +24,7 @@ import           Language.Haskell.TH
 import           Safe
 import           Test.QuickCheck                as QC
 import qualified Data.Text                      as T
+import           Prelude
 
 
 -- | The Example class is used to generate a documentation-friendly

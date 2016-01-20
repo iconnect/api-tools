@@ -18,6 +18,7 @@ import           Data.Time
 import           Language.Haskell.TH
 import           Safe
 import           Test.QuickCheck                as QC
+import           Prelude
 
 
 -- | Tool to generate 'Arbitrary' instances for generated types.

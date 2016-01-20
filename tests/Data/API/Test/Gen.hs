@@ -19,6 +19,8 @@ import qualified Data.Text                      as T
 import           GHC.Generics
 import           Language.Haskell.TH
 import           Test.QuickCheck                ( Arbitrary(..) )
+import           Prelude
+
 
 $(generate         DSL.example)
 $(generateAPITools DSL.example

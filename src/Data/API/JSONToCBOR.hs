@@ -24,6 +24,8 @@ import           Data.Binary.Serialise.CBOR.Term
 import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
+import           Prelude
+
 
 -- | Serialise a JSON value as a CBOR term in a generic but
 -- schema-dependent fashion.  This is necessary because the JSON

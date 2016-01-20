@@ -12,6 +12,7 @@ import           Data.API.Types
 import           Control.DeepSeq
 import           Data.Monoid
 import           Language.Haskell.TH
+import           Prelude
 
 
 -- | Tool to generate 'NFData' instances for generated types.

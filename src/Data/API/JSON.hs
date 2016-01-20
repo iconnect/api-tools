@@ -84,6 +84,7 @@ import qualified Data.Vector                    as V
 import           Data.Version
 import           Distribution.Text
 import           Text.Regex
+import           Prelude
 
 
 ----------------------------------------
