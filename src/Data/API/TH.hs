@@ -9,13 +9,20 @@ module Data.API.TH
     , funSigD
     , simpleD
     , simpleSigD
+    , mkNameText
+    , fieldNameE
+    , fieldNameVarE
+    , typeNameE
     ) where
 
 import           Data.API.Tools.Combinators
+import           Data.API.Types
 
 import           Control.Applicative
 import           Control.Monad
+import qualified Data.Text                      as T
 import           Language.Haskell.TH
+import           Prelude
 
 
 -- | Construct an idiomatic expression (an expression in an
@@ -61,3 +68,19 @@ simpleD n e = funD n [clause [] (normalB e) []]
 -- | Construct a simple TH definition with a type signature
 simpleSigD :: Name -> TypeQ -> ExpQ -> Q [Dec]
 simpleSigD n t e = funSigD n t [clause [] (normalB e) []]
+
+
+mkNameText :: T.Text -> Name
+mkNameText = mkName . T.unpack
+
+
+-- | Field name as a string expression
+fieldNameE :: FieldName -> ExpQ
+fieldNameE = stringE . T.unpack . _FieldName
+
+-- | Field name as a variable
+fieldNameVarE :: FieldName -> ExpQ
+fieldNameVarE = varE . mkNameText . _FieldName
+
+typeNameE :: TypeName -> ExpQ
+typeNameE = stringE . T.unpack . _TypeName

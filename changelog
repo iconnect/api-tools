@@ -1,5 +1,10 @@
 -*-change-log-*-
 
+0.7.0.0 Adam Gundry <adam@well-typed.com> January 2016
+	* Implement more efficient data migrations
+	* Change FieldName and TypeName to use Text instead of String
+	* Adapt to changes in binary-serialise-cbor
+
 0.6.0.1 Adam Gundry <adam@well-typed.com> October 2015
 	* Support building on GHC 7.10.2 and relax dependencies
 

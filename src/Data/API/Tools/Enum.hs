@@ -45,7 +45,7 @@ enumTool = apiNodeTool $ apiSpecTool mempty mempty mempty enum mempty
 -- >             FR60      -> "60"
 
 text_enum_nm :: APINode -> Name
-text_enum_nm an = mkName $ "_text_" ++ (_TypeName $ anName an)
+text_enum_nm an = mkName $ "_text_" ++ T.unpack (_TypeName $ anName an)
 
 gen_se_tx :: APINode -> SpecEnum -> Q [Dec]
 gen_se_tx as se = simpleSigD (text_enum_nm as)
@@ -59,7 +59,7 @@ gen_se_tx as se = simpleSigD (text_enum_nm as)
 
     pt fnm = nodeAltConP as fnm []
 
-    bd fnm = normalB $ stringE $ _FieldName fnm
+    bd fnm = normalB $ stringE $ T.unpack $ _FieldName fnm
 
 
 
@@ -70,7 +70,7 @@ gen_se_tx as se = simpleSigD (text_enum_nm as)
 -- > _map_FrameRate = genTextMap _text_FrameRate
 
 map_enum_nm :: APINode -> Name
-map_enum_nm  an = mkName $ "_map_"  ++ (_TypeName $ anName an)
+map_enum_nm  an = mkName $ "_map_"  ++ T.unpack (_TypeName $ anName an)
 
 gen_se_mp :: APINode -> Q [Dec]
 gen_se_mp as = simpleSigD (map_enum_nm as)

@@ -31,6 +31,7 @@ import           Data.Time
 import           Data.Typeable
 import           Language.Haskell.TH
 import           Text.Regex
+import           Prelude
 
 
 -- | Tool to generate datatypes and type synonyms corresponding to an API
@@ -146,7 +147,7 @@ mk_type ty =
     case ty of
       TyList  ty'  -> AppT ListT  $ mk_type ty'
       TyMaybe ty'  -> AppT (ConT ''Maybe) $ mk_type ty'
-      TyName  nm   -> ConT  $ mkName $ _TypeName nm
+      TyName  nm   -> ConT  $ mkNameText $ _TypeName nm
       TyBasic bt   -> basic_type bt
       TyJSON       -> ConT ''Value
 
@@ -184,7 +185,7 @@ derive_node_nms = [''Show,''Eq,''Typeable]
 
 -- | Name of the type corresponding to the API node, e.g. @JobId@
 type_nm :: APINode -> Name
-type_nm an = mkName $ _TypeName $ anName an
+type_nm an = mkName $ T.unpack $ _TypeName $ anName an
 
 -- | Name of the representation type corresponding to the API node,
 -- which differs from the 'type_nm' only if custom conversion
@@ -210,21 +211,21 @@ newtype_smart_con_nm :: APINode -> Name
 newtype_smart_con_nm an = mkName $ "mk" ++ rep_type_s an
 
 rep_type_s :: APINode -> String
-rep_type_s an = f $ _TypeName $ anName an
+rep_type_s an = f $ T.unpack $ _TypeName $ anName an
   where
     f s = maybe s (const ("REP__"++s)) $ anConvert an
 
 -- | Construct the name of a record field by attaching the
 -- type-specific prefix, in lowercase, e.g. @_jsi_id@
 pref_field_nm :: APINode -> FieldName -> Name
-pref_field_nm as fnm = mkName $ pre ++ _FieldName fnm
+pref_field_nm as fnm = mkName $ pre ++ T.unpack (_FieldName fnm)
   where
     pre = "_" ++ map toLower (CI.original $ anPrefix as) ++ "_"
 
 -- | Construct the name of a union or enum constructor by attaching
 -- the type-specific prefix, in uppercase, e.g. @FR_auto@
 pref_con_nm :: APINode -> FieldName -> Name
-pref_con_nm as fnm = mkName $ pre ++ _FieldName fnm
+pref_con_nm as fnm = mkName $ pre ++ T.unpack (_FieldName fnm)
   where
     pre = map toUpper (CI.original $ anPrefix as) ++ "_"
 

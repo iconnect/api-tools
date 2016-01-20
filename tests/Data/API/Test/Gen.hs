@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 module Data.API.Test.Gen where
 
@@ -11,14 +12,16 @@ import qualified Data.API.Test.DSL as DSL
 import           Data.API.Tools
 import           Data.API.Tools.Datatypes
 import           Data.API.Tools.Example
+import           Data.API.Value ( arbitraryJSONValue )
 
 import           Control.Applicative
 import qualified Data.Aeson                     as JS
 import           Data.SafeCopy
-import qualified Data.Text                      as T
 import           GHC.Generics
 import           Language.Haskell.TH
 import           Test.QuickCheck                ( Arbitrary(..) )
+import           Prelude
+
 
 $(generate         DSL.example)
 $(generateAPITools DSL.example
@@ -35,6 +38,8 @@ $(generateAPITools DSL.example
                    , cborTestsTool (mkName "exampleTestsCBOR")
                    , cborToJSONTestsTool 'DSL.example (mkName "exampleTestsCBORToJSON")
                    , jsonToCBORTestsTool 'DSL.example (mkName "exampleTestsJSONToCBOR")
+                   , jsonGenericValueTestsTool 'DSL.example (mkName "exampleJSONGenericValueTests")
+                   , cborGenericValueTestsTool 'DSL.example (mkName "exampleCBORGenericValueTests")
                    ])
 
 $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True }) example2
@@ -111,7 +116,7 @@ instance Example FilteredString
 -- really want to force them on clients of the library, so just define
 -- orphans here.
 instance Arbitrary JS.Value where
-    arbitrary = JS.String . T.pack <$> arbitrary
+    arbitrary = arbitraryJSONValue
 
 instance SafeCopy JS.Value where
   getCopy = error "Not implemented"
@@ -131,4 +136,6 @@ $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True })
                    , cborTestsTool (mkName "example2TestsCBOR")
                    , cborToJSONTestsTool 'example2 (mkName "example2TestsCBORToJSON")
                    , jsonToCBORTestsTool 'example2 (mkName "example2TestsJSONToCBOR")
+                   , jsonGenericValueTestsTool 'example2 (mkName "example2JSONGenericValueTests")
+                   , cborGenericValueTestsTool 'example2 (mkName "example2CBORGenericValueTests")
                    ])

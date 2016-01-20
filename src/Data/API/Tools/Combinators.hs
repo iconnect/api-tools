@@ -28,6 +28,7 @@ import           Data.API.Types
 import           Control.Applicative
 import           Data.Monoid
 import           Language.Haskell.TH
+import           Prelude
 
 
 -- | Settings to control the behaviour of API tools.  This record may

@@ -1,10 +1,10 @@
-{-# OPTIONS_GHC -fno-warn-deprecations #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
 -- | This module deals with validating API changelogs and migrating
 -- JSON data between different versions of a schema.
 module Data.API.Changes
     ( migrateDataDump
+    , migrateDataDump'
 
       -- * Validating changelogs
     , validateChanges
@@ -23,6 +23,7 @@ module Data.API.Changes
       -- * Custom migrations
     , CustomMigrations(..)
     , mkRecordMigration
+    , mkRecordMigration'
     , mkRecordMigrationSchema
     , noDataChanges
     , noSchemaChanges
@@ -53,18 +54,19 @@ module Data.API.Changes
     , prettyValueErrorPosition
     ) where
 
+import           Data.API.Changes.Types
+import           Data.API.Error
 import           Data.API.JSON
 import           Data.API.NormalForm
-import           Data.API.PP
 import           Data.API.Types
 import           Data.API.Utils
+import           Data.API.Value as Value
+import           Data.Binary.Serialise.CBOR.Extra
 
 import           Control.Applicative
-import           Control.Monad
+import           Control.Monad (guard, foldM, void)
 import qualified Data.Aeson as JS
-import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Base64 as B64
-import qualified Data.Graph as Graph
+import           Data.List
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Maybe
@@ -73,9 +75,8 @@ import qualified Data.Set as Set
 import qualified Data.HashMap.Strict as HMap
 import qualified Data.Vector as V
 import qualified Data.Text as T
-import           Data.Version
 import           Data.Time
-import           Data.List
+import           Data.Version
 import           Language.Haskell.TH
 import           Safe
 
@@ -96,7 +97,7 @@ migrateDataDump :: (Read db, Read rec, Read fld)
                 => (API, Version)               -- ^ Starting schema and version
                 -> (API, VersionExtra)          -- ^ Ending schema and version
                 -> APIChangelog                 -- ^ Log of changes, containing both versions
-                -> CustomMigrations db rec fld  -- ^ Custom migration functions
+                -> CustomMigrations JS.Object JS.Value db rec fld  -- ^ Custom migration functions
                 -> TypeName                     -- ^ Name of the dataset's type
                 -> DataChecks                   -- ^ How thoroughly to validate changes
                 -> JS.Value                     -- ^ Dataset to be migrated
@@ -108,59 +109,23 @@ migrateDataDump startApi endApi changelog custom root chks db = do
     db' <- applyChangesToDatabase root custom' db changes  ?!? uncurry ValueError
     return (db', warnings)
 
-data MigrateFailure
-    = ValidateFailure ValidateFailure
-    | ValueError ValueError Position
-    deriving (Eq, Show)
+migrateDataDump' :: (Read db, Read rec, Read fld)
+                => (API, Version)               -- ^ Starting schema and version
+                -> (API, VersionExtra)          -- ^ Ending schema and version
+                -> APIChangelog                 -- ^ Log of changes, containing both versions
+                -> CustomMigrations Record Value db rec fld  -- ^ Custom migration functions
+                -> TypeName                     -- ^ Name of the dataset's type
+                -> DataChecks                   -- ^ How thoroughly to validate changes
+                -> Value.Value                  -- ^ Dataset to be migrated
+                -> Either MigrateFailure (Value.Value, [MigrateWarning])
+migrateDataDump' startApi endApi changelog custom root chks db = do
+    let custom' = readCustomMigrations custom
+    (changes, warnings) <- validateChanges' startApi endApi changelog custom' root chks
+                                                           ?!? ValidateFailure
+    db' <- applyChangesToDatabase' root custom' db changes  ?!? uncurry ValueError
+    return (db', warnings)
 
-type MigrateWarning = ValidateWarning
 
-------------------
--- The key types
---
-
-type APIWithChangelog = (API, APIChangelog)
-
--- | An API changelog, consisting of a list of versions with the
--- changes from one version to the next.  The versions must be in
--- descending order (according to the 'Ord' 'Version' instance).
-data APIChangelog =
-     -- | The changes from the previous version up to this version.
-     ChangesUpTo VersionExtra [APIChange] APIChangelog
-     -- | The initial version
-   | ChangesStart Version
-    deriving (Eq, Show)
-
--- | A single change within a changelog
-data APIChange
-    = ChAddType       TypeName NormTypeDecl
-    | ChDeleteType    TypeName
-    | ChRenameType    TypeName TypeName
-
-      -- Specific changes for record types
-    | ChAddField      TypeName FieldName APIType (Maybe DefaultValue)
-    | ChDeleteField   TypeName FieldName
-    | ChRenameField   TypeName FieldName FieldName
-    | ChChangeField   TypeName FieldName APIType MigrationTag
-
-      -- Changes for union types
-    | ChAddUnionAlt    TypeName FieldName APIType
-    | ChDeleteUnionAlt TypeName FieldName
-    | ChRenameUnionAlt TypeName FieldName FieldName
-
-      -- Changes for enum types
-    | ChAddEnumVal    TypeName FieldName
-    | ChDeleteEnumVal TypeName FieldName
-    | ChRenameEnumVal TypeName FieldName FieldName
-
-      -- Custom migrations
-    | ChCustomType    TypeName MigrationTag
-    | ChCustomAll     MigrationTag
-    deriving (Eq, Show)
-
--- | Within the changelog, custom migrations are represented as
--- strings, so we have less type-safety.
-type MigrationTag = String
 
 -- | Custom migrations used in the changelog must be implemented in
 -- Haskell, and supplied in this record.  There are three kinds:
@@ -180,17 +145,17 @@ type MigrationTag = String
 -- the enumeration types generated by 'generateMigrationKinds', which
 -- correspond to the exact set of custom migration tags used in the
 -- changelog.
-data CustomMigrations db ty fld = CustomMigrations
-    { databaseMigration       :: db -> JS.Object -> Either ValueError JS.Object
+data CustomMigrations o v db ty fld = CustomMigrations
+    { databaseMigration       :: db -> o -> Either ValueError o
     , databaseMigrationSchema :: db -> NormAPI -> Either ApplyFailure (Maybe NormAPI)
-    , typeMigration           :: ty -> JS.Value -> Either ValueError JS.Value
+    , typeMigration           :: ty -> v -> Either ValueError v
     , typeMigrationSchema     :: ty -> NormTypeDecl -> Either ApplyFailure (Maybe NormTypeDecl)
-    , fieldMigration          :: fld -> JS.Value -> Either ValueError JS.Value }
+    , fieldMigration          :: fld -> v -> Either ValueError v }
 
-type CustomMigrationsTagged = CustomMigrations MigrationTag MigrationTag MigrationTag
+type CustomMigrationsTagged o v = CustomMigrations o v MigrationTag MigrationTag MigrationTag
 
 readCustomMigrations :: (Read db, Read ty, Read fld)
-                     => CustomMigrations db ty fld -> CustomMigrationsTagged
+                     => CustomMigrations o v db ty fld -> CustomMigrationsTagged o v
 readCustomMigrations (CustomMigrations db dbs r rs f) =
     CustomMigrations (db . read) (dbs . read) (r . read) (rs . read) (f . read)
 
@@ -199,6 +164,11 @@ mkRecordMigration :: (JS.Object -> Either ValueError JS.Object)
                   -> (JS.Value  -> Either ValueError JS.Value)
 mkRecordMigration f (JS.Object o) = JS.Object <$> f o
 mkRecordMigration _ v             = Left $ JSONError $ expectedObject v
+
+mkRecordMigration' :: (Record -> Either ValueError Record)
+                   -> (Value  -> Either ValueError Value)
+mkRecordMigration' f (Record xs) = Record <$> f xs
+mkRecordMigration' _ v           = Left $ JSONError $ expectedObject (JS.toJSON v)
 
 -- | Lift a schema change on record types to work on arbitrary type declarations
 mkRecordMigrationSchema :: TypeName
@@ -238,20 +208,6 @@ validateAfter chks _                  = chks >= CheckAll
 --------------------
 -- Changelog utils
 --
-
--- | Represents either a released version (with a version number) or
--- the version under development, which is newer than any release
-data VersionExtra = Release Version
-                  | DevVersion
-  deriving (Eq, Ord, Show)
-
-showVersionExtra :: VersionExtra -> String
-showVersionExtra (Release v) = showVersion v
-showVersionExtra DevVersion  = "development"
-
-instance PP VersionExtra where
-  pp = showVersionExtra
-
 
 -- | The earliest version in the changelog
 changelogStartVersion :: APIChangelog -> Version
@@ -308,28 +264,6 @@ changeTags _                       = (Set.empty, Set.empty, Set.empty)
 -- Representing update positions
 --
 
--- | Represents the positions in a declaration to apply an update
-data UpdateDeclPos
-    = UpdateHere   (Maybe UpdateDeclPos)
-    | UpdateRecord (Map FieldName (Maybe UpdateTypePos))
-    | UpdateUnion  (Map FieldName (Maybe UpdateTypePos))
-    | UpdateType   UpdateTypePos
-    deriving (Eq, Show)
-
--- | Represents the positions in a type to apply an update
-data UpdateTypePos
-    = UpdateList UpdateTypePos
-    | UpdateMaybe UpdateTypePos
-    | UpdateNamed TypeName
-    deriving (Eq, Show)
-
-data APITableChange
-      -- | The pair of an APIChange and the positions in which to apply it
-    = APIChange APIChange (Map TypeName UpdateDeclPos)
-      -- | Request to validate the dataset against the given API
-    | ValidateData NormAPI
-    deriving (Eq, Show)
-
 -- | Given a type to be modified, find the positions in which each
 -- type in the API must be updated
 findUpdatePos :: TypeName -> NormAPI -> Map TypeName UpdateDeclPos
@@ -367,70 +301,13 @@ findUpdatePos tname api = Map.alter (Just . UpdateHere) tname $
 -- Validating API changes
 --
 
--- | Errors that may be discovered when validating a changelog
-data ValidateFailure
-        -- | the changelog must be in descending order of versions
-    = ChangelogOutOfOrder { vfLaterVersion   :: VersionExtra
-                          , vfEarlierVersion :: VersionExtra }
-        -- | forbid migrating from one version to an earlier version
-    | CannotDowngrade { vfFromVersion :: VersionExtra
-                      , vfToVersion   :: VersionExtra }
-        -- | an API uses types that are not declared
-    | ApiInvalid { vfInvalidVersion      :: VersionExtra
-                 , vfMissingDeclarations :: Set TypeName }
-        -- | changelog entry does not apply
-    | ChangelogEntryInvalid { vfSuccessfullyApplied :: [APITableChange]
-                            , vfFailedToApply       :: APIChange
-                            , vfApplyFailure        :: ApplyFailure }
-        -- | changelog is incomplete
-        --   (ie all entries apply ok but result isn't the target api)
-    | ChangelogIncomplete { vfChangelogVersion :: VersionExtra
-                          , vfTargetVersion    :: VersionExtra
-                          , vfDifferences      :: Map TypeName (MergeResult NormTypeDecl NormTypeDecl) }
-  deriving (Eq, Show)
-
-data ValidateWarning = ValidateWarning -- add warnings about bits we cannot check (opaque custom)
-  deriving Show
-
--- | Errors that may occur applying a single API change
-data ApplyFailure
-    = TypeExists           { afExistingType  :: TypeName }     -- ^ for adding or renaming type
-    | TypeDoesNotExist     { afMissingType   :: TypeName }     -- ^ for deleting or renaming a type
-    | TypeWrongKind        { afTypeName      :: TypeName
-                           , afExpectedKind  :: TypeKind }     -- ^ e.g. it's not a record type
-    | TypeInUse            { afTypeName      :: TypeName }     -- ^ cannot delete/modify types that are still used
-    | TypeMalformed        { afType          :: APIType
-                           , afMissingTypes  :: Set TypeName } -- ^ type refers to a non-existent type
-    | DeclMalformed        { afTypeName      :: TypeName
-                           , afDecl          :: NormTypeDecl
-                           , afMissingTypes  :: Set TypeName } -- ^ decl refers to a non-existent type
-    | FieldExists          { afTypeName      :: TypeName
-                           , afTypeKind      :: TypeKind
-                           , afExistingField :: FieldName }    -- ^ for adding or renaming a field
-    | FieldDoesNotExist    { afTypeName      :: TypeName
-                           , afTypeKind      :: TypeKind
-                           , afMissingField  :: FieldName }    -- ^ for deleting or renaming a field
-    | FieldBadDefaultValue { afTypeName      :: TypeName
-                           , afFieldName     :: FieldName
-                           , afFieldType     :: APIType
-                           , afBadDefault    :: DefaultValue } -- ^ for adding a field, must be a default
-                                                               --   value compatible with the type
-    | DefaultMissing       { afTypeName      :: TypeName
-                           , afFieldName     :: FieldName }    -- ^ for adding a field to a table
-    | TableChangeError     { afCustomMessage :: String }       -- ^ custom error in tableChange
-  deriving (Eq, Show)
-
-data TypeKind = TKRecord | TKUnion | TKEnum | TKNewtype | TKTypeSynonym
-  deriving (Eq, Show)
-
-
 -- | Check that a changelog adequately describes how to migrate from
 -- one version to another.
 validateChanges :: (Read db, Read rec, Read fld)
                 => (API, Version)              -- ^ Starting schema and version
                 -> (API, VersionExtra)         -- ^ Ending schema and version
                 -> APIChangelog                -- ^ Changelog to be validated
-                -> CustomMigrations db rec fld -- ^ Custom migration functions
+                -> CustomMigrations o v db rec fld -- ^ Custom migration functions
                 -> TypeName                    -- ^ Name of the dataset's type
                 -> DataChecks                  -- ^ How thoroughly to validate changes
                 -> Either ValidateFailure [ValidateWarning]
@@ -443,7 +320,7 @@ validateChanges (api,ver) (api',ver') clog custom root chks = snd <$>
 validateChanges' :: (API, Version)         -- ^ Starting schema and version
                  -> (API, VersionExtra)    -- ^ Ending schema and version
                  -> APIChangelog           -- ^ Changelog to be validated
-                 -> CustomMigrationsTagged -- ^ Custom migration functions
+                 -> CustomMigrationsTagged o v -- ^ Custom migration functions
                  -> TypeName               -- ^ Name of the dataset's type
                  -> DataChecks             -- ^ How thoroughly to validate changes
                  -> Either ValidateFailure ([APITableChange], [ValidateWarning])
@@ -482,7 +359,7 @@ selectChanges clog ver ver'
 -- a list of the changes with appropriate TableChanges interspersed.
 -- On failure, return the list of successfully applied changes, the
 -- change that failed and the reason for the failure.
-applyAPIChangesToAPI :: TypeName -> CustomMigrationsTagged -> DataChecks
+applyAPIChangesToAPI :: TypeName -> CustomMigrationsTagged o v -> DataChecks
                      -> [APIChange] -> NormAPI
                      -> Either ValidateFailure (NormAPI, [APITableChange])
 applyAPIChangesToAPI root custom chks changes api = do
@@ -495,13 +372,13 @@ applyAPIChangesToAPI root custom chks changes api = do
     addV a cs                      = ValidateData a : cs
 
 -- | Apply the API change
-doChangeAPI :: TypeName -> CustomMigrationsTagged -> DataChecks
+doChangeAPI :: TypeName -> CustomMigrationsTagged o v -> DataChecks
             -> (NormAPI, [APITableChange]) -> APIChange
             -> Either ValidateFailure (NormAPI, [APITableChange])
 doChangeAPI root custom chks (api, changes) change = do
     (api', pos) <- applyAPIChangeToAPI root custom change api
                        ?!? ChangelogEntryInvalid changes change
-    let changes' = APIChange change pos : changes
+    let changes' = APIChange api change pos : changes
         changes'' | validateAfter chks change = ValidateData api' : changes'
                   | otherwise                 = changes'
     return (api', changes'')
@@ -511,7 +388,7 @@ doChangeAPI root custom chks (api, changes) change = do
 -- each change in that context, and that we end up with the API we expect
 -- and (2) getting the intermediate APIs during data migration, because we need
 -- the schema of the intermediate data as part of applying the migration.
-applyAPIChangeToAPI :: TypeName -> CustomMigrationsTagged -> APIChange -> NormAPI
+applyAPIChangeToAPI :: TypeName -> CustomMigrationsTagged o v -> APIChange -> NormAPI
                     -> Either ApplyFailure (NormAPI, Map TypeName UpdateDeclPos)
 
 applyAPIChangeToAPI _ _ (ChAddType tname tdecl) api = do
@@ -636,9 +513,6 @@ applyAPIChangeToAPI root custom (ChCustomAll tag) api = do
          , Map.singleton root (UpdateHere Nothing))
 
 
-lookupType :: TypeName -> NormAPI -> Either ApplyFailure NormTypeDecl
-lookupType tname api = Map.lookup tname api ?! TypeDoesNotExist tname
-
 expectRecordType :: NormTypeDecl -> Maybe (Map FieldName APIType)
 expectRecordType (NRecordType rinfo) = Just rinfo
 expectRecordType _                   = Nothing
@@ -661,16 +535,16 @@ expectEnumType _                 = Nothing
 -- We assume the changes have already been validated, and that the data
 -- matches the API.
 --
-applyChangesToDatabase :: TypeName -> CustomMigrationsTagged
+applyChangesToDatabase :: TypeName -> CustomMigrationsTagged JS.Object JS.Value
                        -> JS.Value -> [APITableChange]
                        -> Either (ValueError, Position) JS.Value
 applyChangesToDatabase root custom = foldM (applyChangeToDatabase root custom)
   -- just apply each of the individual changes in sequence to the whole dataset
 
-applyChangeToDatabase :: TypeName -> CustomMigrationsTagged
+applyChangeToDatabase :: TypeName -> CustomMigrationsTagged JS.Object JS.Value
                       -> JS.Value -> APITableChange
                       -> Either (ValueError, Position) JS.Value
-applyChangeToDatabase root custom v (APIChange c upds) =
+applyChangeToDatabase root custom v (APIChange _ c upds) =
     updateTypeAt upds (applyChangeToData c custom) (UpdateNamed root) v []
 applyChangeToDatabase root _      v (ValidateData api) = do
     dataMatchesNormAPI root api v
@@ -704,38 +578,36 @@ updateTypeAt upds alter (UpdateNamed tname) v p = case Map.lookup tname upds of
 
 -- | This actually applies the change to the data value, assuming it
 -- is already in the correct place
-applyChangeToData :: APIChange -> CustomMigrationsTagged
+applyChangeToData :: APIChange -> CustomMigrationsTagged JS.Object JS.Value
                   -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 
 applyChangeToData (ChAddField tname fname ftype mb_defval) _ =
   case mb_defval <|> defaultValueForType ftype of
     Just defval -> let newFieldValue = defaultValueAsJsValue defval
-                   in withObject (\ v _ -> pure $ HMap.insert (fieldKey fname) newFieldValue v)
+                   in withObject (\ v _ -> pure $ HMap.insert (_FieldName fname) newFieldValue v)
     Nothing     -> \ _ p -> Left (InvalidAPI (DefaultMissing tname fname), p)
 
 applyChangeToData (ChDeleteField _ fname) _ =
-    withObject (\ v _ -> pure $ HMap.delete (fieldKey fname) v)
+    withObject (\ v _ -> pure $ HMap.delete (_FieldName fname) v)
 
 applyChangeToData (ChRenameField _ fname fname') _ =
-    withObject $ \rec p -> case HMap.lookup k_fname rec of
-                           Just field -> renameField field rec
-                           Nothing    -> Left (JSONError MissingField, InField k_fname : p)
+    withObject $ \rec p -> case HMap.lookup (_FieldName fname) rec of
+                           Just field -> rename field rec
+                           Nothing    -> Left (JSONError MissingField, inField fname : p)
   where
-    k_fname       = fieldKey fname
-    k_fname'      = fieldKey fname'
-    renameField x = pure . HMap.insert k_fname' x . HMap.delete k_fname
+    rename x = pure . HMap.insert (_FieldName fname') x . HMap.delete (_FieldName fname)
 
 applyChangeToData (ChChangeField _ fname _ftype tag) custom =
-    withObjectField (fieldKey fname) (liftMigration $ fieldMigration custom tag)
+    withObjectField (_FieldName fname) (liftMigration $ fieldMigration custom tag)
 
 applyChangeToData (ChRenameUnionAlt _ fname fname') _ = withObject $ \un p ->
     case HMap.toList un of
-        [(k, r)] | k == fieldKey fname -> return $ HMap.singleton (fieldKey fname') r
-                 | otherwise           -> return un
+        [(k, r)] | k == _FieldName fname -> return $ HMap.singleton (_FieldName fname') r
+                 | otherwise             -> return un
         _ -> Left (JSONError $ SyntaxError "Not singleton", p)
 
 applyChangeToData (ChRenameEnumVal _ fname fname') _ = withString $ \s _ ->
-    if s == fieldKey fname then return (fieldKey fname')
+    if s == _FieldName fname then return (_FieldName fname')
                            else return s
 
 applyChangeToData (ChCustomType _ tag)   custom = liftMigration $ typeMigration custom tag
@@ -754,16 +626,118 @@ liftMigration :: (a -> Either ValueError b)
                  -> (a -> Position -> Either (ValueError, Position) b)
 liftMigration f v p = f v ?!? flip (,) p
 
+
+---------------------------------------------------------------------
+-- Performing data transformation (new generic value representation)
+--
+
+applyChangesToDatabase' :: TypeName -> CustomMigrationsTagged Record Value
+                        -> Value.Value -> [APITableChange]
+                        -> Either (ValueError, Position) Value.Value
+applyChangesToDatabase' root custom = foldM (applyChangeToDatabase' root custom)
+  -- just apply each of the individual changes in sequence to the whole dataset
+
+applyChangeToDatabase' :: TypeName -> CustomMigrationsTagged Record Value
+                       -> Value.Value -> APITableChange
+                       -> Either (ValueError, Position) Value.Value
+applyChangeToDatabase' root custom v (APIChange api c upds) =
+    updateTypeAt' upds (applyChangeToData' api c custom) (UpdateNamed root) v []
+applyChangeToDatabase' root _      v (ValidateData api) = do
+    matchesNormAPI api (TyName root) v []
+    return v
+
+
+-- | Apply an update at the given position in a declaration's value
+updateDeclAt' :: Map TypeName UpdateDeclPos
+              -> (Value.Value -> Position -> Either (ValueError, Position) Value.Value)
+              -> UpdateDeclPos
+              -> Value.Value -> Position -> Either (ValueError, Position) Value.Value
+updateDeclAt' _    alter (UpdateHere Nothing)    v p = alter v p
+updateDeclAt' upds alter (UpdateHere (Just upd)) v p = flip alter p =<< updateDeclAt' upds alter upd v p
+updateDeclAt' upds alter (UpdateRecord upd_flds) v p = do
+    xs <- expectRecord v p
+    Record <$!> mapM update xs
+  where
+    update x@(Field fn v') = case Map.lookup fn upd_flds of
+        Just Nothing    -> pure x
+        Just (Just utp) -> Field fn <$!> updateTypeAt' upds alter utp v' (inField fn : p)
+        Nothing         -> Left (JSONError UnexpectedField, inField fn : p)
+updateDeclAt' upds alter (UpdateUnion upd_alts)  v p = do
+    (fn, v') <- expectUnion v p
+    case Map.lookup fn upd_alts of
+        Just Nothing    -> pure v
+        Just (Just utp) -> Union fn <$!> updateTypeAt' upds alter utp v' (inField fn : p)
+        Nothing         -> Left (JSONError UnexpectedField, inField fn : p)
+updateDeclAt' upds alter (UpdateType upd)        v p = updateTypeAt' upds alter upd v p
+
+-- | Apply an update at the given position in a type's value
+updateTypeAt' :: Map TypeName UpdateDeclPos
+             -> (Value.Value -> Position -> Either (ValueError, Position) Value.Value)
+             -> UpdateTypePos
+             -> Value.Value -> Position -> Either (ValueError, Position) Value.Value
+updateTypeAt' upds alter (UpdateList upd)    v p = do
+    xs <- expectList v p
+    List <$!> mapM (\ (i, v') -> updateTypeAt' upds alter upd v' (InElem i : p)) (zip [0..] xs)
+updateTypeAt' upds alter (UpdateMaybe upd)   v p = do
+    mb <- expectMaybe v p
+    case mb of
+      Nothing -> pure v
+      Just v' -> Maybe . Just <$!> updateTypeAt' upds alter upd v' p
+updateTypeAt' upds alter (UpdateNamed tname) v p = case Map.lookup tname upds of
+    Just upd -> updateDeclAt' upds alter upd v p
+    Nothing  -> pure v
+
+
+-- | This actually applies the change to the data value, assuming it
+-- is already in the correct place
+applyChangeToData' :: NormAPI -> APIChange -> CustomMigrationsTagged Record Value
+                  -> Value.Value -> Position -> Either (ValueError, Position) Value.Value
+
+applyChangeToData' api (ChAddField tname fname ftype mb_defval) _ v p =
+  case mb_defval <|> defaultValueForType ftype of
+    Just defval -> case fromDefaultValue api ftype defval of
+                     Just v' -> Record . insertField fname v' <$!> expectRecord v p
+                     Nothing -> Left (InvalidAPI (FieldBadDefaultValue tname fname ftype defval), p)
+    Nothing -> Left (InvalidAPI (DefaultMissing tname fname), p)
+
+applyChangeToData' _ (ChDeleteField _ fname) _ v p =
+    Record . deleteField fname <$!> expectRecord v p
+
+applyChangeToData' _ (ChRenameField _ fname fname') _ v p =
+    Record . renameField fname fname' <$!> expectRecord v p
+
+applyChangeToData' _ (ChChangeField _ fname _ftype tag) custom v p = do
+    xs <- expectRecord v p
+    case findField fname xs of
+        Just (ys, v', zs)  -> do v'' <- liftMigration (fieldMigration custom tag) v' (inField fname:p)
+                                 pure (Record (joinRecords ys fname v'' zs))
+        Nothing            -> Left (JSONError MissingField, inField fname : p)
+
+applyChangeToData' _ (ChRenameUnionAlt _ fname fname') _ v p = do
+    (fn, v') <- expectUnion v p
+    pure $! if fn == fname then Union fname' v' else v
+
+applyChangeToData' _ (ChRenameEnumVal _ fname fname') _ v p = do
+    fn <- expectEnum v p
+    pure $! if fn == fname then Enum fname' else v
+
+applyChangeToData' _ (ChCustomType _ tag)   custom v p = liftMigration (typeMigration custom tag) v p
+applyChangeToData' _ (ChCustomAll tag)      custom v p = do
+    xs <- expectRecord v p
+    Record <$!> liftMigration (databaseMigration custom tag) xs p
+
+applyChangeToData' _ (ChAddType _ _)        _ v _ = pure v
+applyChangeToData' _ (ChDeleteType _)       _ v _ = pure v
+applyChangeToData' _ (ChRenameType _ _)     _ v _ = pure v
+applyChangeToData' _ (ChAddUnionAlt _ _ _)  _ v _ = pure v
+applyChangeToData' _ (ChDeleteUnionAlt _ _) _ v _ = pure v
+applyChangeToData' _ (ChAddEnumVal _ _)     _ v _ = pure v
+applyChangeToData' _ (ChDeleteEnumVal _ _)  _ v _ = pure v
+
+
 -------------------------------------
 -- Utils for manipulating JS.Values
 --
-
--- | Errors that can be discovered when migrating data values
-data ValueError
-    = JSONError JSONError                  -- ^ Data doesn't match schema
-    | CustomMigrationError String JS.Value -- ^ Error generated during custom migration
-    | InvalidAPI ApplyFailure              -- ^ An API change was invalid
-    deriving (Eq, Show)
 
 withObject :: (JS.Object -> Position -> Either (ValueError, Position) JS.Object)
            -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
@@ -784,7 +758,7 @@ withObjectMatchingFields :: Map FieldName a
                          -> (a -> JS.Value -> Position -> Either (ValueError, Position) JS.Value)
                          -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 withObjectMatchingFields m f (JS.Object obj) p = do
-    zs <- matchMaps (Map.mapKeys fieldKey m) (hmapToMap obj) ?!? toErr
+    zs <- matchMaps (Map.mapKeys _FieldName m) (hmapToMap obj) ?!? toErr
     obj' <- Map.traverseWithKey (\ k (ty, val) -> (f ty val (InField k : p))) zs
     return $ JS.Object $ mapToHMap obj'
   where
@@ -802,7 +776,7 @@ withObjectMatchingUnion :: Map FieldName a
                          -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 withObjectMatchingUnion m f (JS.Object obj) p
   | [(k, r)] <- HMap.toList obj
-  = do x  <- Map.lookup (fromFieldKey k) m ?! (JSONError UnexpectedField, InField k : p)
+  = do x  <- Map.lookup (FieldName k) m ?! (JSONError UnexpectedField, InField k : p)
        r' <- f x r (InField k : p)
        return $ JS.Object $ HMap.singleton k r'
 withObjectMatchingUnion _ _ _ p = Left (JSONError $ SyntaxError "Not singleton", p)
@@ -824,38 +798,9 @@ withString :: (T.Text -> Position -> Either (ValueError, Position) T.Text)
 withString alter (JS.String s) p = JS.String <$> alter s p
 withString _     v             p = Left (JSONError $ expectedString v, p)
 
-fieldKey :: FieldName -> T.Text
-fieldKey (FieldName fname) = T.pack fname
-
-fromFieldKey :: T.Text -> FieldName
-fromFieldKey = FieldName . T.unpack
 
 compatibleDefaultValue :: NormAPI -> APIType -> DefaultValue -> Bool
-compatibleDefaultValue _   (TyList  _) DefValList  = True
-compatibleDefaultValue _   (TyMaybe _) DefValMaybe = True
-compatibleDefaultValue api (TyMaybe ty)    defval  = compatibleDefaultValue api ty defval
-compatibleDefaultValue _   (TyBasic bt)    defval  =
-    compatibleBasicDefaultValue bt defval
-compatibleDefaultValue _   TyJSON          _       = True
-compatibleDefaultValue env (TyName tname)  defval  =
-    case Map.lookup tname env of
-      Just (NTypeSynonym t) -> compatibleDefaultValue env t defval
-      Just (NNewtype    bt) -> compatibleBasicDefaultValue bt defval
-      Just (NEnumType vals) -> case defval of
-                                 DefValString s -> fromFieldKey s `Set.member` vals
-                                 _              -> False
-      _                     -> False
-compatibleDefaultValue _ _ _ = False
-
-compatibleBasicDefaultValue :: BasicType -> DefaultValue -> Bool
-compatibleBasicDefaultValue BTstring (DefValString _) = True
-compatibleBasicDefaultValue BTbinary (DefValString v) = case B64.decode (B.pack (T.unpack v)) of
-                                                           Left _  -> False
-                                                           Right _ -> True
-compatibleBasicDefaultValue BTbool   (DefValBool _)   = True
-compatibleBasicDefaultValue BTint    (DefValInt _)    = True
-compatibleBasicDefaultValue BTutc    (DefValUtc _)    = True
-compatibleBasicDefaultValue _         _                = False
+compatibleDefaultValue api ty dv = isJust (fromDefaultValue api ty dv)
 
 -- | Check if there is a "default" default value for a field of the
 -- given type: list and maybe have @[]@ and @nothing@ respectively.
@@ -884,7 +829,7 @@ dataMatchesNormAPI root api db = void $ valueMatches (TyName root) db []
     declMatches (NRecordType flds) = withObjectMatchingFields flds valueMatches
     declMatches (NUnionType alts)  = withObjectMatchingUnion  alts valueMatches
     declMatches (NEnumType vals)   = withString $ \ s p ->
-        if fromFieldKey s `Set.member` vals
+        if FieldName s `Set.member` vals
            then return s
            else Left (JSONError UnexpectedField, InField s : p)
     declMatches (NTypeSynonym t)   = valueMatches t
@@ -913,196 +858,6 @@ dataMatchesNormAPI root api db = void $ valueMatches (TyName root) db []
                             Left []          -> Left (JSONError $ SyntaxError "expectDecodes", p)
 
 type Decode t = JS.Value -> Either [(JSONError, Position)] t
-
--------------------------------------
--- Utils for merging and diffing maps
---
-
-data MergeResult a b = OnlyInLeft a | InBoth a b | OnlyInRight b
-  deriving (Eq, Show)
-
-mergeMaps :: Ord k => Map k a -> Map k b -> Map k (MergeResult a b)
-mergeMaps m1 m2 = Map.unionWith (\(OnlyInLeft a) (OnlyInRight b) -> InBoth a b)
-                      (fmap OnlyInLeft m1) (fmap OnlyInRight m2)
-
-diffMaps :: (Eq a, Ord k) => Map k a -> Map k a -> Map k (MergeResult a a)
-diffMaps m1 m2 = Map.filter different $ mergeMaps m1 m2
-  where
-    different (InBoth a b) = a /= b
-    different _            = True
-
--- Attempts to match the keys of the maps to produce a map from keys
--- to pairs.
-matchMaps :: Ord k => Map k a -> Map k b -> Either (k, Either a b) (Map k (a, b))
-matchMaps m1 m2 = Map.traverseWithKey win $ mergeMaps m1 m2
-  where
-    win _ (InBoth x y)    = return (x, y)
-    win k (OnlyInLeft x)  = Left (k, Left x)
-    win k (OnlyInRight x) = Left (k, Right x)
-
-
--------------------------------------
--- Pretty-printing
---
-
-prettyMigrateFailure :: MigrateFailure -> String
-prettyMigrateFailure = unlines . ppLines
-
-prettyValidateFailure :: ValidateFailure -> String
-prettyValidateFailure = unlines . ppLines
-
-prettyValueError :: ValueError -> String
-prettyValueError = unlines . ppLines
-
-prettyValueErrorPosition :: (ValueError, Position) -> String
-prettyValueErrorPosition = unlines . ppLines
-
-
-instance PP TypeKind where
-  pp TKRecord      = "record"
-  pp TKUnion       = "union"
-  pp TKEnum        = "enum"
-  pp TKNewtype     = "newtype"
-  pp TKTypeSynonym = "type"
-
-ppATypeKind :: TypeKind -> String
-ppATypeKind TKRecord      = "a record"
-ppATypeKind TKUnion       = "a union"
-ppATypeKind TKEnum        = "an enum"
-ppATypeKind TKNewtype     = "a newtype"
-ppATypeKind TKTypeSynonym = "a type synonym"
-
-ppMemberWord :: TypeKind -> String
-ppMemberWord TKRecord      = "field"
-ppMemberWord TKUnion       = "alternative"
-ppMemberWord TKEnum        = "value"
-ppMemberWord TKNewtype     = "member"
-ppMemberWord TKTypeSynonym = "member"
-
-
-instance PPLines APIChange where
-  ppLines (ChAddType t d)           = ("added " ++ pp t ++ " ") `inFrontOf` ppLines d
-  ppLines (ChDeleteType t)          = ["removed " ++ pp t]
-  ppLines (ChRenameType t t')       = ["renamed " ++ pp t ++ " to " ++ pp t']
-  ppLines (ChAddField t f ty mb_v)  = [ "changed record " ++ pp t
-                                      , "  field added " ++ pp f ++ " :: " ++ pp ty
-                                        ++ maybe "" (\ v -> " default " ++ pp v) mb_v]
-  ppLines (ChDeleteField t f)       = ["changed record " ++ pp t, "  field removed " ++ pp f]
-  ppLines (ChRenameField t f f')    = [ "changed record " ++ pp t
-                                      , "  field renamed " ++ pp f ++ " to " ++ pp f']
-  ppLines (ChChangeField t f ty c)  = [ "changed record " ++ pp t
-                                      , "  field changed " ++ pp f ++ " :: " ++ pp ty
-                                        ++ " migration " ++ pp c]
-  ppLines (ChAddUnionAlt t f ty)    = [ "changed union " ++ pp t
-                                      , "  alternative added " ++ pp f ++ " :: " ++ pp ty]
-  ppLines (ChDeleteUnionAlt t f)    = [ "changed union " ++ pp t
-                                      , "  alternative removed " ++ pp f]
-  ppLines (ChRenameUnionAlt t f f') = [ "changed union " ++ pp t
-                                      , "  alternative renamed " ++ pp f ++ " to " ++ pp f']
-  ppLines (ChAddEnumVal t f)        = [ "changed enum " ++ pp t
-                                      , "  alternative added " ++ pp f]
-  ppLines (ChDeleteEnumVal t f)     = [ "changed enum " ++ pp t
-                                      , "  alternative removed " ++ pp f]
-  ppLines (ChRenameEnumVal t f f')  = [ "changed enum " ++ pp t
-                                      , "  alternative renamed " ++ pp f ++ " to " ++ pp f']
-  ppLines (ChCustomType t c)        = ["migration record " ++ pp t ++ " " ++ pp c]
-  ppLines (ChCustomAll c)           = ["migration " ++ pp c]
-
-instance PPLines MigrateFailure where
-  ppLines (ValidateFailure x) = ppLines x
-  ppLines (ValueError x ps)   = ppLines x ++ map prettyStep ps
-
-instance PPLines ValidateFailure where
-  ppLines (ChangelogOutOfOrder later earlier) =
-      ["Changelog out of order: version " ++ pp later
-           ++ " appears after version " ++ pp earlier]
-  ppLines (CannotDowngrade from to) =
-      ["Cannot downgrade from version " ++ pp from
-           ++ " to version " ++ pp to]
-  ppLines (ApiInvalid ver missing) =
-      ["Missing declarations in API version " ++ pp ver ++ ": " ++ pp missing]
-  ppLines (ChangelogEntryInvalid succs change af) =
-      ppLines af ++ ("when applying the change" : indent (ppLines change))
-          ++ if not (null succs)
-             then "after successfully applying the changes:"
-                  : indent (ppLines succs)
-             else []
-  ppLines (ChangelogIncomplete ver ver' diffs) =
-      ("Changelog incomplete! Differences between log version ("
-           ++ showVersionExtra ver ++ ") and latest version (" ++ showVersionExtra ver' ++ "):")
-      : indent (ppDiffs diffs)
-
-instance PPLines APITableChange where
-  ppLines (APIChange c _)  = ppLines c
-  ppLines (ValidateData _) = []
-
-ppDiffs :: Map TypeName (MergeResult NormTypeDecl NormTypeDecl) -> [String]
-ppDiffs  = concatMap (uncurry ppDiff) . sortDiffs . Map.toList
-
--- | Perform a topological sort of the differences, so that the
--- pretty-printed form can be copied directly into the changelog.
-sortDiffs :: [(TypeName, MergeResult NormTypeDecl NormTypeDecl)]
-          -> [(TypeName, MergeResult NormTypeDecl NormTypeDecl)]
-sortDiffs = reverse . Graph.flattenSCCs . Graph.stronglyConnComp . map f
-  where
-    f (tn, mr) = ((tn, mr), tn, Set.toList (mergeResultFreeVars mr))
-
-mergeResultFreeVars :: MergeResult NormTypeDecl NormTypeDecl -> Set TypeName
-mergeResultFreeVars (OnlyInLeft  x) = typeDeclFreeVars x
-mergeResultFreeVars (OnlyInRight x) = typeDeclFreeVars x
-mergeResultFreeVars (InBoth x y)    = typeDeclFreeVars x `Set.union` typeDeclFreeVars y
-
-ppDiff :: TypeName -> MergeResult NormTypeDecl NormTypeDecl -> [String]
-ppDiff t (OnlyInLeft _)  = ["removed " ++ pp t]
-ppDiff t (OnlyInRight d) = ("added " ++ pp t ++ " ") `inFrontOf` ppLines d
-ppDiff t (InBoth (NRecordType flds) (NRecordType flds')) =
-    ("changed record " ++ pp t)
-    : (concatMap (uncurry (ppDiffFields "field")) $ Map.toList $ diffMaps flds flds')
-ppDiff t (InBoth (NUnionType alts) (NUnionType alts')) =
-    ("changed union " ++ pp t)
-    : (concatMap (uncurry (ppDiffFields "alternative")) $ Map.toList $ diffMaps alts alts')
-ppDiff t (InBoth (NEnumType vals) (NEnumType vals')) =
-    ("changed enum " ++ pp t)
-    :  (map (\ x -> "  alternative removed " ++ pp x) $ Set.toList $ vals  Set.\\ vals')
-    ++ (map (\ x -> "  alternative added " ++ pp x)   $ Set.toList $ vals' Set.\\ vals)
-ppDiff t (InBoth _ _) = ["incompatible definitions of " ++ pp t]
-
-ppDiffFields :: String -> FieldName -> MergeResult APIType APIType -> [String]
-ppDiffFields s f (OnlyInLeft _)   = ["  " ++ s ++ " removed " ++ pp f]
-ppDiffFields s f (OnlyInRight ty) = ["  " ++ s ++ " added " ++ pp f ++ " :: " ++ pp ty]
-ppDiffFields s f (InBoth ty ty')   = [ "  incompatible types for " ++ s ++ " " ++ pp f
-                                     , "    changelog type:      " ++ pp ty
-                                     , "    latest version type: " ++ pp ty' ]
-
-
-instance PPLines ApplyFailure where
-  ppLines (TypeExists t)                  = ["Type " ++ pp t ++ " already exists"]
-  ppLines (TypeDoesNotExist t)            = ["Type " ++ pp t ++ " does not exist"]
-  ppLines (TypeWrongKind t k)             = ["Type " ++ pp t ++ " is not " ++ ppATypeKind k]
-  ppLines (TypeInUse t)                   = ["Type " ++ pp t ++ " is in use, so it cannot be modified"]
-  ppLines (TypeMalformed ty xs)           = ["Type " ++ pp ty
-                                             ++ " is malformed, missing declarations:"
-                                            , "  " ++ pp xs]
-  ppLines (DeclMalformed t _ xs)          = [ "Declaration of " ++ pp t
-                                              ++ " is malformed, missing declarations:"
-                                            , "  " ++ pp xs]
-  ppLines (FieldExists t k f)             = ["Type " ++ pp t ++ " already has the "
-                                             ++ ppMemberWord k ++ " " ++ pp f]
-  ppLines (FieldDoesNotExist t k f)       = ["Type " ++ pp t ++ " does not have the "
-                                             ++ ppMemberWord k ++ " " ++ pp f]
-  ppLines (FieldBadDefaultValue _ _ ty v) = ["Default value " ++ pp v
-                                             ++ " is not compatible with the type " ++ pp ty]
-  ppLines (DefaultMissing t f)            = ["Field " ++ pp f ++ " does not have a default value, but "
-                                             ++ pp t ++ " occurs in the database"]
-  ppLines (TableChangeError s)            = ["Error when detecting changed tables:", "  " ++ s]
-
-
-instance PPLines ValueError where
-  ppLines (JSONError e)              = [prettyJSONError e]
-  ppLines (CustomMigrationError e v) = [ "Custom migration error:", "  " ++ e
-                                       , "when migrating value"] ++ indent (ppLines v)
-  ppLines (InvalidAPI af)            = "Invalid API detected during value migration:"
-                                       : indent (ppLines af)
 
 
 -------------------------------------

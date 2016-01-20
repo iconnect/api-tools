@@ -9,7 +9,6 @@ module Data.API.PP
     ) where
 
 import           Data.API.Scan (keywords)
-import           Data.API.JSON
 import           Data.API.Types
 
 import qualified Data.Aeson                     as JS
@@ -53,11 +52,13 @@ instance PPLines JS.Value where
   ppLines v = lines $ BL.unpack $ JS.encodePretty v
 
 instance PP TypeName where
-  pp = _TypeName
+  pp = T.unpack . _TypeName
 
 instance PP FieldName where
-  pp (FieldName fn) | fn `elem` keywords = "'" ++ fn ++ "'"
-                    | otherwise          = fn
+  pp (FieldName fn_t) | fn `elem` keywords = "'" ++ fn ++ "'"
+                      | otherwise          = fn
+    where
+      fn = T.unpack fn_t
 
 instance PP APIType where
   pp (TyList  ty) = "[" ++ pp ty ++ "]"
@@ -88,6 +89,3 @@ instance PPLines t => PPLines [t] where
 
 instance (PPLines s, PPLines t) => PPLines (s, t) where
   ppLines (s, t) = ppLines s ++ ppLines t
-
-instance PPLines Step where
-  ppLines s = [prettyStep s]

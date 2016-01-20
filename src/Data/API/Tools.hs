@@ -33,6 +33,8 @@ module Data.API.Tools
     , cborTestsTool
     , cborToJSONTestsTool
     , jsonToCBORTestsTool
+    , jsonGenericValueTestsTool
+    , cborGenericValueTestsTool
     , lensTool
     , quickCheckTool
     , safeCopyTool
@@ -52,7 +54,7 @@ import           Data.API.Tools.QuickCheck
 import           Data.API.Tools.SafeCopy
 import           Data.API.Types
 
-import           Data.Monoid
+import qualified Data.Monoid                    as Monoid
 import           Language.Haskell.TH
 
 
@@ -76,4 +78,4 @@ generateAPITools = generateAPIToolsWith defaultToolSettings
 -- | Apply a list of tools to an 'API', generating TH declarations.
 -- This form allows the 'ToolSettings' to be overridden.
 generateAPIToolsWith :: ToolSettings -> API -> [APITool] -> Q [Dec]
-generateAPIToolsWith ts api tools = runTool (mconcat tools) ts api
+generateAPIToolsWith ts api tools = runTool (Monoid.mconcat tools) ts api

@@ -20,6 +20,7 @@ import qualified Data.CaseInsensitive           as CI
 import qualified Data.Text                      as T
 import           Control.Applicative
 import           Text.Regex
+import           Prelude
 
 
 -- | Take an API spec and generate a JSON description of the API
@@ -32,7 +33,7 @@ convertAPI api = [ convert an | ThNode an <- api ]
 convert :: APINode -> D.APINode
 convert (APINode{..}) =
     D.APINode
-        { D._an_name    = T.pack $ _TypeName      anName
+        { D._an_name    = _TypeName               anName
         , D._an_comment = T.pack                  anComment
         , D._an_prefix  = T.pack $ CI.original    anPrefix
         , D._an_spec    = convert_spec            anSpec
@@ -51,8 +52,8 @@ convert_spec sp =
 convert_conversion :: (FieldName,FieldName) -> D.Conversion
 convert_conversion (inj,prj) =
     D.Conversion
-        { D._cv_injection  = T.pack $ _FieldName inj
-        , D._cv_projection = T.pack $ _FieldName prj
+        { D._cv_injection  = _FieldName inj
+        , D._cv_projection = _FieldName prj
         }
 
 convert_specnt :: SpecNewtype -> D.SpecNewtype
@@ -74,7 +75,7 @@ convert_fields al = map f al
   where
     f (fn,fty) =
         D.Field
-            { D._fd_name     = T.pack $ _FieldName fn
+            { D._fd_name     = _FieldName fn
             , D._fd_type     = convert_type $ ftType fty
             , D._fd_readonly = ftReadOnly fty
             , D._fd_default  = convert_default <$> ftDefault fty
@@ -86,7 +87,7 @@ convert_union al = map f al
   where
     f (fn,(ty,co)) =
         D.Field
-            { D._fd_name     = T.pack $ _FieldName fn
+            { D._fd_name     = _FieldName fn
             , D._fd_type     = convert_type ty
             , D._fd_readonly = False
             , D._fd_default  = Nothing
@@ -94,7 +95,7 @@ convert_union al = map f al
             }
 
 convert_alts :: [(FieldName,MDComment)] -> [T.Text]
-convert_alts fns = map (T.pack . _FieldName . fst) fns
+convert_alts fns = map (_FieldName . fst) fns
 
 convert_type :: APIType -> D.APIType
 convert_type ty0 =
@@ -106,7 +107,7 @@ convert_type ty0 =
       TyJSON        -> D.TY_json    0
 
 convert_ref :: TypeName -> D.TypeRef
-convert_ref (TypeName tn) = D.TypeRef (T.pack tn)
+convert_ref (TypeName tn) = D.TypeRef tn
 
 convert_basic :: BasicType -> D.BasicType
 convert_basic bt =
@@ -138,7 +139,7 @@ unconvertAPI = map (ThNode . unconvert)
 unconvert :: D.APINode -> APINode
 unconvert (D.APINode{..}) =
     APINode
-        { anName    = TypeName $ T.unpack       _an_name
+        { anName    = TypeName                  _an_name
         , anComment = T.unpack                  _an_comment
         , anPrefix  = CI.mk $ T.unpack          _an_prefix
         , anSpec    = unconvert_spec            _an_spec
@@ -156,8 +157,8 @@ unconvert_spec sp =
 
 unconvert_conversion :: D.Conversion -> (FieldName, FieldName)
 unconvert_conversion c =
-    ( FieldName $ T.unpack $ D._cv_injection  c
-    , FieldName $ T.unpack $ D._cv_projection c
+    ( FieldName $ D._cv_injection  c
+    , FieldName $ D._cv_projection c
     )
 
 unconvert_specnt :: D.SpecNewtype -> SpecNewtype
@@ -177,7 +178,7 @@ unconvert_filter ftr =
 unconvert_fields :: [D.Field] -> [(FieldName, FieldType)]
 unconvert_fields al = map f al
   where
-    f fld = ( FieldName $ T.unpack $ D._fd_name fld
+    f fld = ( FieldName $ D._fd_name fld
             , FieldType { ftType     = unconvert_type $ D._fd_type fld
                         , ftReadOnly = D._fd_readonly fld
                         , ftDefault  = unconvert_default <$> D._fd_default fld
@@ -188,13 +189,13 @@ unconvert_fields al = map f al
 unconvert_union :: [D.Field] -> [(FieldName, (APIType, MDComment))]
 unconvert_union al = map f al
   where
-    f fld = ( FieldName $ T.unpack $ D._fd_name fld
+    f fld = ( FieldName $ D._fd_name fld
             , ( unconvert_type $ D._fd_type fld
               , T.unpack $ D._fd_comment fld
             ))
 
 unconvert_alts :: [T.Text] -> [(FieldName,MDComment)]
-unconvert_alts fns = map ((\x -> (x, "")) . FieldName . T.unpack) fns
+unconvert_alts fns = map ((\x -> (x, "")) . FieldName) fns
 
 unconvert_type :: D.APIType -> APIType
 unconvert_type ty0 =
@@ -206,7 +207,7 @@ unconvert_type ty0 =
       D.TY_json _     -> TyJSON
 
 unconvert_ref :: D.TypeRef -> TypeName
-unconvert_ref (D.TypeRef tn) = TypeName $ T.unpack tn
+unconvert_ref (D.TypeRef tn) = TypeName tn
 
 unconvert_basic :: D.BasicType -> BasicType
 unconvert_basic bt =

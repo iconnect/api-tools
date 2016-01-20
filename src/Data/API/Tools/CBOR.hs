@@ -1,8 +1,5 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE OverlappingInstances       #-}
 
 module Data.API.Tools.CBOR
     ( cborTool
@@ -21,19 +18,23 @@ import           Control.Applicative
 import           Data.Binary.Serialise.CBOR.Class
 import           Data.Binary.Serialise.CBOR.Decoding
 import           Data.Binary.Serialise.CBOR.Encoding
-import           Data.List (foldl', foldl1', sortBy)
+import           Data.Binary.Serialise.CBOR.Extra
+import           Data.List (foldl', sortBy)
 import qualified Data.Map                       as Map
 import           Data.Monoid
 import           Data.Ord (comparing)
 import qualified Data.Text                      as T
 import           Data.Time (UTCTime)
 import           Language.Haskell.TH
+import           Prelude
 
+#if !MIN_VERSION_aeson(0,8,1)
 #if MIN_VERSION_time(1,5,0)
 import Data.Time.Format (formatTime, defaultTimeLocale)
 #else
 import Data.Time.Format (formatTime)
 import System.Locale    (defaultTimeLocale)
+#endif
 #endif
 
 
@@ -192,22 +193,9 @@ encoder api (TyName tn)     = case Map.lookup tn api of
                                 Just (NTypeSynonym ty) -> encoder api ty
                                 Just _                 -> [e| encode |]
                                 Nothing                -> reportWarning ("encoder: missing type declaration for "
-                                                                            ++ _TypeName tn)
+                                                                            ++ T.unpack (_TypeName tn))
                                                        >> [e| encode |]
 encoder _ _                 = [e| encode |]
-
-encodeListWith :: (a -> Encoding) -> [a] -> Encoding
-encodeListWith _ [] = encodeListLen 0
-encodeListWith f xs = encodeListLenIndef
-                        <> foldr (\x r -> f x <> r) encodeBreak xs
-
-encodeMaybeWith :: (a -> Encoding) -> Maybe a -> Encoding
-encodeMaybeWith _ Nothing  = encodeListLen 0
-encodeMaybeWith f (Just x) = encodeListLen 1 <> f x
-
--- We can assume the record has at least 1 field.
-encodeRecordFields :: [Encoding] -> Encoding
-encodeRecordFields l = foldl1' (<>) l
 
 
 {-
@@ -237,18 +225,6 @@ gen_su_to api = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''Serialise [node
 
     alt an (fn, _) = [e| ( $(fieldNameE fn) , fmap $(nodeAltConE an fn) decode ) |]
 
--- | Encode an element of a union as single-element map from a field
--- name to a value.
-encodeUnion :: T.Text -> Encoding -> Encoding
-encodeUnion t e = encodeMapLen 1 <> encodeString t <> e
-
-decodeUnion :: [(T.Text, Decoder a)] -> Decoder a
-decodeUnion ds = do
-    _   <- decodeMapLen -- should always be 1
-    dfn <- decodeString
-    case lookup dfn ds of
-      Nothing -> fail "Unexpected field in union in CBOR"
-      Just d -> d
 
 {-
 instance Serialise FrameRate where
@@ -280,12 +256,5 @@ gen_pr = mkTool $ \ ts an -> case anConvert an of
                                                                        , simpleD 'decode bdy_out
                                                                        ]
    where
-    bdy_in = [e| encode . $prj |]
-    prj = varE $ mkName $ _FieldName prj_fn
-
-    bdy_out = [e| decode >>= $inj |]
-    inj = varE $ mkName $ _FieldName inj_fn
-
-
-fieldNameE :: FieldName -> ExpQ
-fieldNameE = stringE . _FieldName
+    bdy_in  = [e| encode . $(fieldNameVarE prj_fn) |]
+    bdy_out = [e| decode >>= $(fieldNameVarE inj_fn) |]

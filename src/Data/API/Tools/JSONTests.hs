@@ -12,6 +12,8 @@ module Data.API.Tools.JSONTests
     , cborTestsTool
     , cborToJSONTestsTool
     , jsonToCBORTestsTool
+    , jsonGenericValueTestsTool
+    , cborGenericValueTestsTool
 
       -- * Properties
     , prop_decodesTo
@@ -28,6 +30,7 @@ import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.TH
 import           Data.API.Types
+import           Data.API.Value
 
 import qualified Data.Aeson                     as JS
 import           Data.Binary.Serialise.CBOR
@@ -35,6 +38,8 @@ import           Data.Binary.Serialise.CBOR.JSON ()
 import           Language.Haskell.TH
 import           Test.QuickCheck
 import           Test.QuickCheck.Property       as QCProperty
+import           Prelude
+
 
 -- | Tool to generate a list of JSON round-trip tests of type
 -- @[('String', 'Property')]@ with the given name.  This depends on
@@ -62,7 +67,7 @@ testsTool prop_nm nm = simpleTool $ \ api -> simpleSigD nm [t| [(String, Propert
 generateProp :: Name -> APINode -> ExpQ
 generateProp prop_nm an = [e| ($ty, property ($(varE prop_nm) :: $(nodeT an) -> Bool)) |]
   where
-    ty = stringE $ _TypeName $ anName an
+    ty = typeNameE $ anName an
 
 
 -- | Tool to generate a list of CBOR-to-JSON conversion tests of type
@@ -79,6 +84,16 @@ cborToJSONTestsTool = schemaTestsTool 'prop_cborToJSON
 jsonToCBORTestsTool :: Name -> Name -> APITool
 jsonToCBORTestsTool = schemaTestsTool 'prop_jsonToCBOR
 
+-- | Tool to generate a list of tests that the 'JS.Value' generic
+-- representation agrees with the type-specific JSON representation.
+jsonGenericValueTestsTool :: Name -> Name -> APITool
+jsonGenericValueTestsTool = schemaTestsTool 'prop_jsonGeneric
+
+-- | Tool to generate a list of tests that the 'Value' generic
+-- representation agrees with the type-specific CBOR representation.
+cborGenericValueTestsTool :: Name -> Name -> APITool
+cborGenericValueTestsTool = schemaTestsTool 'prop_cborGeneric
+
 -- | Tool to generate a list of tests of properties that take the API
 -- and the type name as arguments, and return a 'QCProperty.Result'.
 schemaTestsTool :: Name -> Name -> Name -> APITool
@@ -89,7 +104,7 @@ schemaTestsTool prop_nm api_nm nm = simpleTool $ \ api -> simpleSigD nm [t| [(St
     genProp an = [e| ($ty, property ($(varE prop_nm) $(varE api_nm) tn :: $(nodeT an) -> QCProperty.Result)) |]
       where
         tn = anName an
-        ty = stringE $ _TypeName $ anName an
+        ty = typeNameE $ anName an
 
 
 -- | QuickCheck property that a 'Value' decodes to an expected Haskell

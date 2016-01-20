@@ -9,12 +9,15 @@ module Data.API.Test.JSON
 
 import           Data.API.API.Gen ( apiAPITestsJSON, apiAPITestsCBOR, apiAPITestsCBORToJSON, apiAPITestsJSONToCBOR )
 import           Data.API.JSON
+import           Data.API.NormalForm
 import           Data.API.Tools
 import           Data.API.Tools.JSONTests
+import           Data.API.Test.DSL
 import           Data.API.Test.Gen hiding ( Foo )
 import           Data.API.Test.MigrationData
 import           Data.API.Types
 import           Data.API.Utils
+import qualified Data.API.Value           as Value
 
 import qualified Data.Aeson               as JS
 import qualified Data.HashMap.Strict      as HMap
@@ -132,4 +135,20 @@ jsonTests = testGroup "JSON"
       , testGroup "api JSON to CBOR" $ map (uncurry QC.testProperty) apiAPITestsJSONToCBOR
       , QC.testProperty "Aeson Value to CBOR" (prop_cborRoundtrip :: JS.Value -> Bool)
       ]
+  , testGroup "Generic values"
+    [ QC.testProperty "example JSON round-trip" (Value.prop_jsonRoundTrip exampleNF)
+    , QC.testProperty "example2 JSON round-trip" (Value.prop_jsonRoundTrip example2NF)
+    , QC.testProperty "example CBOR round-trip" (Value.prop_cborRoundTrip exampleNF)
+    , QC.testProperty "example2 CBOR round-trip" (Value.prop_cborRoundTrip example2NF)
+    , testGroup "example agreement with ToJSON" $ map (uncurry QC.testProperty) exampleJSONGenericValueTests
+    , testGroup "example2 agreement with ToJSON" $ map (uncurry QC.testProperty) example2JSONGenericValueTests
+    , testGroup "example agreement with Serialise" $ map (uncurry QC.testProperty) exampleCBORGenericValueTests
+    , testGroup "example2 agreement with Serialise" $ map (uncurry QC.testProperty) example2CBORGenericValueTests
+    ]
   ]
+
+exampleNF :: NormAPI
+exampleNF = apiNormalForm example
+
+example2NF :: NormAPI
+example2NF = apiNormalForm example2

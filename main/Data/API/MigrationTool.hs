@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Data.API.MigrationTool
     ( main
     ) where
@@ -73,7 +74,7 @@ readApiFile file = fmap (parseAPIWithChangelog file (0,0)) (readFile file)
 data ChangeTag = None
     deriving (Read, Show)
 
-customMigrations :: CustomMigrations ChangeTag ChangeTag ChangeTag
+customMigrations :: CustomMigrations JS.Object JS.Value ChangeTag ChangeTag ChangeTag
 customMigrations = CustomMigrations (nope JS.Object) (const noSchemaChanges)
                                     (nope id)        (const noSchemaChanges)
                                     (nope id)

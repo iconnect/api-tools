@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
@@ -16,8 +17,10 @@ import qualified Data.Map                       as Map
 import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Set                       as Set
+import qualified Data.Text                      as T
 import           Data.Traversable
 import           Language.Haskell.TH
+import           Prelude
 
 
 -- | Build a traversal of the root type (first argument) that updates
@@ -53,14 +56,14 @@ traversalTool root x = readTool (apiNodeTool . s)
 -- | @traversalName x tn@ is the name of the function that traverses
 -- @x@ values inside @tn@
 traversalName :: TypeName -> TypeName -> Name
-traversalName x tn = mkName $ "traverse" ++ _TypeName x ++ _TypeName tn
+traversalName x tn = mkNameText $ "traverse" <> _TypeName x <> _TypeName tn
 
 -- | @traversalType x an@ is the type of the function that traverses
 -- @x@ values inside @an@
 traversalType :: TypeName -> APINode -> TypeQ
 traversalType x an = [t| forall f . Applicative f => ($x' -> f $x') -> $ty -> f $ty |]
   where
-    x' = conT $ mkName $ _TypeName x
+    x' = conT $ mkNameText $ _TypeName x
     ty = nodeT an
 
 
@@ -77,7 +80,7 @@ traverser' napi targets x (TyName tn)
   | tn == x   = Just [e| id |]
   | not (tn `Set.member` targets) = Nothing
   | otherwise = case Map.lookup tn napi of
-                           Nothing                -> error $ "missing API type declaration: " ++ _TypeName tn
+                           Nothing                -> error $ "missing API type declaration: " ++ T.unpack (_TypeName tn)
                            Just (NTypeSynonym ty) -> traverser' napi targets x ty
                            Just (NRecordType  _)  -> Just $ varE $ traversalName x tn
                            Just (NUnionType   _)  -> Just $ varE $ traversalName x tn

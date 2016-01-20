@@ -19,6 +19,7 @@ $(generateAPITools apiAPI
                    [ enumTool
                    , jsonTool'
                    , cborTool
+                   , deepSeqTool
                    , quickCheckTool
                    , lensTool
                    , safeCopyTool

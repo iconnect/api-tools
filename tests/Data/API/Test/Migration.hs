@@ -14,15 +14,19 @@ import           Data.API.Tools
 import           Data.API.Test.MigrationData
 import           Data.API.Types
 import           Data.API.Utils
+import qualified Data.API.Value           as Value
 
 import qualified Data.Aeson               as JS
 import qualified Data.Aeson.Encode.Pretty as JS
+import qualified Data.Binary.Serialise.CBOR as CBOR
+import qualified Data.Binary.Serialise.CBOR.FlatTerm as CBOR
 import qualified Data.ByteString.Char8    as B
 import qualified Data.ByteString.Base64   as B64
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.HashMap.Strict      as HMap
 import qualified Data.Map                 as Map
 import qualified Data.Text                as T
+import qualified Data.Text.Encoding       as TE
 import           Data.Version
 import           Test.Tasty               as Test
 import           Test.Tasty.HUnit
@@ -41,6 +45,16 @@ testDatabaseMigration DuplicateBar x = do
 testDatabaseMigration DuplicateRecursive x = do
     recur <- HMap.lookup "recur" x ?! CustomMigrationError "missing recur" (JS.Object x)
     return $ HMap.insert "recur2" recur x
+
+testDatabaseMigration' :: TestDatabaseMigration -> Value.Record -> Either ValueError Value.Record
+testDatabaseMigration' DuplicateBar r = do
+    let x = Value.recordToMap r
+    bar <- Map.lookup "bar" x ?! CustomMigrationError "missing bar" JS.Null
+    return $ Value.mapToRecord $ Map.insert "bar2" bar x
+testDatabaseMigration' DuplicateRecursive r = do
+    let x = Value.recordToMap r
+    recur <- Map.lookup "recur" x ?! CustomMigrationError "missing recur" JS.Null
+    return $ Value.mapToRecord $ Map.insert "recur2" recur x
 
 testDatabaseMigrationSchema :: TestDatabaseMigration -> NormAPI -> Either ApplyFailure (Maybe NormAPI)
 testDatabaseMigrationSchema DuplicateBar _ = Right Nothing
@@ -67,6 +81,21 @@ testRecordMigration DuplicateNew = mkRecordMigration $ \ x -> do
     new <- HMap.lookup "new" x ?! CustomMigrationError "missing new" (JS.Object x)
     return $ HMap.insert "newnew" new x
 
+testRecordMigration' :: TestRecordMigration -> Value.Value -> Either ValueError Value.Value
+testRecordMigration' CopyIDtoC = mkRecordMigration' $ \ rec -> do
+    let x = Value.recordToMap rec
+    i <- Map.lookup "id" x ?! CustomMigrationError "missing id" JS.Null
+    b <- Map.lookup "c" x  ?! CustomMigrationError "missing b" JS.Null
+    r <- case (i, b) of
+        (Value.Int j, Value.String t)
+            -> return $ Value.String $ t `T.append` T.pack (show j)
+        _   -> Left $ CustomMigrationError "bad data" JS.Null
+    return $ Value.mapToRecord $ Map.insert "c" r x
+testRecordMigration' DuplicateNew = mkRecordMigration' $ \ rec -> do
+    let x = Value.recordToMap rec
+    new <- Map.lookup "new" x ?! CustomMigrationError "missing new" JS.Null
+    return $ Value.mapToRecord $ Map.insert "newnew" new x
+
 testRecordMigrationSchema :: TestRecordMigration -> NormTypeDecl -> Either ApplyFailure (Maybe NormTypeDecl)
 testRecordMigrationSchema CopyIDtoC    = noSchemaChanges
 testRecordMigrationSchema DuplicateNew = mkRecordMigrationSchema "Recursive" $ \ r ->
@@ -81,13 +110,24 @@ testFieldMigration ConvertBinaryToString v@(JS.String s) =
         Right x -> return (JS.String (T.pack (B.unpack x)))
 testFieldMigration ConvertBinaryToString v = Left $ CustomMigrationError "bad data" v
 
+testFieldMigration' :: TestFieldMigration -> Value.Value -> Either ValueError Value.Value
+testFieldMigration' ConvertBinaryToString (Value.Bytes bs) = return (Value.String (TE.decodeUtf8 (_Binary bs)))
+testFieldMigration' ConvertBinaryToString v = Left $ CustomMigrationError "bad data" (JS.toJSON v)
 
-testMigration :: CustomMigrations TestDatabaseMigration TestRecordMigration TestFieldMigration
+
+testMigration :: CustomMigrations JS.Object JS.Value TestDatabaseMigration TestRecordMigration TestFieldMigration
 testMigration = CustomMigrations testDatabaseMigration
                                  testDatabaseMigrationSchema
                                  testRecordMigration
                                  testRecordMigrationSchema
                                  testFieldMigration
+
+testMigration' :: CustomMigrations Value.Record Value.Value TestDatabaseMigration TestRecordMigration TestFieldMigration
+testMigration' = CustomMigrations testDatabaseMigration'
+                                  testDatabaseMigrationSchema
+                                  testRecordMigration'
+                                  testRecordMigrationSchema
+                                  testFieldMigration'
 
 
 assertMatchesAPI :: String -> API -> JS.Value -> Assertion
@@ -135,6 +175,7 @@ $(generate         startSchema)
 $(generateAPITools startSchema
                    [ enumTool
                    , jsonTool'
+                   , cborTool
                    , quickCheckTool
                    ])
 
@@ -151,11 +192,29 @@ validMigrationProperty db =
   where
     failedBecause e = failed { reason = e }
 
+validMigrationProperty' :: DatabaseSnapshot -> P.Result
+validMigrationProperty' db =
+    case migrateDataDump' (startSchema, startVersion) (endSchema, DevVersion)
+                         changelog testMigration' root_ CheckStartAndEnd db_generic of
+    Right (v, []) -> case dataMatchesAPI root_ endSchema (JS.toJSON v) of
+        Right _   -> succeeded
+        Left  err -> failedBecause ("end data does not match API: "
+                                    ++ prettyValueErrorPosition err)
+    Right (_, ws) -> failedBecause ("migration generated warnings: " ++ show ws)
+    Left err      -> failedBecause ("migration failed: " ++ prettyMigrateFailure err)
+  where
+    failedBecause e = failed { reason = e }
+
+    db_generic = case CBOR.fromFlatTerm (Value.decode (apiNormalForm startSchema) (TyName root_))
+                                        (CBOR.toFlatTerm (CBOR.encode db)) of
+                   Right v  -> v
+                   Left err -> error err
 
 migrationTests :: TestTree
 migrationTests = testGroup "Migration"
   [ testCase     "Basic migration using sample changelog" basicMigrationTest
   , testGroup    "Invalid changes"    $ map applyFailureTest   expectedApplyFailures
   , testGroup    "Invalid migrations" $ map migrateFailureTest expectedMigrateFailures
-  , QC.testProperty "Valid migrations" validMigrationProperty
+  , QC.testProperty "Valid migrations (JSON)" validMigrationProperty
+  , QC.testProperty "Valid migrations (generic)" validMigrationProperty'
   ]

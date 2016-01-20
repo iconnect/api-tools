@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell            #-}
-{-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 module Data.API.Tools.SafeCopy
     ( safeCopyTool
@@ -7,7 +6,6 @@ module Data.API.Tools.SafeCopy
 
 import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
-import           Data.API.Types
 
 import           Data.SafeCopy
 
@@ -16,5 +14,3 @@ import           Data.SafeCopy
 -- present, this derives only base version instances.
 safeCopyTool :: APITool
 safeCopyTool = apiDataTypeTool $ simpleTool $ deriveSafeCopy 0 'base . rep_type_nm
-
-$(deriveSafeCopy 0 'base ''Binary)
