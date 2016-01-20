@@ -3,6 +3,7 @@ module Data.Binary.Serialise.CBOR.JSON (
     cborToJson,
     jsonToCbor,
     encodeJSON,
+    decodeJSON,
   ) where
 
 import qualified Data.Aeson          as JSON
@@ -20,6 +21,7 @@ import qualified Data.ByteString.Base64          as Base64
 -- import qualified Data.ByteString.Base64.URL      as Base64url
 import qualified Data.ByteString.Base16          as Base16
 
+import Data.Binary.Serialise.CBOR.Decoding
 import Data.Binary.Serialise.CBOR.Encoding
 import Data.Binary.Serialise.CBOR.Term as CBOR
 import Data.Binary.Serialise.CBOR
@@ -30,10 +32,13 @@ import Prelude
 
 instance Serialise JSON.Value where
   encode = encodeJSON
-  decode = cborToJson <$> decode
+  decode = decodeJSON
 
 encodeJSON :: JSON.Value -> Encoding
 encodeJSON = encode . jsonToCbor
+
+decodeJSON :: Decoder JSON.Value
+decodeJSON = cborToJson <$> decode
 
 -- Most of the types in CBOR have direct analogs in JSON.  However, some
 -- do not, and someone implementing a CBOR-to-JSON converter has to

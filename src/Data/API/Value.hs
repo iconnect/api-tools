@@ -244,7 +244,7 @@ decode api ty0 = case ty0 of
     TyName tn  -> decodeDecl api (lookupTyName api tn)
     TyList ty  -> List  <$!> decodeListWith (decode api ty)
     TyMaybe ty -> Maybe <$!> decodeMaybeWith (decode api ty)
-    TyJSON     -> JSON  <$!> CBOR.decode
+    TyJSON     -> JSON  <$!> decodeJSON
     TyBasic bt -> decodeBasic bt
 
 decodeBasic :: BasicType -> CBOR.Decoder Value
