@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 module Data.API.Test.Gen where
 

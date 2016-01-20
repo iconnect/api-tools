@@ -45,6 +45,7 @@ import           Data.Aeson.Types
 import           Data.Aeson.TH
 import qualified Data.Binary.Serialise.CBOR     as CBOR
 import           Data.Maybe
+import           Data.SafeCopy
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
 import qualified Data.ByteString.Char8          as B
@@ -348,6 +349,7 @@ withBinary lab f = withText lab g
 base64ToBinary :: T.Text -> Either String Binary
 base64ToBinary t = Binary <$> B64.decode (T.encodeUtf8 t)
 
+$(deriveSafeCopy 0 'base ''Binary)
 
 deriveJSON defaultOptions ''Thing
 deriveJSON defaultOptions ''APINode
