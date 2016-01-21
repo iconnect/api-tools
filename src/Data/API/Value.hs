@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 
 -- | This module defines a generic representation of values belonging
 -- to a schema, for use during data migration.
@@ -471,7 +472,14 @@ lookupTyName api tn = case Map.lookup tn api of
 -- the key.  This is useful during deserialisation because it means we
 -- can share a single key, avoiding retaining deserialised copies.
 lookupSet :: Ord a => a -> Set.Set a -> Maybe a
+#if MIN_VERSION_containers(0,5,2)
 lookupSet k s = flip Set.elemAt s <$> Set.lookupIndex k s
+#else
+-- alternative implementation for containers versions without lookupIndex/elemAt
+lookupSet k s = case Set.lookupLE k s of
+                  Just k' | k == k' -> Just k'
+                  _                 -> Nothing
+#endif
 
 -- | Look up a key in a map, returning both the value and the map's
 -- copy of the key.  This is useful during deserialisation because it
