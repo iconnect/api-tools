@@ -24,6 +24,7 @@ install:
  - cabal sandbox init
  - cabal sandbox add-source binary-serialise-cbor
  - cabal install --only-dependencies --enable-tests --enable-benchmarks
+ - cabal install alex happy
 
 # Here starts the actual work to be performed for the package under test;
 # any command which exits with a non-zero exit code causes the build to fail.
