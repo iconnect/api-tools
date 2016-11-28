@@ -90,7 +90,7 @@ enm :: ENUM
 uv :: MyUTC
     = utc
 
-urec :: URec
+urec :: URecord
     = record
         foo :: utc
 

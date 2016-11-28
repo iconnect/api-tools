@@ -74,12 +74,13 @@ Library
         Data.API.Doc.Dir
         Data.API.Doc.Types
         Data.API.Scan
+        Data.API.TH.Compat
 
   Build-depends:
         Cabal                >= 1.4      && < 2    ,
-        QuickCheck           >= 2.5.1    && < 2.9  ,
-        aeson                >= 0.6.2    && < 0.11 ,
-        aeson-pretty         >= 0.1      && < 0.8  ,
+        QuickCheck           >= 2.5.1    && < 2.10 ,
+        aeson                >= 0.6.2    && < 1.1  ,
+        aeson-pretty         >= 0.1      && < 0.9  ,
         array                >= 0.4      && < 0.6  ,
         attoparsec           >= 0.10.4   && < 0.14 ,
         base                 >= 4        && < 5    ,
@@ -91,19 +92,19 @@ Library
         case-insensitive     >= 1.0      && < 1.3  ,
         containers           >= 0.5      && < 0.6  ,
         deepseq              >= 1.1      && < 1.5  ,
-        lens                 >= 3.8.7    && < 4.14 ,
+        lens                 >= 3.8.7    && < 4.16 ,
         regex-compat-tdfa    >= 0.95.1   && < 0.96 ,
         safe                 >= 0.3.3    && < 0.4  ,
-        safecopy             >= 0.8.1    && < 0.9  ,
+        safecopy             >= 0.8.1    && < 0.10 ,
         scientific           >= 0.3      && < 0.4  ,
-        template-haskell     >= 2.7      && < 2.11 ,
+        template-haskell     >= 2.7      && < 2.12 ,
         text                 >= 0.11.3   && < 1.3  ,
         unordered-containers >= 0.2.3.0  && < 0.3  ,
         vector               >= 0.10.0.1 && < 0.12
 
   if flag(time15)
     Build-depends:
-        time                 >= 1.5.0    && < 1.6
+        time                 >= 1.5.0    && < 1.7
   else
     Build-depends:
         old-locale           >= 1        && < 1.1,
@@ -127,9 +128,9 @@ Executable migration-tool
 
   Build-depends:
         api-tools,
-        QuickCheck           >= 2.5.1    && < 2.9  ,
-        aeson                >= 0.6.2    && < 0.11 ,
-        aeson-pretty         >= 0.1      && < 0.8  ,
+        QuickCheck           >= 2.5.1    && < 2.10 ,
+        aeson                >= 0.6.2    && < 1.1  ,
+        aeson-pretty         >= 0.1      && < 0.9  ,
         array                >= 0.4      && < 0.6  ,
         attoparsec           >= 0.10.4   && < 0.14 ,
         base                 >= 4        && < 5    ,
@@ -137,11 +138,11 @@ Executable migration-tool
         bytestring           >= 0.9      && < 0.11 ,
         case-insensitive     >= 1.0      && < 1.3  ,
         containers           >= 0.5      && < 0.6  ,
-        lens                 >= 3.8.7    && < 4.14 ,
+        lens                 >= 3.8.7    && < 4.16 ,
         regex-compat-tdfa    >= 0.95.1   && < 0.96 ,
         safe                 >= 0.3.3    && < 0.4  ,
-        safecopy             >= 0.8.1    && < 0.9  ,
-        template-haskell     >= 2.7      && < 2.11 ,
+        safecopy             >= 0.8.1    && < 0.10 ,
+        template-haskell     >= 2.7      && < 2.12 ,
         text                 >= 0.11.3   && < 1.3  ,
         unordered-containers >= 0.2.3.0  && < 0.3  ,
         vector               >= 0.10.0.1 && < 0.12
@@ -161,9 +162,9 @@ Executable perf-test
 
   Build-depends:
         api-tools,
-        QuickCheck           >= 2.5.1    && < 2.9  ,
-        aeson                >= 0.6.2    && < 0.11 ,
-        aeson-pretty         >= 0.1      && < 0.8  ,
+        QuickCheck           >= 2.5.1    && < 2.10 ,
+        aeson                >= 0.6.2    && < 1.1  ,
+        aeson-pretty         >= 0.1      && < 0.9  ,
         array                >= 0.4      && < 0.6  ,
         attoparsec           >= 0.10.4   && < 0.14 ,
         base                 >= 4        && < 5    ,
@@ -173,11 +174,11 @@ Executable perf-test
         case-insensitive     >= 1.0      && < 1.3  ,
         containers           >= 0.5      && < 0.6  ,
         deepseq              >= 1.1      && < 1.5  ,
-        lens                 >= 3.8.7    && < 4.14 ,
+        lens                 >= 3.8.7    && < 4.16 ,
         regex-compat-tdfa    >= 0.95.1   && < 0.96 ,
         safe                 >= 0.3.3    && < 0.4  ,
-        safecopy             >= 0.8.1    && < 0.9  ,
-        template-haskell     >= 2.7      && < 2.11 ,
+        safecopy             >= 0.8.1    && < 0.10 ,
+        template-haskell     >= 2.7      && < 2.12 ,
         text                 >= 0.11.3   && < 1.3  ,
         unordered-containers >= 0.2.3.0  && < 0.3  ,
         vector               >= 0.10.0.1 && < 0.12,
@@ -209,9 +210,9 @@ Test-Suite test-api-tools
   Build-depends:
         api-tools,
         Cabal                >= 1.4      && < 2    ,
-        QuickCheck           >= 2.5.1    && < 2.9  ,
-        aeson                >= 0.6.2    && < 0.11 ,
-        aeson-pretty         >= 0.1      && < 0.8  ,
+        QuickCheck           >= 2.5.1    && < 2.10 ,
+        aeson                >= 0.6.2    && < 1.1  ,
+        aeson-pretty         >= 0.1      && < 0.9  ,
         array                >= 0.4      && < 0.6  ,
         attoparsec           >= 0.10.4   && < 0.14 ,
         base                 >= 4        && < 5    ,
@@ -220,15 +221,15 @@ Test-Suite test-api-tools
         bytestring           >= 0.9      && < 0.11 ,
         case-insensitive     >= 1.0      && < 1.3  ,
         containers           >= 0.5      && < 0.6  ,
-        lens                 >= 3.8.7    && < 4.14 ,
+        lens                 >= 3.8.7    && < 4.16 ,
         regex-compat-tdfa    >= 0.95.1   && < 0.96 ,
         safe                 >= 0.3.3    && < 0.4  ,
-        safecopy             >= 0.8.1    && < 0.9  ,
+        safecopy             >= 0.8.1    && < 0.10 ,
         tasty                >= 0.10.1   && < 0.12 ,
         tasty-hunit          >= 0.2      && < 10.0 ,
         tasty-quickcheck     >= 0.3      && < 0.9  ,
         time,
-        template-haskell     >= 2.7      && < 2.11 ,
+        template-haskell     >= 2.7      && < 2.12 ,
         text                 >= 0.11.3   && < 1.3  ,
         unordered-containers >= 0.2.3.0  && < 0.3  ,
         vector               >= 0.10.0.1 && < 0.12
