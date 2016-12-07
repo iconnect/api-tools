@@ -23,6 +23,9 @@ install:
  - travis_retry cabal update
  - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
  - git clone https://github.com/well-typed/binary-serialise-cbor.git
+ - cd binary-serialise-cbor
+ - git checkout -b 0.1.1.0.1 05a7ebf8a2e1af0feb61bc85b828a712e95762e8
+ - cd ..
  - cabal sandbox init
  - cabal sandbox add-source binary-serialise-cbor
  - cabal install --only-dependencies --enable-tests --enable-benchmarks
