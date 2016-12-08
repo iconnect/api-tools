@@ -58,6 +58,7 @@ import           Data.API.Changes.Types
 import           Data.API.Error
 import           Data.API.JSON
 import           Data.API.NormalForm
+import           Data.API.TH.Compat
 import           Data.API.Types
 import           Data.API.Utils
 import           Data.API.Value as Value
@@ -872,9 +873,9 @@ generateMigrationKinds changes all_nm rec_nm fld_nm = do
     guardNoDups (all_tags `Set.intersection` fld_tags)
     guardNoDups (rec_tags `Set.intersection` fld_tags)
 
-    return [ DataD [] (mkName all_nm) [] (cons all_nm all_tags) derivs
-           , DataD [] (mkName rec_nm) [] (cons rec_nm rec_tags) derivs
-           , DataD [] (mkName fld_nm) [] (cons fld_nm fld_tags) derivs ]
+    return [ mkDataD [] (mkName all_nm) [] (cons all_nm all_tags) derivs
+           , mkDataD [] (mkName rec_nm) [] (cons rec_nm rec_tags) derivs
+           , mkDataD [] (mkName fld_nm) [] (cons fld_nm fld_tags) derivs ]
   where
     (all_tags, rec_tags, fld_tags) = changelogTags changes
 

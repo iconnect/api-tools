@@ -15,6 +15,7 @@ module Data.API.TH
     , typeNameE
     ) where
 
+import           Data.API.TH.Compat
 import           Data.API.Tools.Combinators
 import           Data.API.Types
 
@@ -23,7 +24,6 @@ import           Control.Monad
 import qualified Data.Text                      as T
 import           Language.Haskell.TH
 import           Prelude
-
 
 -- | Construct an idiomatic expression (an expression in an
 -- Applicative context), i.e.
@@ -52,7 +52,7 @@ optionalInstanceD stgs c tqs dqs = do
     exists <- isInstance c ts
     if exists then do when (warnOnOmittedInstance stgs) $ reportWarning $ msg ts
                       return []
-              else return [InstanceD [] (foldl AppT (ConT c) ts) ds]
+              else return [mkInstanceD [] (foldl AppT (ConT c) ts) ds]
   where
     msg ts = "instance " ++ pprint c ++ " " ++ pprint ts ++ " already exists, so it was not generated"
 

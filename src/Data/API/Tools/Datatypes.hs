@@ -17,6 +17,7 @@ module Data.API.Tools.Datatypes
     ) where
 
 import           Data.API.TH
+import           Data.API.TH.Compat
 import           Data.API.Tools.Combinators
 import           Data.API.Types
 
@@ -69,8 +70,8 @@ gen_sy (as, ty) = return [TySynD (type_nm as) [] $ mk_type ty]
 gen_sn_dt :: (APINode -> [Name]) -> ToolSettings -> (APINode, SpecNewtype) -> Q [Dec]
 gen_sn_dt deriv ts (as, sn) = (nd :) <$> if smart then sc else return []
   where
-    nd  = NewtypeD [] nm [] c (deriv as)
-    c   = RecC (newtype_con_nm smart as) [(newtype_prj_nm as,NotStrict,wrapped_ty)]
+    nd  = mkNewtypeD [] nm [] c (deriv as)
+    c   = RecC (newtype_con_nm smart as) [(newtype_prj_nm as,annNotStrict,wrapped_ty)]
     wrapped_ty = mk_type $ TyBasic (snType sn)
 
     nm  = rep_type_nm as
@@ -101,9 +102,9 @@ gen_sn_dt deriv ts (as, sn) = (nd :) <$> if smart then sc else return []
 -- >     deriving (Show,Eq,Typeable)
 
 gen_sr_dt :: (APINode -> [Name]) -> (APINode, SpecRecord) -> Q [Dec]
-gen_sr_dt deriv (as, sr) = return [DataD [] nm [] cs (deriv as)]
+gen_sr_dt deriv (as, sr) = return [mkDataD [] nm [] cs (deriv as)]
   where
-    cs = [RecC nm [(pref_field_nm as fnm,IsStrict,mk_type (ftType fty)) |
+    cs = [RecC nm [(pref_field_nm as fnm,annIsStrict,mk_type (ftType fty)) |
                                                 (fnm,fty)<-srFields sr]]
     nm = rep_type_nm as
 
@@ -114,9 +115,9 @@ gen_sr_dt deriv (as, sr) = return [DataD [] nm [] cs (deriv as)]
 -- >     deriving (Show,Typeable)
 
 gen_su_dt :: (APINode -> [Name]) -> (APINode, SpecUnion) -> Q [Dec]
-gen_su_dt deriv (as, su) = return [DataD [] nm [] cs (deriv as)]
+gen_su_dt deriv (as, su) = return [mkDataD [] nm [] cs (deriv as)]
   where
-    cs = [NormalC (pref_con_nm as fnm) [(IsStrict,mk_type ty)] |
+    cs = [NormalC (pref_con_nm as fnm) [(annIsStrict,mk_type ty)] |
                                             (fnm,(ty,_))<-suFields su]
     nm = rep_type_nm as
 
@@ -136,7 +137,7 @@ gen_su_dt deriv (as, su) = return [DataD [] nm [] cs (deriv as)]
 -- >     deriving (Show,Eq,Ord,Bounded,Enum,Typeable)
 
 gen_se_dt :: (APINode -> [Name]) -> (APINode, SpecEnum) -> Q [Dec]
-gen_se_dt deriv (as, se) = return [DataD [] nm [] cs (deriv as)]
+gen_se_dt deriv (as, se) = return [mkDataD [] nm [] cs (deriv as)]
   where
     cs = [NormalC (pref_con_nm as fnm) [] | (fnm,_) <- seAlts se ]
     nm = rep_type_nm as
