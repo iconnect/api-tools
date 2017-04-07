@@ -3,7 +3,7 @@
 -- | This module generates Markdown-formatted documentation for an
 -- API, like this:
 --
--- > ###Foo
+-- > ### Foo
 -- >
 -- > a test defn
 -- >
@@ -65,7 +65,7 @@ node mdm an tl_md =
 
 header :: MarkdownMethods -> APINode -> MDComment -> MDComment
 header mdm an tl_md =
-                                printf "###%s\n\n%s\n\n%s" nm_md (mdmPp mdm cm_md "") tl_md
+                                printf "### %s\n\n%s\n\n%s" nm_md (mdmPp mdm cm_md "") tl_md
   where
     nm_md = type_name_md an
     cm_md = comment_md   an
