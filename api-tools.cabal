@@ -1,5 +1,5 @@
 Name:                api-tools
-Version:             0.7.0.0
+Version:             0.7.0.1
 Synopsis:            DSL for generating API boilerplate and docs
 Description:         api-tools provides a compact DSL for describing an API.
                      It uses Template Haskell to generate the

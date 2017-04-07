@@ -1,5 +1,9 @@
 -*-change-log-*-
 
+0.7.0.1 Adam Gundry <adam@well-typed.com> April 2017
+	* Add support for GHC 8.0 and drop 7.6
+	* Tweak generated Markdown headers
+
 0.7.0.0 Adam Gundry <adam@well-typed.com> January 2016
 	* Implement more efficient data migrations
 	* Change FieldName and TypeName to use Text instead of String
