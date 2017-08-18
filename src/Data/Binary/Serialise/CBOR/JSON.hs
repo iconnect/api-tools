@@ -112,7 +112,6 @@ cborToJson (TDouble f)
 -- o  Any other simple value (major type 7, any additional information
 --    value not yet discussed) is represented by the substitute value.
 
-cborToJson  TUndef     = JSON.Null
 cborToJson (TSimple _) = JSON.Null
 
 -- o  A bignum (major type 6, tag value 2 or 3) is represented by
