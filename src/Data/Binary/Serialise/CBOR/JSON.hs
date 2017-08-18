@@ -37,7 +37,7 @@ instance Serialise JSON.Value where
 encodeJSON :: JSON.Value -> Encoding
 encodeJSON = encode . jsonToCbor
 
-decodeJSON :: Decoder JSON.Value
+decodeJSON :: Decoder s JSON.Value
 decodeJSON = cborToJson <$> decode
 
 -- Most of the types in CBOR have direct analogs in JSON.  However, some

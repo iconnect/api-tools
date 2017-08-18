@@ -240,7 +240,7 @@ encode v0 = case v0 of
 
 -- | Efficiently decode CBOR as a generic 'Value', given the schema
 -- and expected type.
-decode :: NormAPI -> APIType -> CBOR.Decoder Value
+decode :: NormAPI -> APIType -> CBOR.Decoder s Value
 decode api ty0 = case ty0 of
     TyName tn  -> decodeDecl api (lookupTyName api tn)
     TyList ty  -> List  <$!> decodeListWith (decode api ty)
@@ -248,7 +248,7 @@ decode api ty0 = case ty0 of
     TyJSON     -> JSON  <$!> decodeJSON
     TyBasic bt -> decodeBasic bt
 
-decodeBasic :: BasicType -> CBOR.Decoder Value
+decodeBasic :: BasicType -> CBOR.Decoder s Value
 decodeBasic bt = case bt of
     BTstring -> String <$!> CBOR.decode
     BTbinary -> Bytes  <$!> CBOR.decode
@@ -257,7 +257,7 @@ decodeBasic bt = case bt of
     BTutc    -> do _ <- CBOR.decodeTag
                    UTCTime <$!> CBOR.decode
 
-decodeDecl :: NormAPI -> NormTypeDecl -> CBOR.Decoder Value
+decodeDecl :: NormAPI -> NormTypeDecl -> CBOR.Decoder s Value
 decodeDecl api d = case d of
     NRecordType nrt -> do _ <- CBOR.decodeMapLen
                           go [] (Map.toList nrt)
