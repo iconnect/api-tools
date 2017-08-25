@@ -254,8 +254,9 @@ decodeBasic bt = case bt of
     BTbinary -> Bytes  <$!> CBOR.decode
     BTbool   -> Bool   <$!> CBOR.decode
     BTint    -> Int    <$!> CBOR.decode
-    BTutc    -> do _ <- CBOR.decodeTag
-                   UTCTime <$!> CBOR.decode
+    BTutc    -> do tag <- CBOR.decodeTag
+                   if tag == 0 then UTCTime <$!> CBOR.decode
+                   else error "decodeBasic: unexpected UTCTime encoding found"
 
 decodeDecl :: NormAPI -> NormTypeDecl -> CBOR.Decoder s Value
 decodeDecl api d = case d of
