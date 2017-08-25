@@ -60,6 +60,7 @@ import qualified Data.Binary.Serialise.CBOR.Encoding as CBOR
 import           Data.Binary.Serialise.CBOR.Extra
 import qualified Data.Binary.Serialise.CBOR.FlatTerm as CBOR
 import           Data.Binary.Serialise.CBOR.JSON
+import           Data.Fixed (Pico)
 import qualified Data.HashMap.Strict            as HMap
 import           Data.List (sortBy)
 import qualified Data.Map.Strict                as Map
@@ -68,6 +69,8 @@ import           Data.Ord
 import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import           Data.Traversable
+import           Data.Time (NominalDiffTime, UTCTime)
+import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import qualified Data.Vector                    as V
 import qualified Test.QuickCheck                as QC
 import qualified Test.QuickCheck.Property       as QCP
@@ -85,7 +88,7 @@ import           Prelude
 --
 --  * decoding CBOR is relatively efficient.
 data Value = String  !T.Text
-           | UTCTime !T.Text
+           | UTCTime !UTCTime
              -- ^ A time represented as a string, not decoded for efficiency
            | Bytes   !Binary
            | Bool    !Bool
@@ -157,7 +160,7 @@ fromDefaultValueBasic bt dv = case (bt, dv) of
                                     Left  _ -> Nothing
     (BTbool, DefValBool b)     -> Just (Bool b)
     (BTint, DefValInt i)       -> Just (Int i)
-    (BTutc, DefValUtc u)       -> Just (UTCTime (mkUTC' u))
+    (BTutc, DefValUtc u)       -> Just (UTCTime u)
     _                          -> Nothing
 
 
@@ -165,7 +168,7 @@ fromDefaultValueBasic bt dv = case (bt, dv) of
 instance JS.ToJSON Value where
   toJSON v0 = case v0 of
                 String t       -> JS.String t
-                UTCTime t      -> JS.String t
+                UTCTime t      -> JS.String (mkUTC' t)
                 Bytes b        -> JS.toJSON b
                 Bool b         -> JS.Bool b
                 Int i          -> JS.toJSON i
@@ -201,7 +204,7 @@ parseJSONBasic bt = case bt of
     BTbinary -> withBinary "Bytes"   (pure . Bytes)
     BTbool   -> withBool   "Bool"    (pure . Bool)
     BTint    -> withInt    "Int"     (pure . Int)
-    BTutc    -> withText   "UTCTime" (pure . UTCTime)
+    BTutc    -> withUTC    "UTCTime" (pure . UTCTime)
 
 parseJSONDecl :: NormAPI -> TypeName -> NormTypeDecl -> JS.Value -> ParserWithErrs Value
 parseJSONDecl api tn d = case d of
@@ -224,7 +227,7 @@ parseJSONDecl api tn d = case d of
 encode :: Value -> CBOR.Encoding
 encode v0 = case v0 of
     String t   -> CBOR.encodeString t
-    UTCTime t  -> CBOR.encodeTag 0 <> CBOR.encodeString t
+    UTCTime t  -> CBOR.encode t
     Bytes b    -> CBOR.encode b
     Bool b     -> CBOR.encode b
     Int i      -> CBOR.encode i
@@ -254,9 +257,7 @@ decodeBasic bt = case bt of
     BTbinary -> Bytes  <$!> CBOR.decode
     BTbool   -> Bool   <$!> CBOR.decode
     BTint    -> Int    <$!> CBOR.decode
-    BTutc    -> do tag <- CBOR.decodeTag
-                   if tag == 0 then UTCTime <$!> CBOR.decode
-                   else error "decodeBasic: unexpected UTCTime encoding found"
+    BTutc    -> UTCTime <$!> CBOR.decode
 
 decodeDecl :: NormAPI -> NormTypeDecl -> CBOR.Decoder s Value
 decodeDecl api d = case d of
@@ -311,7 +312,7 @@ matchesNormAPIBasic bt v p = case (bt, v) of
     (BTint, Int _)       -> return ()
     (BTint, _)           -> Left (JSONError (expectedInt js_v), p)
     (BTutc, UTCTime _)   -> return ()
-    (BTutc, _)           -> Left (JSONError (Expected ExpString "UTCTime" js_v), p)
+    (BTutc, _)           -> Left (JSONError (Expected ExpString "UTCTime" js_v), p)  -- TODO: no @ExpUTCTime@ defined elsewhere, so error not accurate
   where
     js_v = JS.toJSON v
 
@@ -382,8 +383,10 @@ arbitraryOfBasicType bt = case bt of
     BTbinary -> Bytes   <$> QC.arbitrary
     BTbool   -> Bool    <$> QC.arbitrary
     BTint    -> Int     <$> QC.arbitrary
-    BTutc    -> UTCTime <$> QC.arbitrary -- Deliberately generates invalid UTC,
-                                         -- because it shouldn't matter
+    BTutc    -> UTCTime
+                . posixSecondsToUTCTime
+                . (realToFrac :: Pico -> NominalDiffTime)
+                <$> QC.arbitrary
 
 arbitraryOfDecl :: NormAPI -> NormTypeDecl -> QC.Gen Value
 arbitraryOfDecl api d = case d of
