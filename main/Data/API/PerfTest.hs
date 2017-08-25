@@ -15,7 +15,6 @@ import           Control.DeepSeq
 import           Control.Exception
 import qualified Data.Aeson                     as JS
 import qualified Data.Binary.Serialise.CBOR     as CBOR
-import qualified Data.Binary.Serialise.CBOR.IO  as CBOR
 import           Data.Binary.Serialise.CBOR.Extra
 import           System.Environment
 import           Test.QuickCheck
