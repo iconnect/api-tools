@@ -141,7 +141,7 @@ postprocessJSONTypeName napi tn v = do
       NUnionType  nut -> postprocessJSONUnion  napi nut v
       NEnumType    _  -> pure v
       NTypeSynonym ty -> postprocessJSONType   napi ty  v
-      NNewtype     _  -> pure v
+      NNewtype     bt -> postprocessJSONType   napi (TyBasic bt) v
 
 postprocessJSONType :: NormAPI -> APIType -> Value -> Either ValueError Value
 postprocessJSONType napi ty0 v = case ty0 of
