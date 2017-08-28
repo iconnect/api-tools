@@ -20,12 +20,6 @@ install:
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
  - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
- - git clone https://github.com/well-typed/binary-serialise-cbor.git
- - cd binary-serialise-cbor
- - git checkout -b 0.1.1.0.1 05a7ebf8a2e1af0feb61bc85b828a712e95762e8
- - cd ..
- - cabal sandbox init
- - cabal sandbox add-source binary-serialise-cbor
  - if [ $GHCVER = "8.0.1" ]; then export ALLOW_NEWER=--allow-newer=base,ghc-prim; fi
  - cabal install --only-dependencies $ALLOW_NEWER --enable-tests --enable-benchmarks
 
