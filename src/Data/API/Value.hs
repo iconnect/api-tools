@@ -60,7 +60,6 @@ import qualified Data.Binary.Serialise.CBOR.Encoding as CBOR
 import           Data.Binary.Serialise.CBOR.Extra
 import qualified Data.Binary.Serialise.CBOR.FlatTerm as CBOR
 import           Data.Binary.Serialise.CBOR.JSON
-import           Data.Fixed (Pico)
 import qualified Data.HashMap.Strict            as HMap
 import           Data.List (sortBy)
 import qualified Data.Map.Strict                as Map
@@ -385,7 +384,7 @@ arbitraryOfBasicType bt = case bt of
     BTint    -> Int     <$> QC.arbitrary
     BTutc    -> UTCTime
                 . posixSecondsToUTCTime
-                . (realToFrac :: Pico -> NominalDiffTime)
+                . (realToFrac :: Int -> NominalDiffTime)
                 <$> QC.arbitrary
 
 arbitraryOfDecl :: NormAPI -> NormTypeDecl -> QC.Gen Value
