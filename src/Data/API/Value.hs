@@ -54,11 +54,11 @@ import           Control.Applicative
 import           Control.Monad
 import           Control.DeepSeq
 import qualified Data.Aeson                     as JS
-import qualified Data.Binary.Serialise.CBOR          as CBOR
-import qualified Data.Binary.Serialise.CBOR.Decoding as CBOR
-import qualified Data.Binary.Serialise.CBOR.Encoding as CBOR
+import qualified Codec.Serialise          as CBOR
+import qualified Codec.Serialise.Decoding as CBOR
+import qualified Codec.Serialise.Encoding as CBOR
 import           Data.Binary.Serialise.CBOR.Extra
-import qualified Data.Binary.Serialise.CBOR.FlatTerm as CBOR
+import qualified Codec.CBOR.FlatTerm as CBOR
 import           Data.Binary.Serialise.CBOR.JSON
 import qualified Data.HashMap.Strict            as HMap
 import           Data.List (sortBy)

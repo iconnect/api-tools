@@ -21,10 +21,10 @@ import qualified Data.ByteString.Base64          as Base64
 -- import qualified Data.ByteString.Base64.URL      as Base64url
 import qualified Data.ByteString.Base16          as Base16
 
-import Data.Binary.Serialise.CBOR.Decoding
-import Data.Binary.Serialise.CBOR.Encoding
-import Data.Binary.Serialise.CBOR.Term as CBOR
-import Data.Binary.Serialise.CBOR
+import Codec.Serialise.Decoding
+import Codec.Serialise.Encoding
+import Codec.CBOR.Term as CBOR
+import Codec.Serialise
 
 import Control.Applicative
 import Prelude

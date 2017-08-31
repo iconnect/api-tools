@@ -19,9 +19,9 @@ import qualified Data.HashMap.Strict            as HMap
 import qualified Data.Map                       as Map
 import           Data.Traversable
 import qualified Data.Vector                    as Vec
-import           Data.Binary.Serialise.CBOR     as CBOR
+import           Codec.Serialise     as CBOR
 import           Data.Binary.Serialise.CBOR.JSON (cborToJson, jsonToCbor)
-import           Data.Binary.Serialise.CBOR.Term
+import           Codec.CBOR.Term
 import           Data.Fixed (Pico)
 import           Data.Maybe (fromMaybe)
 import           Data.Scientific

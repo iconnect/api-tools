@@ -15,9 +15,9 @@ import           Data.API.Types
 import           Data.API.Utils
 
 import           Control.Applicative
-import           Data.Binary.Serialise.CBOR.Class
-import           Data.Binary.Serialise.CBOR.Decoding
-import           Data.Binary.Serialise.CBOR.Encoding
+import           Codec.Serialise.Class
+import           Codec.Serialise.Decoding
+import           Codec.Serialise.Encoding
 import           Data.Binary.Serialise.CBOR.Extra
 import           Data.List (foldl', sortBy)
 import qualified Data.Map                       as Map

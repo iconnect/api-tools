@@ -11,8 +11,8 @@ module Data.Binary.Serialise.CBOR.Extra
     , (<$!>)
     ) where
 
-import           Data.Binary.Serialise.CBOR.Decoding
-import           Data.Binary.Serialise.CBOR.Encoding
+import           Codec.Serialise.Decoding
+import           Codec.Serialise.Encoding
 import           Data.List (foldl1')
 import           Data.Monoid
 import qualified Data.Text                      as T
