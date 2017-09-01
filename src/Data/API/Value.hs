@@ -88,7 +88,6 @@ import           Prelude
 --  * decoding CBOR is relatively efficient.
 data Value = String  !T.Text
            | UTCTime !UTCTime
-             -- ^ A time represented as a string, not decoded for efficiency
            | Bytes   !Binary
            | Bool    !Bool
            | Int     !Int
@@ -311,7 +310,7 @@ matchesNormAPIBasic bt v p = case (bt, v) of
     (BTint, Int _)       -> return ()
     (BTint, _)           -> Left (JSONError (expectedInt js_v), p)
     (BTutc, UTCTime _)   -> return ()
-    (BTutc, _)           -> Left (JSONError (Expected ExpString "UTCTime" js_v), p)  -- TODO: no @ExpUTCTime@ defined elsewhere, so error not accurate
+    (BTutc, _)           -> Left (JSONError (Expected ExpString "UTCTime" js_v), p)
   where
     js_v = JS.toJSON v
 
