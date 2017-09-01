@@ -28,7 +28,6 @@ module Data.API.Tools
     , jsonTool
     , jsonTool'
     , cborTool
-    , cborTool'
     , jsonTestsTool
     , cborTestsTool
     , cborToJSONTestsTool
