@@ -166,14 +166,19 @@ postprocessJSONType napi ty0 v = case ty0 of
               dt :: POSIXTime
               dt = realToFrac v0 + realToFrac psecs
 
-              -- | Force the unnecessarily lazy @'UTCTime'@ representation.
-              forceUTCTime :: UTCTime -> UTCTime
-              forceUTCTime t@(UTCTime !_day !_daytime) = t
           in pure $! String $! mkUTC' $! forceUTCTime (posixSecondsToUTCTime dt)
         _ -> Left $ JSONError UnexpectedField
+      String t -> case parseUTC' t of
+        Nothing -> Left $ JSONError $ SyntaxError $
+                     "UTC time in wrong format: " ++ T.unpack t
+        Just utcTime -> pure $! String $! mkUTC' $! forceUTCTime utcTime
       _ -> Left $ JSONError $ expectedObject v
     TyBasic _  -> pure v
     TyJSON     -> pure v
+
+-- | Force the unnecessarily lazy @'UTCTime'@ representation.
+forceUTCTime :: UTCTime -> UTCTime
+forceUTCTime t@(UTCTime !_day !_daytime) = t
 
 postprocessJSONRecord :: NormAPI -> NormRecordType -> Value -> Either ValueError Value
 postprocessJSONRecord napi nrt v = case v of
