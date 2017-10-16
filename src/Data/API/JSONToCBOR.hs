@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Data.API.JSONToCBOR
     ( serialiseJSONWithSchema
     , jsonToCBORWithSchema
@@ -18,12 +19,16 @@ import qualified Data.HashMap.Strict            as HMap
 import qualified Data.Map                       as Map
 import           Data.Traversable
 import qualified Data.Vector                    as Vec
-import           Data.Binary.Serialise.CBOR     as CBOR
+import           Codec.Serialise     as CBOR
 import           Data.Binary.Serialise.CBOR.JSON (cborToJson, jsonToCbor)
-import           Data.Binary.Serialise.CBOR.Term
+import           Codec.CBOR.Term
+import           Data.Fixed (Pico)
+import           Data.Maybe (fromMaybe)
 import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
+import           Data.Time.Clock.POSIX
+import           Data.Time (UTCTime(UTCTime))
 import           Prelude
 
 
@@ -99,7 +104,18 @@ jsonToCBORBasic bt v = case (bt, v) of
     (BTbool  , _)        -> error "serialiseJSONWithSchema: expected bool"
     (BTint   , Number n) | Right i <- (floatingOrInteger n :: Either Double Int) -> TInt i
     (BTint   , _)        -> error "serialiseJSONWithSchema: expected integer"
-    (BTutc   , String t) -> TTagged 0 (TString t)
+    (BTutc   , String t) ->
+      TTagged 1000 (TMap [ (TInt 1, TInt secs)
+                         , (TInt (-12), TInt psecs) ])
+        where  -- taken from @Codec.Serialise.Class@:
+          (secs, frac) = case properFraction $ utcTimeToPOSIXSeconds utc of
+                           -- fractional part must be positive
+                           (secs', frac')
+                             | frac' < 0  -> (secs' - 1, frac' + 1)
+                             | otherwise -> (secs', frac')
+          psecs = round $ frac * 1000000000000
+          utc = fromMaybe (error $ "jsonToCBORBasic: " ++ T.unpack t) $
+                  parseUTC' t
     (BTutc   , _)        -> error "serialiseJSONWithSchema: expected string"
 
 
@@ -125,7 +141,7 @@ postprocessJSONTypeName napi tn v = do
       NUnionType  nut -> postprocessJSONUnion  napi nut v
       NEnumType    _  -> pure v
       NTypeSynonym ty -> postprocessJSONType   napi ty  v
-      NNewtype     _  -> pure v
+      NNewtype     bt -> postprocessJSONType   napi (TyBasic bt) v
 
 postprocessJSONType :: NormAPI -> APIType -> Value -> Either ValueError Value
 postprocessJSONType napi ty0 v = case ty0 of
@@ -139,8 +155,30 @@ postprocessJSONType napi ty0 v = case ty0 of
                                    _:_:_ -> Left $ JSONError $ SyntaxError "over-long array when converting Maybe value"
                     _         -> Left $ JSONError $ expectedArray v
     TyName tn  -> postprocessJSONTypeName napi tn v
+    TyBasic BTutc -> case v of
+      Object obj -> case HMap.toList obj of
+        [(k1, Number v0), (km12, Number v1)]
+          | T.unpack k1 == "1" && T.unpack km12 == "-12" ->
+          -- Taken from @Codec.Serialise.Class@:
+          let psecs :: Pico
+              psecs = realToFrac v1 / 1000000000000
+
+              dt :: POSIXTime
+              dt = realToFrac v0 + realToFrac psecs
+
+          in pure $! String $! mkUTC' $! forceUTCTime (posixSecondsToUTCTime dt)
+        _ -> Left $ JSONError UnexpectedField
+      String t -> case parseUTC' t of
+        Nothing -> Left $ JSONError $ SyntaxError $
+                     "UTC time in wrong format: " ++ T.unpack t
+        Just utcTime -> pure $! String $! mkUTC' $! forceUTCTime utcTime
+      _ -> Left $ JSONError $ expectedObject v
     TyBasic _  -> pure v
     TyJSON     -> pure v
+
+-- | Force the unnecessarily lazy @'UTCTime'@ representation.
+forceUTCTime :: UTCTime -> UTCTime
+forceUTCTime t@(UTCTime !_day !_daytime) = t
 
 postprocessJSONRecord :: NormAPI -> NormRecordType -> Value -> Either ValueError Value
 postprocessJSONRecord napi nrt v = case v of

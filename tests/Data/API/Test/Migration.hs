@@ -18,8 +18,8 @@ import qualified Data.API.Value           as Value
 
 import qualified Data.Aeson               as JS
 import qualified Data.Aeson.Encode.Pretty as JS
-import qualified Data.Binary.Serialise.CBOR as CBOR
-import qualified Data.Binary.Serialise.CBOR.FlatTerm as CBOR
+import qualified Codec.Serialise as CBOR
+import qualified Codec.CBOR.FlatTerm as CBOR
 import qualified Data.ByteString.Char8    as B
 import qualified Data.ByteString.Base64   as B64
 import qualified Data.ByteString.Lazy.Char8 as BL

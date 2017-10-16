@@ -1,5 +1,5 @@
 Name:                api-tools
-Version:             0.7.0.1
+Version:             0.8.0.0
 Synopsis:            DSL for generating API boilerplate and docs
 Description:         api-tools provides a compact DSL for describing an API.
                      It uses Template Haskell to generate the
@@ -25,7 +25,7 @@ Source-Repository head
 Source-Repository this
   Type:              git
   Location:          git://github.com/iconnect/api-tools.git
-  Tag:               0.7.0.0
+  Tag:               0.8.0.0
 
 flag time15
   default: True
@@ -79,7 +79,7 @@ Library
   Build-depends:
         Cabal                >= 1.4      && < 2    ,
         QuickCheck           >= 2.5.1    && < 2.10 ,
-        aeson                >= 0.6.2    && < 1.1  ,
+        aeson                >= 0.10     && < 1.3  ,
         aeson-pretty         >= 0.1      && < 0.9  ,
         array                >= 0.4      && < 0.6  ,
         attoparsec           >= 0.10.4   && < 0.14 ,
@@ -87,9 +87,9 @@ Library
         base16-bytestring    >= 0.1      && < 0.2  ,
         base64-bytestring    >= 1.0      && < 1.1  ,
         binary,
-        binary-serialise-cbor>= 0.1.1.0  && < 0.2  ,
         bytestring           >= 0.9      && < 0.11 ,
         case-insensitive     >= 1.0      && < 1.3  ,
+        cborg                >= 0.1.1.0  && < 0.2  ,
         containers           >= 0.5      && < 0.6  ,
         deepseq              >= 1.1      && < 1.5  ,
         lens                 >= 3.8.7    && < 4.16 ,
@@ -97,6 +97,7 @@ Library
         safe                 >= 0.3.3    && < 0.4  ,
         safecopy             >= 0.8.1    && < 0.10 ,
         scientific           >= 0.3      && < 0.4  ,
+        serialise            >= 0.1.0.0  && < 0.2  ,
         template-haskell     >= 2.7      && < 2.12 ,
         text                 >= 0.11.3   && < 1.3  ,
         unordered-containers >= 0.2.3.0  && < 0.3  ,
@@ -129,7 +130,7 @@ Executable migration-tool
   Build-depends:
         api-tools,
         QuickCheck           >= 2.5.1    && < 2.10 ,
-        aeson                >= 0.6.2    && < 1.1  ,
+        aeson                                      ,
         aeson-pretty         >= 0.1      && < 0.9  ,
         array                >= 0.4      && < 0.6  ,
         attoparsec           >= 0.10.4   && < 0.14 ,
@@ -163,21 +164,22 @@ Executable perf-test
   Build-depends:
         api-tools,
         QuickCheck           >= 2.5.1    && < 2.10 ,
-        aeson                >= 0.6.2    && < 1.1  ,
+        aeson                                      ,
         aeson-pretty         >= 0.1      && < 0.9  ,
         array                >= 0.4      && < 0.6  ,
         attoparsec           >= 0.10.4   && < 0.14 ,
         base                 >= 4        && < 5    ,
         base64-bytestring    >= 1.0      && < 1.1  ,
-        binary-serialise-cbor>= 0.1.1.0  && < 0.2  ,
         bytestring           >= 0.9      && < 0.11 ,
         case-insensitive     >= 1.0      && < 1.3  ,
+        cborg                >= 0.1.1.0  && < 0.2  ,
         containers           >= 0.5      && < 0.6  ,
         deepseq              >= 1.1      && < 1.5  ,
         lens                 >= 3.8.7    && < 4.16 ,
         regex-compat-tdfa    >= 0.95.1   && < 0.96 ,
         safe                 >= 0.3.3    && < 0.4  ,
         safecopy             >= 0.8.1    && < 0.10 ,
+        serialise            >= 0.1.0.0  && < 0.2  ,
         template-haskell     >= 2.7      && < 2.12 ,
         text                 >= 0.11.3   && < 1.3  ,
         unordered-containers >= 0.2.3.0  && < 0.3  ,
@@ -211,20 +213,21 @@ Test-Suite test-api-tools
         api-tools,
         Cabal                >= 1.4      && < 2    ,
         QuickCheck           >= 2.5.1    && < 2.10 ,
-        aeson                >= 0.6.2    && < 1.1  ,
+        aeson                                      ,
         aeson-pretty         >= 0.1      && < 0.9  ,
         array                >= 0.4      && < 0.6  ,
         attoparsec           >= 0.10.4   && < 0.14 ,
         base                 >= 4        && < 5    ,
         base64-bytestring    >= 1.0      && < 1.1  ,
-        binary-serialise-cbor>= 0.1.1.0  && < 0.2  ,
         bytestring           >= 0.9      && < 0.11 ,
         case-insensitive     >= 1.0      && < 1.3  ,
+        cborg                >= 0.1.1.0  && < 0.2  ,
         containers           >= 0.5      && < 0.6  ,
         lens                 >= 3.8.7    && < 4.16 ,
         regex-compat-tdfa    >= 0.95.1   && < 0.96 ,
         safe                 >= 0.3.3    && < 0.4  ,
         safecopy             >= 0.8.1    && < 0.10 ,
+        serialise            >= 0.1.0.0  && < 0.2  ,
         tasty                >= 0.10.1   && < 0.12 ,
         tasty-hunit          >= 0.2      && < 10.0 ,
         tasty-quickcheck     >= 0.3      && < 0.9  ,

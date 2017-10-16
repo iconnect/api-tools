@@ -43,7 +43,7 @@ import           Data.Time
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.Aeson.TH
-import qualified Data.Binary.Serialise.CBOR     as CBOR
+import qualified Codec.Serialise     as CBOR
 import           Data.Maybe
 import           Data.SafeCopy
 import qualified Data.Text                      as T

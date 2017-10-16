@@ -54,11 +54,11 @@ import           Control.Applicative
 import           Control.Monad
 import           Control.DeepSeq
 import qualified Data.Aeson                     as JS
-import qualified Data.Binary.Serialise.CBOR          as CBOR
-import qualified Data.Binary.Serialise.CBOR.Decoding as CBOR
-import qualified Data.Binary.Serialise.CBOR.Encoding as CBOR
+import qualified Codec.Serialise          as CBOR
+import qualified Codec.Serialise.Decoding as CBOR
+import qualified Codec.Serialise.Encoding as CBOR
 import           Data.Binary.Serialise.CBOR.Extra
-import qualified Data.Binary.Serialise.CBOR.FlatTerm as CBOR
+import qualified Codec.CBOR.FlatTerm as CBOR
 import           Data.Binary.Serialise.CBOR.JSON
 import qualified Data.HashMap.Strict            as HMap
 import           Data.List (sortBy)
@@ -68,6 +68,8 @@ import           Data.Ord
 import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import           Data.Traversable
+import           Data.Time (NominalDiffTime, UTCTime)
+import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import qualified Data.Vector                    as V
 import qualified Test.QuickCheck                as QC
 import qualified Test.QuickCheck.Property       as QCP
@@ -85,8 +87,7 @@ import           Prelude
 --
 --  * decoding CBOR is relatively efficient.
 data Value = String  !T.Text
-           | UTCTime !T.Text
-             -- ^ A time represented as a string, not decoded for efficiency
+           | UTCTime !UTCTime
            | Bytes   !Binary
            | Bool    !Bool
            | Int     !Int
@@ -157,7 +158,7 @@ fromDefaultValueBasic bt dv = case (bt, dv) of
                                     Left  _ -> Nothing
     (BTbool, DefValBool b)     -> Just (Bool b)
     (BTint, DefValInt i)       -> Just (Int i)
-    (BTutc, DefValUtc u)       -> Just (UTCTime (mkUTC' u))
+    (BTutc, DefValUtc u)       -> Just (UTCTime u)
     _                          -> Nothing
 
 
@@ -165,7 +166,7 @@ fromDefaultValueBasic bt dv = case (bt, dv) of
 instance JS.ToJSON Value where
   toJSON v0 = case v0 of
                 String t       -> JS.String t
-                UTCTime t      -> JS.String t
+                UTCTime t      -> JS.String (mkUTC' t)
                 Bytes b        -> JS.toJSON b
                 Bool b         -> JS.Bool b
                 Int i          -> JS.toJSON i
@@ -201,7 +202,7 @@ parseJSONBasic bt = case bt of
     BTbinary -> withBinary "Bytes"   (pure . Bytes)
     BTbool   -> withBool   "Bool"    (pure . Bool)
     BTint    -> withInt    "Int"     (pure . Int)
-    BTutc    -> withText   "UTCTime" (pure . UTCTime)
+    BTutc    -> withUTC    "UTCTime" (pure . UTCTime)
 
 parseJSONDecl :: NormAPI -> TypeName -> NormTypeDecl -> JS.Value -> ParserWithErrs Value
 parseJSONDecl api tn d = case d of
@@ -224,7 +225,7 @@ parseJSONDecl api tn d = case d of
 encode :: Value -> CBOR.Encoding
 encode v0 = case v0 of
     String t   -> CBOR.encodeString t
-    UTCTime t  -> CBOR.encodeTag 0 <> CBOR.encodeString t
+    UTCTime t  -> CBOR.encode t
     Bytes b    -> CBOR.encode b
     Bool b     -> CBOR.encode b
     Int i      -> CBOR.encode i
@@ -240,7 +241,7 @@ encode v0 = case v0 of
 
 -- | Efficiently decode CBOR as a generic 'Value', given the schema
 -- and expected type.
-decode :: NormAPI -> APIType -> CBOR.Decoder Value
+decode :: NormAPI -> APIType -> CBOR.Decoder s Value
 decode api ty0 = case ty0 of
     TyName tn  -> decodeDecl api (lookupTyName api tn)
     TyList ty  -> List  <$!> decodeListWith (decode api ty)
@@ -248,16 +249,15 @@ decode api ty0 = case ty0 of
     TyJSON     -> JSON  <$!> decodeJSON
     TyBasic bt -> decodeBasic bt
 
-decodeBasic :: BasicType -> CBOR.Decoder Value
+decodeBasic :: BasicType -> CBOR.Decoder s Value
 decodeBasic bt = case bt of
     BTstring -> String <$!> CBOR.decode
     BTbinary -> Bytes  <$!> CBOR.decode
     BTbool   -> Bool   <$!> CBOR.decode
     BTint    -> Int    <$!> CBOR.decode
-    BTutc    -> do _ <- CBOR.decodeTag
-                   UTCTime <$!> CBOR.decode
+    BTutc    -> UTCTime <$!> CBOR.decode
 
-decodeDecl :: NormAPI -> NormTypeDecl -> CBOR.Decoder Value
+decodeDecl :: NormAPI -> NormTypeDecl -> CBOR.Decoder s Value
 decodeDecl api d = case d of
     NRecordType nrt -> do _ <- CBOR.decodeMapLen
                           go [] (Map.toList nrt)
@@ -381,8 +381,10 @@ arbitraryOfBasicType bt = case bt of
     BTbinary -> Bytes   <$> QC.arbitrary
     BTbool   -> Bool    <$> QC.arbitrary
     BTint    -> Int     <$> QC.arbitrary
-    BTutc    -> UTCTime <$> QC.arbitrary -- Deliberately generates invalid UTC,
-                                         -- because it shouldn't matter
+    BTutc    -> UTCTime
+                . posixSecondsToUTCTime
+                . (realToFrac :: Int -> NominalDiffTime)
+                <$> QC.arbitrary
 
 arbitraryOfDecl :: NormAPI -> NormTypeDecl -> QC.Gen Value
 arbitraryOfDecl api d = case d of

@@ -11,8 +11,8 @@ module Data.Binary.Serialise.CBOR.Extra
     , (<$!>)
     ) where
 
-import           Data.Binary.Serialise.CBOR.Decoding
-import           Data.Binary.Serialise.CBOR.Encoding
+import           Codec.Serialise.Decoding
+import           Codec.Serialise.Encoding
 import           Data.List (foldl1')
 import           Data.Monoid
 import qualified Data.Text                      as T
@@ -48,7 +48,7 @@ encodeRecordFields l = foldl1' (<>) l
 encodeUnion :: T.Text -> Encoding -> Encoding
 encodeUnion t e = encodeMapLen 1 <> encodeString t <> e
 
-decodeUnion :: [(T.Text, Decoder a)] -> Decoder a
+decodeUnion :: [(T.Text, Decoder s a)] -> Decoder s a
 decodeUnion ds = do
     _   <- decodeMapLen -- should always be 1
     dfn <- decodeString
@@ -56,14 +56,14 @@ decodeUnion ds = do
       Nothing -> fail "Unexpected field in union in CBOR"
       Just d -> d
 
-decodeListWith :: Decoder a -> Decoder [a]
+decodeListWith :: Decoder s a -> Decoder s [a]
 decodeListWith dec = do
     mn <- decodeListLenOrIndef
     case mn of
       Nothing -> decodeSequenceLenIndef (flip (:)) [] reverse   dec
       Just n  -> decodeSequenceLenN     (flip (:)) [] reverse n dec
 
-decodeMaybeWith :: Decoder a -> Decoder (Maybe a)
+decodeMaybeWith :: Decoder s a -> Decoder s (Maybe a)
 decodeMaybeWith dec = do
     n <- decodeListLen
     case n of

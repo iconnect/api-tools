@@ -21,10 +21,10 @@ import qualified Data.ByteString.Base64          as Base64
 -- import qualified Data.ByteString.Base64.URL      as Base64url
 import qualified Data.ByteString.Base16          as Base16
 
-import Data.Binary.Serialise.CBOR.Decoding
-import Data.Binary.Serialise.CBOR.Encoding
-import Data.Binary.Serialise.CBOR.Term as CBOR
-import Data.Binary.Serialise.CBOR
+import Codec.Serialise.Decoding
+import Codec.Serialise.Encoding
+import Codec.CBOR.Term as CBOR
+import Codec.Serialise
 
 import Control.Applicative
 import Prelude
@@ -37,7 +37,7 @@ instance Serialise JSON.Value where
 encodeJSON :: JSON.Value -> Encoding
 encodeJSON = encode . jsonToCbor
 
-decodeJSON :: Decoder JSON.Value
+decodeJSON :: Decoder s JSON.Value
 decodeJSON = cborToJson <$> decode
 
 -- Most of the types in CBOR have direct analogs in JSON.  However, some
@@ -112,7 +112,6 @@ cborToJson (TDouble f)
 -- o  Any other simple value (major type 7, any additional information
 --    value not yet discussed) is represented by the substitute value.
 
-cborToJson  TUndef     = JSON.Null
 cborToJson (TSimple _) = JSON.Null
 
 -- o  A bignum (major type 6, tag value 2 or 3) is represented by

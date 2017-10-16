@@ -5,8 +5,8 @@ sudo: false
 
 matrix:
   include:
-    - env: CABALVER=1.18 GHCVER=7.8.4 ALEXVER=3.1.3 HAPPYVER=1.19.4
-      addons: {apt: {packages: [cabal-install-1.18,ghc-7.8.4,alex-3.1.3,happy-1.19.4], sources: [hvr-ghc]}}
+    - env: CABALVER=1.22 GHCVER=7.8.4 ALEXVER=3.1.3 HAPPYVER=1.19.4
+      addons: {apt: {packages: [cabal-install-1.22,ghc-7.8.4,alex-3.1.3,happy-1.19.4], sources: [hvr-ghc]}}
     - env: CABALVER=1.22 GHCVER=7.10.1 ALEXVER=3.1.3 HAPPYVER=1.19.4
       addons: {apt: {packages: [cabal-install-1.22,ghc-7.10.1,alex-3.1.3,happy-1.19.4],sources: [hvr-ghc]}}
     - env: CABALVER=1.24 GHCVER=8.0.1 ALEXVER=3.1.7 HAPPYVER=1.19.5
@@ -20,12 +20,6 @@ install:
  - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
  - travis_retry cabal update
  - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
- - git clone https://github.com/well-typed/binary-serialise-cbor.git
- - cd binary-serialise-cbor
- - git checkout -b 0.1.1.0.1 05a7ebf8a2e1af0feb61bc85b828a712e95762e8
- - cd ..
- - cabal sandbox init
- - cabal sandbox add-source binary-serialise-cbor
  - if [ $GHCVER = "8.0.1" ]; then export ALLOW_NEWER=--allow-newer=base,ghc-prim; fi
  - cabal install --only-dependencies $ALLOW_NEWER --enable-tests --enable-benchmarks
 

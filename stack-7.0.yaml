@@ -2,14 +2,12 @@ resolver: lts-7.19
 system-ghc: false
 install-ghc: true
 flags:
-    binary-serialise-cbor:
+    serialise:
       newtime15: true
 packages:
   - '.'
-  - location:
-      git: git@github.com:well-typed/binary-serialise-cbor.git
-      commit: 42af834eb84da3fbb7319a1f6480367ca99dcbfd
 
 extra-deps:
-  - binary-serialise-cbor-0.1.1.0
   - aeson-pretty-0.7.2
+  - cborg-0.1.1.0
+  - serialise-0.1.0.0
