@@ -1,5 +1,8 @@
 -*-change-log-*-
 
+0.8.0.1 Adam Gundry <adam@well-typed.com> October 2017
+	* Silently truncate floating point numbers to integers
+
 0.8.0.0 Mikolaj Konarski <mikolaj@well-typed.com> August 2017
 	* Update to match the published cborg 0.1 API
 

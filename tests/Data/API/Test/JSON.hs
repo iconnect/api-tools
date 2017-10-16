@@ -43,6 +43,8 @@ basicValueDecoding = sequence_ [ help (JS.String "12")  (12 :: Int) True
                                , help (JS.String "0")   (0 :: Int)  True
                                , help (JS.String "-9")  (-9 :: Int) True
                                , help (JS.String "1a")  (1 :: Int)  False
+                               , help (JS.Number 1.1)   (1 :: Int)  True
+                               , help (JS.Number 1.9)   (1 :: Int)  True
                                , help (JS.Number 0)     False       True
                                , help (JS.Number 1)     True        True
                                , help (JS.Number 2)     True        False

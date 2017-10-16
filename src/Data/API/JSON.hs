@@ -296,18 +296,17 @@ withFilter p err m | p         = m
                                                                                else warning err >> m
 
 
--- It's contrary to my principles, but I'll accept a string containing
--- a number instead of an actual number...
+-- | It's contrary to my principles, but I'll accept a string containing
+-- a number instead of an actual number, and will silently truncate
+-- floating point numbers to integers...
 withInt :: String -> (Int -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
 withInt = withNum
 
-withNum :: JS.FromJSON n => String -> (n -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
-withNum s f v = case JS.fromJSON v of
-  JS.Success i -> f i
-  JS.Error _ | JS.String t  <- v
-             , Right v'     <- parseOnly (JS.value <* endOfInput) (T.encodeUtf8 t)
-             , JS.Success i <- JS.fromJSON v' -> f i
-             | otherwise                      -> failWith $ Expected ExpInt s v
+withNum :: Integral n => String -> (n -> ParserWithErrs a) -> JS.Value -> ParserWithErrs a
+withNum _ f (JS.Number n) = f (truncate n)
+withNum s f (JS.String t)
+  | Right v' <- parseOnly (JS.value <* endOfInput) (T.encodeUtf8 t) = withNum s f v'
+withNum s _ v = failWith $ Expected ExpInt s v
 
 withIntRange :: IntRange -> String -> (Int -> ParserWithErrs a)
              -> JS.Value -> ParserWithErrs a
