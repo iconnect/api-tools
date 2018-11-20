@@ -5,7 +5,9 @@ import Language.Haskell.TH
 
 mkDataD :: Cxt -> Name -> [TyVarBndr] -> [Con] -> [Name] -> Dec
 mkDataD cxt1 name tyVarBndrs cons drvs =
-#if MIN_VERSION_template_haskell(2,11,0)
+#if MIN_VERSION_template_haskell(2,12,0)
+  DataD cxt1 name tyVarBndrs Nothing cons [DerivClause Nothing (map ConT drvs)]
+#elif MIN_VERSION_template_haskell(2,11,0)
   DataD cxt1 name tyVarBndrs Nothing cons (map ConT drvs)
 #else
   DataD cxt1 name tyVarBndrs cons drvs
@@ -21,7 +23,9 @@ mkInstanceD =
 
 mkNewtypeD :: Cxt -> Name -> [TyVarBndr] -> Con -> [Name] -> Dec
 mkNewtypeD cxt1 name tyVarBndrs cons drvs =
-#if MIN_VERSION_template_haskell(2,11,0)
+#if MIN_VERSION_template_haskell(2,12,0)
+  NewtypeD cxt1 name tyVarBndrs Nothing cons [DerivClause Nothing (map ConT drvs)]
+#elif MIN_VERSION_template_haskell(2,11,0)
   NewtypeD cxt1 name tyVarBndrs Nothing cons (map ConT drvs)
 #else
   NewtypeD cxt1 name tyVarBndrs cons drvs

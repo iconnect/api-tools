@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 module Data.API.Tools.Combinators
@@ -27,6 +28,7 @@ import           Data.API.Types
 
 import           Control.Applicative
 import           Data.Monoid
+import           Data.Semigroup as Sem
 import           Language.Haskell.TH
 import           Prelude
 
@@ -61,9 +63,14 @@ newtype Tool a   = Tool
 type APITool     = Tool API
 type APINodeTool = Tool APINode
 
+instance Sem.Semigroup (Tool a) where
+  Tool t1 <> Tool t2 = Tool $ \ ts x -> (++) <$> t1 ts x <*> t2 ts x
+
 instance Monoid (Tool a) where
   mempty                    = Tool $ \ _ _ -> return []
+#if !(MIN_VERSION_base(4,11,0))
   Tool t1 `mappend` Tool t2 = Tool $ \ ts x -> (++) <$> t1 ts x <*> t2 ts x
+#endif
 
 -- | Construct a tool that does not depend on any settings
 simpleTool :: (a -> Q [Dec]) -> Tool a
