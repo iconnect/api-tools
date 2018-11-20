@@ -82,7 +82,7 @@ import           Data.Time
 import           Data.Traversable
 import qualified Data.Vector                    as V
 import           Data.Version
-import           Distribution.Text
+import           Distribution.Text (simpleParse)
 import           Text.Regex
 import           Prelude
 
