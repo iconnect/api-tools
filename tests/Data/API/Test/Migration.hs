@@ -29,7 +29,7 @@ import qualified Data.Text                as T
 import qualified Data.Text.Encoding       as TE
 import           Data.Version
 import           Test.Tasty               as Test
-import           Test.Tasty.HUnit
+import qualified Test.Tasty.HUnit         as HUnit
 import qualified Test.Tasty.QuickCheck    as QC
 import           Test.QuickCheck.Property as P
 
@@ -130,44 +130,44 @@ testMigration' = CustomMigrations testDatabaseMigration'
                                   testFieldMigration'
 
 
-assertMatchesAPI :: String -> API -> JS.Value -> Assertion
+assertMatchesAPI :: String -> API -> JS.Value -> HUnit.Assertion
 assertMatchesAPI x a v = case dataMatchesAPI root_ a v of
     Right () -> return ()
-    Left err -> assertFailure (x ++ ": " ++ prettyValueErrorPosition err)
+    Left err -> HUnit.assertFailure (x ++ ": " ++ prettyValueErrorPosition err)
 
-basicMigrationTest :: Assertion
+basicMigrationTest :: HUnit.Assertion
 basicMigrationTest = do
     assertMatchesAPI "Start data does not match start API" startSchema startData
     assertMatchesAPI "End data does not match end API"     endSchema   endData
     case migrateDataDump (startSchema, startVersion) (endSchema, DevVersion)
                          changelog testMigration root_ CheckAll startData of
       Right (v, []) | endData == v -> return ()
-                    | otherwise    -> assertFailure $ "expected:\n"
+                    | otherwise    -> HUnit.assertFailure $ "expected:\n"
                                       ++ BL.unpack (JS.encodePretty endData)
                                       ++ "\nbut got:\n"
                                       ++ BL.unpack (JS.encodePretty v)
-      Right (_, ws) -> assertFailure $ "Unexpcted warnings: " ++ show ws
-      Left err      -> assertFailure (prettyMigrateFailure err)
+      Right (_, ws) -> HUnit.assertFailure $ "Unexpcted warnings: " ++ show ws
+      Left err      -> HUnit.assertFailure (prettyMigrateFailure err)
 
 applyFailureTest :: (Version, Version, ApplyFailure) -> Test.TestTree
 applyFailureTest (ver, ver', expected) =
-    testCase (showVersion ver ++ " -> " ++ showVersion ver') $
+    HUnit.testCase (showVersion ver ++ " -> " ++ showVersion ver') $
           case migrateDataDump (startSchema, ver) (endSchema, Release ver')
                                badChangelog testMigration root_ CheckAll startData of
-            Right _ -> assertFailure $ "Successful migration!"
+            Right _ -> HUnit.assertFailure $ "Successful migration!"
             Left (ValidateFailure (ChangelogEntryInvalid _ _ err))
                 | err == expected -> return ()
-            Left err -> assertFailure $ unlines $ ["Unexpected failure:"]
+            Left err -> HUnit.assertFailure $ unlines $ ["Unexpected failure:"]
                         ++ indent (ppLines err) ++ ["Expecting:"]
                         ++ indent (ppLines expected)
 
 migrateFailureTest :: MigrateFailureTest
                     -> Test.TestTree
 migrateFailureTest (s, start, end, clog, db, expected) =
-    testCase s $ case migrateDataDump start end clog testMigration root_ CheckAll db of
-        Right _                 -> assertFailure $ "Successful migration!"
+    HUnit.testCase s $ case migrateDataDump start end clog testMigration root_ CheckAll db of
+        Right _                 -> HUnit.assertFailure $ "Successful migration!"
         Left err | expected err -> return ()
-                 | otherwise    -> assertFailure $ unlines $ ["Unexpected failure:"]
+                 | otherwise    -> HUnit.assertFailure $ unlines $ ["Unexpected failure:"]
                                                              ++ indent (ppLines err)
 
 
@@ -212,9 +212,9 @@ validMigrationProperty' db =
 
 migrationTests :: TestTree
 migrationTests = testGroup "Migration"
-  [ testCase     "Basic migration using sample changelog" basicMigrationTest
-  , testGroup    "Invalid changes"    $ map applyFailureTest   expectedApplyFailures
-  , testGroup    "Invalid migrations" $ map migrateFailureTest expectedMigrateFailures
+  [ HUnit.testCase  "Basic migration using sample changelog" basicMigrationTest
+  , testGroup       "Invalid changes"    $ map applyFailureTest   expectedApplyFailures
+  , testGroup       "Invalid migrations" $ map migrateFailureTest expectedMigrateFailures
   , QC.testProperty "Valid migrations (JSON)" validMigrationProperty
   , QC.testProperty "Valid migrations (generic)" validMigrationProperty'
   ]
