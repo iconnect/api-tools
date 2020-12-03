@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 module Data.API.Utils
-    ( mkUTC
+    ( simpleParseVersion
+    , mkUTC
     , mkUTC'
     , mkUTC_
     , parseUTC'
@@ -20,11 +21,18 @@ import qualified Data.Map                       as Map
 import           Data.Maybe
 import qualified Data.Text                      as T
 import           Data.Time
+import           Data.Version
+import qualified Text.ParserCombinators.ReadP as ReadP
 
 #if MIN_VERSION_time(1,5,0)
 #else
 import           System.Locale (defaultTimeLocale)
 #endif
+
+simpleParseVersion :: String -> Maybe Version
+simpleParseVersion s = case filter (null . snd) (ReadP.readP_to_S parseVersion s) of
+  [(v,_)] -> Just v
+  x       -> Nothing
 
 
 mkUTC :: UTCTime -> Value

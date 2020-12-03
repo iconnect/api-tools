@@ -82,7 +82,6 @@ import           Data.Time
 import           Data.Traversable
 import qualified Data.Vector                    as V
 import           Data.Version
-import           Distribution.Text (simpleParse)
 import           Text.Regex
 import           Prelude
 
@@ -351,7 +350,7 @@ withUTCRange ur dg f = withUTC dg $ \ u -> withFilter (u `inUTCRange` ur) (UTCRa
 
 withVersion :: String -> (Version -> ParserWithErrs a)
             -> JS.Value -> ParserWithErrs a
-withVersion lab f (JS.String s) = case simpleParse $ T.unpack s of
+withVersion lab f (JS.String s) = case simpleParseVersion (T.unpack s) of
                                     Just ver -> f ver
                                     Nothing  -> failWith $ badFormat lab s
 withVersion lab _ v             = failWith $ Expected ExpString lab v

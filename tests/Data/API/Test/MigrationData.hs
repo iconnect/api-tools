@@ -10,12 +10,12 @@ import           Data.API.Changes
 import           Data.API.JSON
 import           Data.API.Parse
 import           Data.API.Types
+import           Data.API.Utils
 
 import qualified Data.Aeson as JS
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import           Data.Version
-import           Distribution.Text (simpleParse)
 
 
 startSchema :: API
@@ -520,8 +520,8 @@ expectedApplyFailures = map toVersions $
   ]
   where
     toVersions (s, s', x)
-      | Just v  <- simpleParse s
-      , Just v' <- simpleParse s'
+      | Just v  <- simpleParseVersion s
+      , Just v' <- simpleParseVersion s'
       , v < v'                    = (v, v', x)
       | otherwise = error $ "expectedApplyFailures: bad versions "
                             ++ show s ++ " and " ++ show s'
@@ -572,7 +572,7 @@ expectedMigrateFailures =
     )
   ]
   where
-    ver s | Just v <- simpleParse s = v
+    ver s | Just v <- simpleParseVersion s = v
           | otherwise = error $ "expectedValidateFailures: bad version " ++ show s
     verRelease s = Release $ ver s
 

@@ -78,7 +78,6 @@ Library
         Data.API.TH.Compat
 
   Build-depends:
-        Cabal                >= 1.4      && < 2.5  ,
         QuickCheck           >= 2.5.1    && < 2.13 ,
         aeson                >= 0.10     && < 1.5  ,
         aeson-pretty         >= 0.1      && < 0.9  ,
@@ -184,7 +183,6 @@ Test-Suite test-api-tools
 
   Build-depends:
         api-tools,
-        Cabal,
         QuickCheck,
         aeson,
         aeson-pretty,
