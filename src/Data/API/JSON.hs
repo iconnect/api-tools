@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -67,6 +68,7 @@ import           Data.API.Types
 import           Data.API.Utils
 
 import           Control.Applicative
+import qualified Control.Monad.Fail as Fail
 import qualified Data.Aeson                     as JS
 import qualified Data.Aeson.Parser              as JS
 import qualified Data.Aeson.Types               as JS
@@ -124,6 +126,11 @@ instance Monad ParserWithErrs where
                     (es, Just x ) -> let (es', r) = runParserWithErrs (f x) q z
                                      in (es ++ es', r)
                     (es, Nothing) -> (es, Nothing)
+#if !(MIN_VERSION_base(4,13,0))
+  fail = Fail.fail
+#endif
+
+instance Fail.MonadFail ParserWithErrs where
   fail     = failWith . SyntaxError
 
 

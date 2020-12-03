@@ -15,6 +15,7 @@ import           Data.API.Tools.Example
 import           Data.API.Value ( arbitraryJSONValue )
 
 import           Control.Applicative
+import qualified Control.Monad.Fail as Fail
 import qualified Data.Aeson                     as JS
 import           Data.SafeCopy
 import           GHC.Generics
@@ -82,7 +83,7 @@ instance Arbitrary CHOICE where
 
 instance Example CHOICE
 
-inj_chc :: Monad m => REP__CHOICE -> m CHOICE
+inj_chc :: Fail.MonadFail m => REP__CHOICE -> m CHOICE
 inj_chc (CHC_a i) = return $ CHOICE i
 inj_chc (CHC_b _) = fail "no choice"
 
