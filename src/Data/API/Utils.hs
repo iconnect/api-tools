@@ -61,7 +61,7 @@ parseUTC' t = parseUTC_ $ T.unpack t
 
 parseUTC_ :: String -> Maybe UTCTime
 parseUTC_ s = listToMaybe $ catMaybes $
-            map (\fmt->parseTime defaultTimeLocale fmt s) utcFormats
+            map (\fmt->parseTimeM True defaultTimeLocale fmt s) utcFormats
 
 
 -- | The \"oh noes!\" operator.
