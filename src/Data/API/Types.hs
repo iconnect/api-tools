@@ -1,4 +1,6 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DeriveLift                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -66,7 +68,7 @@ type API = [Thing]
 data Thing
     = ThComment MDComment
     | ThNode    APINode
-    deriving (Eq,Show)
+    deriving (Eq,Lift,Show)
 
 instance NFData Thing where
   rnf (ThComment x) = rnf x
@@ -120,7 +122,7 @@ data Spec
     | SpUnion   SpecUnion
     | SpEnum    SpecEnum
     | SpSynonym APIType
-    deriving (Eq,Show)
+    deriving (Eq,Lift,Show)
 
 instance NFData Spec where
   rnf (SpNewtype x) = rnf x
@@ -136,7 +138,7 @@ data SpecNewtype =
         { snType   :: BasicType
         , snFilter :: Maybe Filter
         }
-    deriving (Eq,Show)
+    deriving (Eq,Lift,Show)
 
 instance NFData SpecNewtype where
   rnf (SpecNewtype x y) = rnf x `seq` rnf y
@@ -145,7 +147,7 @@ data Filter
     = FtrStrg RegEx
     | FtrIntg IntRange
     | FtrUTC  UTCRange
-    deriving (Eq,Show)
+    deriving (Eq,Lift,Show)
 
 instance NFData Filter where
   rnf (FtrStrg x) = rnf x
@@ -157,7 +159,7 @@ data IntRange
         { ir_lo :: Maybe Int
         , ir_hi :: Maybe Int
         }
-    deriving (Eq, Show)
+    deriving (Eq, Lift, Show)
 
 instance NFData IntRange where
   rnf (IntRange x y) = rnf x `seq` rnf y
@@ -214,7 +216,7 @@ instance Show RegEx where
 data SpecRecord = SpecRecord
     { srFields :: [(FieldName, FieldType)]
     }
-    deriving (Eq,Show)
+    deriving (Eq,Lift,Show)
 
 instance NFData SpecRecord where
   rnf (SpecRecord x) = rnf x
@@ -229,7 +231,7 @@ data FieldType = FieldType
     , ftDefault  :: Maybe DefaultValue
     , ftComment  :: MDComment
     }
-    deriving (Eq,Show)
+    deriving (Eq,Lift,Show)
 
 instance NFData FieldType where
   rnf (FieldType a b c d) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d
@@ -239,7 +241,7 @@ instance NFData FieldType where
 data SpecUnion = SpecUnion
     { suFields :: [(FieldName,(APIType,MDComment))]
     }
-    deriving (Eq,Show)
+    deriving (Eq,Lift,Show)
 
 instance NFData SpecUnion where
   rnf (SpecUnion x) = rnf x
@@ -249,7 +251,7 @@ instance NFData SpecUnion where
 data SpecEnum = SpecEnum
     { seAlts :: [(FieldName,MDComment)]
     }
-    deriving (Eq,Show)
+    deriving (Eq,Lift,Show)
 
 instance NFData SpecEnum where
   rnf (SpecEnum x) = rnf x
@@ -266,7 +268,7 @@ data APIType
     | TyName  TypeName      -- ^ the referenced type must be defined by the API
     | TyBasic BasicType     -- ^ a JSON string, int, bool etc.
     | TyJSON                -- ^ a generic JSON value
-    deriving (Eq, Show)
+    deriving (Eq, Lift, Show)
 
 -- | It is sometimes helpful to write a type name directly as a string
 instance IsString APIType where
@@ -286,7 +288,7 @@ data BasicType
     | BTbool   -- ^ a JSON bool
     | BTint    -- ^ a JSON integral number
     | BTutc    -- ^ a JSON UTC string
-    deriving (Eq, Show)
+    deriving (Eq, Lift, Show)
 
 instance NFData BasicType where
   rnf !_ = ()
@@ -349,63 +351,18 @@ withBinary lab f = withText lab g
 base64ToBinary :: T.Text -> Either String Binary
 base64ToBinary t = Binary <$> B64.decode (T.encodeUtf8 t)
 
-$(deriveSafeCopy 0 'base ''Binary)
-
-deriveJSON defaultOptions ''Thing
-deriveJSON defaultOptions ''APINode
-deriveJSON defaultOptions ''TypeName
-deriveJSON defaultOptions ''FieldName
-deriveJSON defaultOptions ''Spec
-deriveJSON defaultOptions ''APIType
-deriveJSON defaultOptions ''DefaultValue
-deriveJSON defaultOptions ''SpecEnum
-deriveJSON defaultOptions ''SpecUnion
-deriveJSON defaultOptions ''SpecRecord
-deriveJSON defaultOptions ''FieldType
-deriveJSON defaultOptions ''SpecNewtype
-deriveJSON defaultOptions ''Filter
-deriveJSON defaultOptions ''IntRange
-deriveJSON defaultOptions ''UTCRange
-deriveJSON defaultOptions ''BasicType
-deriveJSON defaultOptions ''CI.CI
-
-
-instance Lift Thing where
-  lift (ThComment c) = [e| ThComment c |]
-  lift (ThNode    n) = [e| ThNode    n |]
 
 instance Lift APINode where
   lift (APINode a b c d e) = [e| APINode a b $(liftPrefix c) d e |]
+#if MIN_VERSION_template_haskell(2,16,0)
+  liftTyped (APINode a b c d e) = [e|| APINode a b $$(liftTypedPrefix c) d e ||]
+#endif
 
 liftPrefix :: Prefix -> ExpQ
 liftPrefix ci = let s = CI.original ci in [e| CI.mk s |]
 
-instance Lift TypeName where
-  lift (TypeName s) = [e| TypeName $(litE (stringL (T.unpack s))) |]
-
-instance Lift FieldName where
-  lift (FieldName s) = [e| FieldName $(litE (stringL (T.unpack s))) |]
-
-instance Lift Spec where
-  lift (SpNewtype s) = [e| SpNewtype s |]
-  lift (SpRecord  s) = [e| SpRecord  s |]
-  lift (SpUnion   s) = [e| SpUnion   s |]
-  lift (SpEnum    s) = [e| SpEnum    s |]
-  lift (SpSynonym s) = [e| SpSynonym s |]
-
-instance Lift SpecNewtype where
-  lift (SpecNewtype a b) = [e| SpecNewtype a b |]
-
-instance Lift Filter where
-  lift (FtrStrg re) = [e| FtrStrg re |]
-  lift (FtrIntg ir) = [e| FtrIntg ir |]
-  lift (FtrUTC  ur) = [e| FtrUTC  ur |]
-
-instance Lift IntRange where
-    lift (IntRange lo hi) = [e| IntRange lo hi |]
-
-instance Lift UTCRange where
-    lift (UTCRange lo hi) = [e| UTCRange $(liftMaybeUTCTime lo) $(liftMaybeUTCTime hi) |]
+liftText :: T.Text -> ExpQ
+liftText s = [e| T.pack $(litE (stringL (T.unpack s))) |]
 
 liftUTC :: UTCTime -> ExpQ
 liftUTC u = [e| fromMaybe (error "liftUTC") (parseUTC_ $(stringE (mkUTC_ u))) |]
@@ -414,39 +371,78 @@ liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
 liftMaybeUTCTime Nothing  = [e| Nothing |]
 liftMaybeUTCTime (Just u) = [e| Just $(liftUTC u) |]
 
+#if MIN_VERSION_template_haskell(2,16,0)
+liftTypedPrefix :: Prefix -> TExpQ Prefix
+liftTypedPrefix ci = let s = CI.original ci in [e|| CI.mk s ||]
+
+liftTypedText :: T.Text -> TExpQ T.Text
+liftTypedText s = [e|| T.pack $$(liftTyped (T.unpack s)) ||]
+
+liftTypedUTC :: UTCTime -> TExpQ UTCTime
+liftTypedUTC u = [e|| fromMaybe (error "liftUTC") (parseUTC_ $$(liftTyped (mkUTC_ u))) ||]
+
+liftTypedMaybeUTCTime :: Maybe UTCTime -> TExpQ (Maybe UTCTime)
+liftTypedMaybeUTCTime Nothing  = [e|| Nothing ||]
+liftTypedMaybeUTCTime (Just u) = [e|| Just $$(liftTypedUTC u) ||]
+#endif
+
+instance Lift TypeName where
+  lift (TypeName s) = [e| TypeName $(liftText s) |]
+#if MIN_VERSION_template_haskell(2,16,0)
+  liftTyped (TypeName s) = [e|| TypeName $$(liftTypedText s) ||]
+#endif
+
+instance Lift FieldName where
+  lift (FieldName s) = [e| FieldName $(liftText s) |]
+#if MIN_VERSION_template_haskell(2,16,0)
+  liftTyped (FieldName s) = [e|| FieldName $$(liftTypedText s) ||]
+#endif
+
+instance Lift UTCRange where
+  lift (UTCRange lo hi) = [e| UTCRange $(liftMaybeUTCTime lo) $(liftMaybeUTCTime hi) |]
+#if MIN_VERSION_template_haskell(2,16,0)
+  liftTyped (UTCRange lo hi) = [e|| UTCRange $$(liftTypedMaybeUTCTime lo) $$(liftTypedMaybeUTCTime hi) ||]
+#endif
+
 instance Lift RegEx where
-    lift re = [e| mkRegEx $(stringE (T.unpack (re_text re))) |]
-
-instance Lift SpecRecord where
-  lift (SpecRecord s) = [e| SpecRecord s |]
-
-instance Lift FieldType where
-  lift (FieldType a b c d) = [e| FieldType a b c d |]
-
-instance Lift SpecUnion where
-  lift (SpecUnion s) = [e| SpecUnion s |]
-
-instance Lift SpecEnum where
-  lift (SpecEnum s) = [e| SpecEnum s |]
-
-instance Lift APIType where
-  lift (TyList  t) = [e| TyList  t |]
-  lift (TyMaybe t) = [e| TyMaybe t |]
-  lift (TyName  t) = [e| TyName  t |]
-  lift (TyBasic t) = [e| TyBasic t |]
-  lift TyJSON      = [e| TyJSON    |]
-
-instance Lift BasicType where
-  lift BTstring = [e| BTstring |]
-  lift BTbinary = [e| BTbinary |]
-  lift BTbool   = [e| BTbool   |]
-  lift BTint    = [e| BTint    |]
-  lift BTutc    = [e| BTutc    |]
+  lift re = [e| mkRegEx $(liftText (re_text re)) |]
+#if MIN_VERSION_template_haskell(2,16,0)
+  liftTyped re = [e|| mkRegEx $$(liftTypedText (re_text re)) ||]
+#endif
 
 instance Lift DefaultValue where
-  lift DefValList       = [e| DefValList     |]
-  lift DefValMaybe      = [e| DefValMaybe    |]
-  lift (DefValString s) = [e| DefValString (T.pack $(lift (T.unpack s))) |]
-  lift (DefValBool   b) = [e| DefValBool b   |]
-  lift (DefValInt    i) = [e| DefValInt i    |]
+  lift DefValList       = [e| DefValList |]
+  lift DefValMaybe      = [e| DefValMaybe |]
+  lift (DefValString s) = [e| DefValString $(liftText s) |]
+  lift (DefValBool   b) = [e| DefValBool b |]
+  lift (DefValInt    i) = [e| DefValInt i |]
   lift (DefValUtc    u) = [e| DefValUtc $(liftUTC u) |]
+
+#if MIN_VERSION_template_haskell(2,16,0)
+  liftTyped DefValList       = [e|| DefValList ||]
+  liftTyped DefValMaybe      = [e|| DefValMaybe ||]
+  liftTyped (DefValString s) = [e|| DefValString $$(liftTypedText s) ||]
+  liftTyped (DefValBool   b) = [e|| DefValBool b ||]
+  liftTyped (DefValInt    i) = [e|| DefValInt i ||]
+  liftTyped (DefValUtc    u) = [e|| DefValUtc $$(liftTypedUTC u) ||]
+#endif
+
+$(deriveSafeCopy 0 'base ''Binary)
+
+$(deriveJSON defaultOptions ''Thing)
+$(deriveJSON defaultOptions ''APINode)
+$(deriveJSON defaultOptions ''TypeName)
+$(deriveJSON defaultOptions ''FieldName)
+$(deriveJSON defaultOptions ''Spec)
+$(deriveJSON defaultOptions ''APIType)
+$(deriveJSON defaultOptions ''DefaultValue)
+$(deriveJSON defaultOptions ''SpecEnum)
+$(deriveJSON defaultOptions ''SpecUnion)
+$(deriveJSON defaultOptions ''SpecRecord)
+$(deriveJSON defaultOptions ''FieldType)
+$(deriveJSON defaultOptions ''SpecNewtype)
+$(deriveJSON defaultOptions ''Filter)
+$(deriveJSON defaultOptions ''IntRange)
+$(deriveJSON defaultOptions ''UTCRange)
+$(deriveJSON defaultOptions ''BasicType)
+$(deriveJSON defaultOptions ''CI.CI)
