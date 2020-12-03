@@ -15,7 +15,6 @@ import           Data.API.Types
 
 import qualified Data.Text                      as T
 import qualified Data.Map                       as Map
-import           Data.Monoid
 import           Language.Haskell.TH
 
 
