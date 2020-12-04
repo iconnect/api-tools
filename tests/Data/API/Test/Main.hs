@@ -1,7 +1,3 @@
-module Data.API.Test.Main
-    ( main
-    ) where
-
 import           Data.API.API
 import           Data.API.API.Gen
 import           Data.API.Test.JSON

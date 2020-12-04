@@ -114,7 +114,7 @@ Library
 Executable migration-tool
   Hs-Source-Dirs:    main
 
-  Main-is:    Data/API/MigrationTool.hs
+  Main-is:    MigrationTool.hs
 
   Build-depends:
         api-tools,
@@ -124,7 +124,6 @@ Executable migration-tool
         bytestring
 
   GHC-Options:
-        -main-is Data.API.MigrationTool
         -Wall
         -fwarn-tabs
 
@@ -134,7 +133,7 @@ Executable migration-tool
 Executable perf-test
   Hs-Source-Dirs:    main
 
-  Main-is:    Data/API/PerfTest.hs
+  Main-is:    PerfTest.hs
 
   Build-depends:
         api-tools,
@@ -145,7 +144,6 @@ Executable perf-test
         serialise
 
   GHC-Options:
-        -main-is Data.API.PerfTest
         -Wall
         -fwarn-tabs
         -rtsopts
@@ -188,7 +186,6 @@ Test-Suite test-api-tools
         unordered-containers
 
   GHC-Options:
-        -main-is Data.API.Test.Main
         -Wall
         -fwarn-tabs
 

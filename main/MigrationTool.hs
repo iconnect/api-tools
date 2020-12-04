@@ -1,7 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Data.API.MigrationTool
-    ( main
-    ) where
 
 import           Data.API.Changes
 import           Data.API.JSON
