@@ -10,10 +10,10 @@ module Data.API.Tools.Example
     ) where
 
 import           Data.API.TH
+import           Data.API.Time
 import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.Types
-import           Data.API.Utils
 
 import           Control.Applicative
 import           Data.Aeson
@@ -21,7 +21,6 @@ import qualified Data.ByteString.Char8          as B
 import           Data.Monoid
 import           Data.Time
 import           Language.Haskell.TH
-import           Safe
 import           Test.QuickCheck                as QC
 import qualified Data.Text                      as T
 import           Prelude
@@ -59,9 +58,7 @@ instance Example Value where
     example = return $ String "an example JSON value"
 
 instance Example UTCTime where
-    example = return $ fromJustNote dg $ parseUTC_ "2013-06-09T15:52:30Z"
-      where
-        dg = "Data.API.Tools.Example-UTCTime"
+    example = return $ unsafeParseUTC "2013-06-09T15:52:30Z"
 
 
 -- | Generate a list of (type name, sample generator) pairs

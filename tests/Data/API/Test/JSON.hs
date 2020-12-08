@@ -15,13 +15,12 @@ import           Data.API.Tools.JSONTests
 import           Data.API.Test.DSL
 import           Data.API.Test.Gen hiding ( Foo )
 import           Data.API.Test.MigrationData
+import           Data.API.Time
 import           Data.API.Types
-import           Data.API.Utils
 import qualified Data.API.Value           as Value
 
 import qualified Data.Aeson               as JS
 import qualified Data.HashMap.Strict      as HMap
-import           Data.Time
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -55,7 +54,7 @@ basicValueDecoding = sequence_ [ help (JS.String "12")  (12 :: Int) True
                                       True
                                , help' noFilter (JS.Number 0) (UnsafeMkFilteredInt 0) True
                                , help' noFilter (JS.String "cabcage") (UnsafeMkFilteredString "cabcage") True
-                               , help' noFilter (JS.String "2014-10-13T15:20:10Z") (UnsafeMkFilteredUTC (pUTC "2014-10-13T15:20:10Z")) True
+                               , help' noFilter (JS.String "2014-10-13T15:20:10Z") (UnsafeMkFilteredUTC (unsafeParseUTC "2014-10-13T15:20:10Z")) True
                                ]
   where
     help v x yes = assertBool ("Failed on " ++ show v ++ " " ++ show x)
@@ -88,7 +87,7 @@ errorDecoding = [ help "not enough input" ""         (proxy :: Int)
                 , help "string mismatch" "[\"cabcage\"]" (proxy :: [FilteredString])
                       [(RegexError "FilteredString" "cabcage" (mkRegEx "cab*age"), [InElem 0])]
                 , help "utc out of range" "[\"2014-10-13T15:20:10Z\"]" (proxy :: [FilteredUTC])
-                      [(UTCRangeError "FilteredUTC" (pUTC "2014-10-13T15:20:10Z") (UTCRange (parseUTC_ "2014-10-13T15:20:11Z") Nothing), [InElem 0])]
+                      [(UTCRangeError "FilteredUTC" (unsafeParseUTC "2014-10-13T15:20:10Z") (UTCRange (parseUTC "2014-10-13T15:20:11Z") Nothing), [InElem 0])]
                 ]
   where
     proxy = error "proxy"
@@ -111,11 +110,8 @@ smartConstructors =
                                      mkFilteredString "cabbage" @?= Just (UnsafeMkFilteredString "cabbage")
   ]
   where
-    bad_time  = pUTC "2014-10-13T15:20:10Z"
-    good_time = pUTC "2014-10-13T15:20:13Z"
-
-pUTC :: String -> UTCTime
-pUTC = maybe (error "pUTC") id . parseUTC_
+    bad_time  = unsafeParseUTC "2014-10-13T15:20:10Z"
+    good_time = unsafeParseUTC "2014-10-13T15:20:13Z"
 
 jsonTests :: TestTree
 jsonTests = testGroup "JSON"

@@ -36,7 +36,7 @@ module Data.API.Types
     , base64ToBinary
     ) where
 
-import           Data.API.Utils
+import           Data.API.Time
 
 import           Control.DeepSeq
 import qualified Data.CaseInsensitive           as CI
@@ -320,7 +320,7 @@ defaultValueAsJsValue  DefValMaybe               = Null
 defaultValueAsJsValue (DefValString s)           = String s
 defaultValueAsJsValue (DefValBool   b)           = Bool b
 defaultValueAsJsValue (DefValInt    n)           = Number (fromIntegral n)
-defaultValueAsJsValue (DefValUtc    t)           = mkUTC t
+defaultValueAsJsValue (DefValUtc    t)           = String (printUTC t)
 
 
 -- | Binary data is represented in JSON format as a base64-encoded
@@ -365,7 +365,7 @@ liftText :: T.Text -> ExpQ
 liftText s = [e| T.pack $(litE (stringL (T.unpack s))) |]
 
 liftUTC :: UTCTime -> ExpQ
-liftUTC u = [e| fromMaybe (error "liftUTC") (parseUTC_ $(stringE (mkUTC_ u))) |]
+liftUTC u = [e| unsafeParseUTC $(liftText (printUTC u)) |]
 
 liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
 liftMaybeUTCTime Nothing  = [e| Nothing |]
@@ -379,7 +379,7 @@ liftTypedText :: T.Text -> TExpQ T.Text
 liftTypedText s = [e|| T.pack $$(liftTyped (T.unpack s)) ||]
 
 liftTypedUTC :: UTCTime -> TExpQ UTCTime
-liftTypedUTC u = [e|| fromMaybe (error "liftUTC") (parseUTC_ $$(liftTyped (mkUTC_ u))) ||]
+liftTypedUTC u = [e|| unsafeParseUTC $$(liftTypedText (printUTC u)) ||]
 
 liftTypedMaybeUTCTime :: Maybe UTCTime -> TExpQ (Maybe UTCTime)
 liftTypedMaybeUTCTime Nothing  = [e|| Nothing ||]

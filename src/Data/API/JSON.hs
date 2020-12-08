@@ -64,6 +64,7 @@ module Data.API.JSON
     ) where
 
 import           Data.API.Error
+import           Data.API.Time
 import           Data.API.Types
 import           Data.API.Utils
 
@@ -349,7 +350,7 @@ withUTC :: String -> (UTCTime -> ParserWithErrs a)
         -> JS.Value -> ParserWithErrs a
 withUTC lab f = withText lab g
   where
-    g t = maybe (failWith $ BadFormat FmtUTC lab t) f $ parseUTC' t
+    g t = maybe (failWith $ BadFormat FmtUTC lab t) f $ parseUTC t
 
 withUTCRange :: UTCRange -> String -> (UTCTime -> ParserWithErrs a)
                -> JS.Value -> ParserWithErrs a

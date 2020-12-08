@@ -9,6 +9,7 @@ module Data.API.Test.Gen where
 
 import           Data.API.Test.DSL hiding (example)
 import qualified Data.API.Test.DSL as DSL
+import           Data.API.Time
 import           Data.API.Tools
 import           Data.API.Tools.Datatypes
 import           Data.API.Tools.Example

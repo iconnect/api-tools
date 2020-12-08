@@ -47,6 +47,7 @@ Library
         Data.API.Parse
         Data.API.PP
         Data.API.TH
+        Data.API.Time
         Data.API.Tools
         Data.API.Tools.CBOR
         Data.API.Tools.Combinators
