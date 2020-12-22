@@ -165,6 +165,7 @@ Test-Suite test-api-tools
         Data.API.Test.JSON
         Data.API.Test.Migration
         Data.API.Test.MigrationData
+        Data.API.Test.Time
 
   Build-depends:
         api-tools,

@@ -2,6 +2,7 @@ import           Data.API.API
 import           Data.API.API.Gen
 import           Data.API.Test.JSON
 import           Data.API.Test.Migration
+import           Data.API.Test.Time
 
 import           Test.Tasty
 import           Test.Tasty.QuickCheck
@@ -12,6 +13,7 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "api-tools" [ migrationTests
                               , jsonTests
+                              , timeTests
                               , testProperty "Convert/unconvert" convertUncovertTest
                               ]
 
