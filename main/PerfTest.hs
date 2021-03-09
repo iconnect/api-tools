@@ -1,10 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Data.API.PerfTest
-    ( main
-    ) where
-
 import           Data.API.API.DSL
 import qualified Data.API.API.Gen               as Gen
 import           Data.API.NormalForm

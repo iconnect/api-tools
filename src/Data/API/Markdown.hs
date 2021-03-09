@@ -21,8 +21,8 @@ module Data.API.Markdown
     , thing
     ) where
 
+import           Data.API.Time
 import           Data.API.Types
-import           Data.API.Utils
 
 import qualified Data.CaseInsensitive       as CI
 import           Data.Char
@@ -85,7 +85,7 @@ ntype mdm an sn =
   where
     f (FtrStrg RegEx{..}   ) = "**filter** " ++ show re_text
     f (FtrIntg IntRange{..}) = "**filter** " ++ rg show   ir_lo ir_hi
-    f (FtrUTC  UTCRange{..}) = "**filter** " ++ rg mkUTC_ ur_lo ur_hi
+    f (FtrUTC  UTCRange{..}) = "**filter** " ++ rg (T.unpack . printUTC) ur_lo ur_hi
 
     rg _  Nothing   Nothing   = "**no restriction**" -- should not happen (not produced by parser)
     rg sh Nothing   (Just hi) = "x <= " ++ sh hi
@@ -200,7 +200,7 @@ default_value dv =
       DefValString t -> show t
       DefValBool   b -> map toLower $ show b
       DefValInt    i -> show i
-      DefValUtc    u -> show $ mkUTC_ u
+      DefValUtc    u -> show $ printUTC u
 
 type_md :: MarkdownMethods -> APIType -> MDComment
 type_md mdm ty =

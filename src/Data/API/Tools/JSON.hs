@@ -14,7 +14,6 @@ import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.Tools.Enum
 import           Data.API.Types
-import           Data.API.Utils
 
 import           Data.Aeson hiding (withText, withBool)
 import           Control.Applicative
@@ -77,7 +76,7 @@ gen_sn_to = mkTool $ \ ts (an, sn) -> optionalInstanceD ts ''ToJSON [nodeRepT an
             BTbinary -> [e| toJSON |]
             BTbool   -> [e| Bool   |]
             BTint    -> [e| mkInt  |]
-            BTutc    -> [e| mkUTC  |]
+            BTutc    -> [e| String . printUTC  |]
 
 
 {-

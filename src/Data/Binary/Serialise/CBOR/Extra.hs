@@ -14,7 +14,6 @@ module Data.Binary.Serialise.CBOR.Extra
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
 import           Data.List (foldl1')
-import           Data.Monoid
 import qualified Data.Text                      as T
 
 #if MIN_VERSION_base(4,8,0)

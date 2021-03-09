@@ -47,6 +47,7 @@ module Data.API.Value
 import           Data.API.Error
 import           Data.API.JSON
 import           Data.API.NormalForm
+import           Data.API.Time
 import           Data.API.Types
 import           Data.API.Utils
 
@@ -166,7 +167,7 @@ fromDefaultValueBasic bt dv = case (bt, dv) of
 instance JS.ToJSON Value where
   toJSON v0 = case v0 of
                 String t       -> JS.String t
-                UTCTime t      -> JS.String (mkUTC' t)
+                UTCTime t      -> JS.String (printUTC t)
                 Bytes b        -> JS.toJSON b
                 Bool b         -> JS.Bool b
                 Int i          -> JS.toJSON i

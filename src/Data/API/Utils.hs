@@ -1,10 +1,5 @@
-{-# LANGUAGE CPP #-}
 module Data.API.Utils
-    ( mkUTC
-    , mkUTC'
-    , mkUTC_
-    , parseUTC'
-    , parseUTC_
+    ( simpleParseVersion
     , (?!)
     , (?!?)
       -- * Utils for merging and diffing maps
@@ -14,46 +9,15 @@ module Data.API.Utils
     , matchMaps
     ) where
 
-import           Data.Aeson
 import           Data.Map ( Map )
 import qualified Data.Map                       as Map
-import           Data.Maybe
-import qualified Data.Text                      as T
-import           Data.Time
+import           Data.Version
+import qualified Text.ParserCombinators.ReadP as ReadP
 
-#if MIN_VERSION_time(1,5,0)
-#else
-import           System.Locale (defaultTimeLocale)
-#endif
-
-
-mkUTC :: UTCTime -> Value
-mkUTC = String . mkUTC'
-
-utcFormat :: String
-utcFormat =               "%Y-%m-%dT%H:%M:%SZ"
-
-utcFormats :: [String]
-utcFormats =
-                        [ "%Y-%m-%dT%H:%M:%S%z"
-                        , "%Y-%m-%dT%H:%M:%S%Z"
-                        , "%Y-%m-%dT%H:%M%Z"
-                        , "%Y-%m-%dT%H:%M:%S%QZ"
-                        , utcFormat
-                        ]
-
-mkUTC' :: UTCTime -> T.Text
-mkUTC' = T.pack . mkUTC_
-
-mkUTC_ :: UTCTime -> String
-mkUTC_ utct = formatTime defaultTimeLocale utcFormat utct
-
-parseUTC' :: T.Text -> Maybe UTCTime
-parseUTC' t = parseUTC_ $ T.unpack t
-
-parseUTC_ :: String -> Maybe UTCTime
-parseUTC_ s = listToMaybe $ catMaybes $
-            map (\fmt->parseTime defaultTimeLocale fmt s) utcFormats
+simpleParseVersion :: String -> Maybe Version
+simpleParseVersion s = case filter (null . snd) (ReadP.readP_to_S parseVersion s) of
+  [(v,_)] -> Just v
+  _       -> Nothing
 
 
 -- | The \"oh noes!\" operator.

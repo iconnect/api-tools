@@ -10,15 +10,15 @@ module Data.API.Parse
     , apiWithChangelog
     ) where
 
-import           Data.API.Types
-import           Data.API.Scan
 import           Data.API.Changes
+import           Data.API.Scan
+import           Data.API.Types
+import           Data.API.Utils
 import           Data.Char
 import           Data.String
 import qualified Data.Text                  as T
 import qualified Data.CaseInsensitive       as CI
 import qualified Data.Version               as V
-import           Distribution.Text (simpleParse)
 import           Language.Haskell.TH
 import           Language.Haskell.TH.Quote
 import           Text.Printf
@@ -348,7 +348,7 @@ enumChangeToAPIChange t (EnChRename f f') = ChRenameEnumVal t f f'
 
 
 parseVer :: String -> V.Version
-parseVer x = case simpleParse x of
+parseVer x = case simpleParseVersion x of
                  Just v -> v
                  Nothing -> error $ "Syntax error while parsing version " ++ x
 

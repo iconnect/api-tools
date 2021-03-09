@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -63,10 +64,12 @@ module Data.API.JSON
     ) where
 
 import           Data.API.Error
+import           Data.API.Time
 import           Data.API.Types
 import           Data.API.Utils
 
 import           Control.Applicative
+import qualified Control.Monad.Fail as Fail
 import qualified Data.Aeson                     as JS
 import qualified Data.Aeson.Parser              as JS
 import qualified Data.Aeson.Types               as JS
@@ -82,7 +85,6 @@ import           Data.Time
 import           Data.Traversable
 import qualified Data.Vector                    as V
 import           Data.Version
-import           Distribution.Text (simpleParse)
 import           Text.Regex
 import           Prelude
 
@@ -125,6 +127,11 @@ instance Monad ParserWithErrs where
                     (es, Just x ) -> let (es', r) = runParserWithErrs (f x) q z
                                      in (es ++ es', r)
                     (es, Nothing) -> (es, Nothing)
+#if !(MIN_VERSION_base(4,13,0))
+  fail = Fail.fail
+#endif
+
+instance Fail.MonadFail ParserWithErrs where
   fail     = failWith . SyntaxError
 
 
@@ -343,7 +350,7 @@ withUTC :: String -> (UTCTime -> ParserWithErrs a)
         -> JS.Value -> ParserWithErrs a
 withUTC lab f = withText lab g
   where
-    g t = maybe (failWith $ BadFormat FmtUTC lab t) f $ parseUTC' t
+    g t = maybe (failWith $ BadFormat FmtUTC lab t) f $ parseUTC t
 
 withUTCRange :: UTCRange -> String -> (UTCTime -> ParserWithErrs a)
                -> JS.Value -> ParserWithErrs a
@@ -351,7 +358,7 @@ withUTCRange ur dg f = withUTC dg $ \ u -> withFilter (u `inUTCRange` ur) (UTCRa
 
 withVersion :: String -> (Version -> ParserWithErrs a)
             -> JS.Value -> ParserWithErrs a
-withVersion lab f (JS.String s) = case simpleParse $ T.unpack s of
+withVersion lab f (JS.String s) = case simpleParseVersion (T.unpack s) of
                                     Just ver -> f ver
                                     Nothing  -> failWith $ badFormat lab s
 withVersion lab _ v             = failWith $ Expected ExpString lab v

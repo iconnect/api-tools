@@ -12,6 +12,7 @@ import           Data.API.Tools.Enum
 import           Data.API.Types
 
 import           Control.Applicative
+import qualified Control.Monad.Fail as Fail
 import           Codec.Serialise.Class
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
@@ -183,7 +184,7 @@ gen_se_to = mkTool $ \ ts (an, _se) -> optionalInstanceD ts ''Serialise [nodeRep
     bdy_out an = [e| decodeString >>= cborStrMap_p $(varE (map_enum_nm an)) |]
 
 -- In a monad, to @fail@ instead of crashing with @error@.
-cborStrMap_p :: (Monad m, Ord a) => Map.Map T.Text a -> T.Text -> m a
+cborStrMap_p :: (Fail.MonadFail m, Ord a) => Map.Map T.Text a -> T.Text -> m a
 cborStrMap_p mp t = case Map.lookup t mp of
   Nothing -> fail "Unexpected enumeration key in CBOR"
   Just r -> return r

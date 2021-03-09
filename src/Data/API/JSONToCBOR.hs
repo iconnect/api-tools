@@ -8,6 +8,7 @@ module Data.API.JSONToCBOR
 
 import           Data.API.Changes
 import           Data.API.JSON
+import           Data.API.Time
 import           Data.API.Types
 import           Data.API.Utils
 
@@ -23,7 +24,6 @@ import           Codec.Serialise     as CBOR
 import           Data.Binary.Serialise.CBOR.JSON (cborToJson, jsonToCbor)
 import           Codec.CBOR.Term
 import           Data.Fixed (Pico)
-import           Data.Maybe (fromMaybe)
 import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
@@ -114,8 +114,7 @@ jsonToCBORBasic bt v = case (bt, v) of
                              | frac' < 0  -> (secs' - 1, frac' + 1)
                              | otherwise -> (secs', frac')
           psecs = round $ frac * 1000000000000
-          utc = fromMaybe (error $ "jsonToCBORBasic: " ++ T.unpack t) $
-                  parseUTC' t
+          utc = unsafeParseUTC t
     (BTutc   , _)        -> error "serialiseJSONWithSchema: expected string"
 
 
@@ -166,12 +165,12 @@ postprocessJSONType napi ty0 v = case ty0 of
               dt :: POSIXTime
               dt = realToFrac v0 + realToFrac psecs
 
-          in pure $! String $! mkUTC' $! forceUTCTime (posixSecondsToUTCTime dt)
+          in pure $! String $! printUTC $! forceUTCTime (posixSecondsToUTCTime dt)
         _ -> Left $ JSONError UnexpectedField
-      String t -> case parseUTC' t of
+      String t -> case parseUTC t of
         Nothing -> Left $ JSONError $ SyntaxError $
                      "UTC time in wrong format: " ++ T.unpack t
-        Just utcTime -> pure $! String $! mkUTC' $! forceUTCTime utcTime
+        Just utcTime -> pure $! String $! printUTC $! forceUTCTime utcTime
       _ -> Left $ JSONError $ expectedObject v
     TyBasic _  -> pure v
     TyJSON     -> pure v

@@ -7,16 +7,15 @@ module Data.API.Tools.QuickCheck
     ) where
 
 import           Data.API.TH
+import           Data.API.Time
 import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.Types
-import           Data.API.Utils
 
 import           Control.Applicative
 import           Data.Monoid
 import           Data.Time
 import           Language.Haskell.TH
-import           Safe
 import           Test.QuickCheck                as QC
 import           Prelude
 
@@ -125,6 +124,4 @@ instance QC.Arbitrary UTCTime where
         -- , mk "1965-03-10T09:23:01.000001Z"
         ]
       where
-        mk  = fromJustNote lab . parseUTC'
-
-        lab = "Data.API.Tools.QuickCheck.Arbitrary-UTCTime"
+        mk = unsafeParseUTC

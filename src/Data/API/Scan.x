@@ -9,10 +9,12 @@ module Data.API.Scan
     , keywords
     ) where
 
+import           Data.API.Time
 import           Data.API.Types
 import           Data.API.Utils
 
 import           Data.Char
+import qualified Data.Text                      as T
 import           Data.Time
 import           Safe
 }
@@ -138,7 +140,7 @@ data Token
     deriving (Eq,Show)
 
 utc_ :: AlexPosn -> String -> PToken
-utc_ = mk $ \s -> maybe ERROR UTCTIME $ parseUTC_ s
+utc_ = mk $ \s -> maybe ERROR UTCTIME $ parseUTC (T.pack s)
 
 line_comment :: AlexPosn -> String -> PToken
 line_comment = mk $ Comment . munch_ws . tailSafe . tailSafe 
