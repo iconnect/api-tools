@@ -189,6 +189,24 @@ Test-Suite test-api-tools
 
   GHC-Options:
         -Wall
-        -fwarn-tabs
+
+  Default-Language: Haskell2010
+
+Benchmark bench-time
+  Hs-Source-Dirs:   bench
+
+  Type: exitcode-stdio-1.0
+
+  Main-is: Main.hs
+
+  Build-depends:
+       api-tools,
+       base,
+       criterion,
+       text,
+       time
+
+  GHC-Options:
+        -Wall
 
   Default-Language: Haskell2010
