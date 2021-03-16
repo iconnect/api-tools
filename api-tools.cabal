@@ -1,5 +1,5 @@
 Name:                api-tools
-Version:             0.8.0.2
+Version:             0.9.0.0
 Synopsis:            DSL for generating API boilerplate and docs
 Description:         api-tools provides a compact DSL for describing an API.
                      It uses Template Haskell to generate the
@@ -12,12 +12,12 @@ License:             BSD3
 License-file:        LICENSE
 Author:              Chris Dornan <chrisd@irisconnect.co.uk> and Adam Gundry <adam@well-typed.com>
 Maintainer:          Chris Dornan <chrisd@irisconnect.co.uk> and Adam Gundry <adam@well-typed.com>
-Copyright:           (c) Iris Connect 2013-2018
+Copyright:           (c) Iris Connect 2013-2021
 Category:            Network, Web, Cloud, Distributed Computing
 Build-type:          Simple
 Extra-source-files:  changelog
 Cabal-version:       >=1.10
-Tested-with:         GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.2
+Tested-with:         GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.4
 
 Source-Repository head
   Type:              git
@@ -26,7 +26,7 @@ Source-Repository head
 Source-Repository this
   Type:              git
   Location:          git://github.com/iconnect/api-tools.git
-  Tag:               0.8.0.2
+  Tag:               0.9.0.0
 
 Library
   Hs-Source-Dirs:    src
@@ -165,6 +165,7 @@ Test-Suite test-api-tools
         Data.API.Test.JSON
         Data.API.Test.Migration
         Data.API.Test.MigrationData
+        Data.API.Test.Time
 
   Build-depends:
         api-tools,
@@ -188,6 +189,24 @@ Test-Suite test-api-tools
 
   GHC-Options:
         -Wall
-        -fwarn-tabs
+
+  Default-Language: Haskell2010
+
+Benchmark bench-time
+  Hs-Source-Dirs:   bench
+
+  Type: exitcode-stdio-1.0
+
+  Main-is: Main.hs
+
+  Build-depends:
+       api-tools,
+       base,
+       criterion,
+       text,
+       time
+
+  GHC-Options:
+        -Wall
 
   Default-Language: Haskell2010

@@ -1,5 +1,10 @@
 -*-change-log-*-
 
+0.9.0.0 Adam Gundry <adam@well-typed.com> March 2021
+	* Adjust dependency bounds and support building on GHC 8.10.x
+	* Drop support for GHC verisons older than 8.4.x
+	* Expose time parsing API in new module Data.API.Time
+
 0.8.0.2 Adam Gundry <adam@well-typed.com> November 2018
 	* Relax dependency bounds and support building on GHC 8.4.x and 8.6.x
 
