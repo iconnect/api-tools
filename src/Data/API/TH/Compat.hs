@@ -3,7 +3,13 @@ module Data.API.TH.Compat where
 
 import Language.Haskell.TH
 
-mkDataD :: Cxt -> Name -> [TyVarBndr] -> [Con] -> [Name] -> Dec
+#if MIN_VERSION_template_haskell(2,17,0)
+type TyVarBndr' = TyVarBndr ()
+#else
+type TyVarBndr' = TyVarBndr
+#endif
+
+mkDataD :: Cxt -> Name -> [TyVarBndr'] -> [Con] -> [Name] -> Dec
 mkDataD cxt1 name tyVarBndrs cons drvs =
 #if MIN_VERSION_template_haskell(2,12,0)
   DataD cxt1 name tyVarBndrs Nothing cons [DerivClause Nothing (map ConT drvs)]
@@ -21,7 +27,7 @@ mkInstanceD =
   InstanceD
 #endif
 
-mkNewtypeD :: Cxt -> Name -> [TyVarBndr] -> Con -> [Name] -> Dec
+mkNewtypeD :: Cxt -> Name -> [TyVarBndr'] -> Con -> [Name] -> Dec
 mkNewtypeD cxt1 name tyVarBndrs cons drvs =
 #if MIN_VERSION_template_haskell(2,12,0)
   NewtypeD cxt1 name tyVarBndrs Nothing cons [DerivClause Nothing (map ConT drvs)]
