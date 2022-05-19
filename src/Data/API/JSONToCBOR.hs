@@ -37,6 +37,16 @@ import           Prelude
 -- schema-dependent fashion.  This is necessary because the JSON
 -- representation carries less information than we need in CBOR
 -- (e.g. it lacks a distinction between bytestrings and text).
+--
+-- There is a corner case where this may lose information: if the schema
+-- contains a field with type @? json@ (i.e. @'Maybe' 'Value'@), then we have
+--
+-- > toJSON Nothing     == Null
+-- > toJSON (Just Null) == Null
+--
+-- so 'serialiseJSONWithSchema' cannot distinguish these values, and will use
+-- the CBOR-encoding of 'Nothing' for both.
+--
 serialiseJSONWithSchema :: API -> TypeName -> Value -> LBS.ByteString
 serialiseJSONWithSchema api tn v = serialise $ jsonToCBORWithSchema api tn v
 
