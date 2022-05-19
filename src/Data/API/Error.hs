@@ -365,8 +365,8 @@ instance PPLines ValueError where
                                        : indent (ppLines af)
 
 
-$(deriveJSON defaultOptions ''JSONError)
 $(deriveJSON defaultOptions ''Expected)
 $(deriveJSON defaultOptions ''FormatExpected)
 $(deriveJSON defaultOptions ''Step)
+$(deriveJSON defaultOptions ''JSONError)
 $(SC.deriveSafeCopy 1 'SC.base ''Step)

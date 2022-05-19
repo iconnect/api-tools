@@ -453,20 +453,22 @@ instance Lift DefaultValue where
 
 $(deriveSafeCopy 0 'base ''Binary)
 
-$(deriveJSON defaultOptions ''Thing)
-$(deriveJSON defaultOptions ''APINode)
-$(deriveJSON defaultOptions ''TypeName)
-$(deriveJSON defaultOptions ''FieldName)
-$(deriveJSON defaultOptions ''Spec)
-$(deriveJSON defaultOptions ''APIType)
-$(deriveJSON defaultOptions ''DefaultValue)
-$(deriveJSON defaultOptions ''SpecEnum)
-$(deriveJSON defaultOptions ''SpecUnion)
-$(deriveJSON defaultOptions ''SpecRecord)
-$(deriveJSON defaultOptions ''FieldType)
-$(deriveJSON defaultOptions ''SpecNewtype)
-$(deriveJSON defaultOptions ''Filter)
-$(deriveJSON defaultOptions ''IntRange)
-$(deriveJSON defaultOptions ''UTCRange)
-$(deriveJSON defaultOptions ''BasicType)
-$(deriveJSON defaultOptions ''CI.CI)
+$(let deriveJSONs = fmap concat . mapM (deriveJSON defaultOptions)
+  in deriveJSONs [ ''CI.CI
+                 , ''TypeName
+                 , ''FieldName
+                 , ''DefaultValue
+                 , ''SpecEnum
+                 , ''SpecUnion
+                 , ''SpecRecord
+                 , ''FieldType
+                 , ''SpecNewtype
+                 , ''Filter
+                 , ''IntRange
+                 , ''UTCRange
+                 , ''BasicType
+                 , ''APIType
+                 , ''Spec
+                 , ''APINode
+                 , ''Thing
+                 ])
