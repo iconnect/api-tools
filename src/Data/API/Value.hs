@@ -46,6 +46,7 @@ module Data.API.Value
 
 import           Data.API.Error
 import           Data.API.JSON
+import           Data.API.JSON.Compat
 import           Data.API.NormalForm
 import           Data.API.Time
 import           Data.API.Types
@@ -61,7 +62,6 @@ import qualified Codec.Serialise.Encoding as CBOR
 import           Data.Binary.Serialise.CBOR.Extra
 import qualified Codec.CBOR.FlatTerm as CBOR
 import           Data.Binary.Serialise.CBOR.JSON
-import qualified Data.HashMap.Strict            as HMap
 import           Data.List (sortBy)
 import qualified Data.Map.Strict                as Map
 import           Data.Monoid
@@ -174,9 +174,9 @@ instance JS.ToJSON Value where
                 List vs        -> JS.toJSON vs
                 Maybe Nothing  -> JS.Null
                 Maybe (Just v) -> JS.toJSON v
-                Union fn v     -> JS.object [_FieldName fn JS..= v]
+                Union fn v     -> JS.object [fieldNameToKey fn JS..= v]
                 Enum fn        -> JS.String (_FieldName fn)
-                Record xs      -> JS.object $ map (\ (Field fn v) -> _FieldName fn JS..= v) xs
+                Record xs      -> JS.object $ map (\ (Field fn v) -> fieldNameToKey fn JS..= v) xs
                 JSON js        -> js
 
 -- | Parse a generic 'Value' from a JSON 'JS.Value', given the schema
@@ -403,7 +403,7 @@ arbitraryOfDecl api d = case d of
 arbitraryJSONValue :: QC.Gen JS.Value
 arbitraryJSONValue =
     QC.sized $ \ size ->
-        QC.oneof [ JS.Object . HMap.fromList <$> QC.resize (size `div` 2) (QC.listOf ((,) <$> QC.arbitrary <*> arbitraryJSONValue))
+        QC.oneof [ JS.Object . listToObject <$> QC.resize (size `div` 2) (QC.listOf ((,) <$> QC.arbitrary <*> arbitraryJSONValue))
                  , JS.Array . V.fromList <$> QC.resize (size `div` 2) (QC.listOf arbitraryJSONValue)
                  , JS.String <$> QC.arbitrary
                  , JS.Number . fromInteger <$> QC.arbitrary

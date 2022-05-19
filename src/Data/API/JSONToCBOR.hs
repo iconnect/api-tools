@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Data.API.JSONToCBOR
     ( serialiseJSONWithSchema
     , jsonToCBORWithSchema
@@ -8,6 +9,7 @@ module Data.API.JSONToCBOR
 
 import           Data.API.Changes
 import           Data.API.JSON
+import           Data.API.JSON.Compat
 import           Data.API.Time
 import           Data.API.Types
 import           Data.API.Utils
@@ -16,7 +18,6 @@ import           Control.Applicative
 import           Data.Aeson hiding (encode)
 import qualified Data.ByteString.Base64         as B64
 import qualified Data.ByteString.Lazy           as LBS
-import qualified Data.HashMap.Strict            as HMap
 import qualified Data.Map                       as Map
 import           Data.Traversable
 import qualified Data.Vector                    as Vec
@@ -73,14 +74,14 @@ jsonToCBORRecord napi nrt v = case v of
     Object hm -> TMap $ map (f hm) $ Map.toAscList nrt
     _         -> error "serialiseJSONWithSchema: expected object"
   where
-    f hm (fn, ty) = case HMap.lookup (_FieldName fn) hm of
+    f hm (fn, ty) = case lookupKey (_FieldName fn) hm of
                       Nothing -> error $ "serialiseJSONWithSchema: missing field " ++ T.unpack (_FieldName fn)
                       Just v' -> (TString (_FieldName fn), jsonToCBORType napi ty v')
 
 -- | Encode a union as a single-element map from the field name to the value.
 jsonToCBORUnion :: NormAPI -> NormUnionType -> Value -> Term
 jsonToCBORUnion napi nut v = case v of
-    Object hm | [(k, r)] <- HMap.toList hm -> case Map.lookup (FieldName k) nut of
+    Object hm | Just (k, r) <- matchSingletonObject hm -> case Map.lookup (FieldName k) nut of
        Just ty -> TMap [(TString k, jsonToCBORType napi ty r)]
        Nothing -> error "serialiseJSONWithSchema: unexpected alternative in union"
     _ -> error "serialiseJSONWithSchema: expected single-field object"
@@ -155,9 +156,9 @@ postprocessJSONType napi ty0 v = case ty0 of
                     _         -> Left $ JSONError $ expectedArray v
     TyName tn  -> postprocessJSONTypeName napi tn v
     TyBasic BTutc -> case v of
-      Object obj -> case HMap.toList obj of
-        [(k1, Number v0), (km12, Number v1)]
-          | T.unpack k1 == "1" && T.unpack km12 == "-12" ->
+      Object obj
+        | Just (Number v0) <- lookupKey "1" obj
+        , Just (Number v1) <- lookupKey "-12" obj ->
           -- Taken from @Codec.Serialise.Class@:
           let psecs :: Pico
               psecs = realToFrac v1 / 1000000000000
@@ -166,7 +167,7 @@ postprocessJSONType napi ty0 v = case ty0 of
               dt = realToFrac v0 + realToFrac psecs
 
           in pure $! String $! printUTC $! forceUTCTime (posixSecondsToUTCTime dt)
-        _ -> Left $ JSONError UnexpectedField
+        | otherwise -> Left $ JSONError (Expected ExpObject "UTCTime" v)
       String t -> case parseUTC t of
         Nothing -> Left $ JSONError $ SyntaxError $
                      "UTC time in wrong format: " ++ T.unpack t
@@ -181,15 +182,15 @@ forceUTCTime t@(UTCTime !_day !_daytime) = t
 
 postprocessJSONRecord :: NormAPI -> NormRecordType -> Value -> Either ValueError Value
 postprocessJSONRecord napi nrt v = case v of
-    Object hm -> Object <$> HMap.traverseWithKey f hm
+    Object hm -> Object <$> traverseObjectWithKey f hm
     _         -> Left $ JSONError $ expectedObject v
   where
-    f t v' = do ty <- Map.lookup (FieldName t) nrt ?! JSONError UnexpectedField
+    f t v' = do ty <- Map.lookup (FieldName t) nrt ?! JSONError MissingField
                 postprocessJSONType napi ty v'
 
 postprocessJSONUnion :: NormAPI -> NormUnionType -> Value -> Either ValueError Value
 postprocessJSONUnion napi nut v = case v of
-    Object hm | [(k, r)] <- HMap.toList hm
+    Object hm | Just (k, r) <- matchSingletonObject hm
               , Just ty <- Map.lookup (FieldName k) nut
-              -> Object . HMap.singleton k <$> postprocessJSONType napi ty r
+              -> Object . singletonObject k <$> postprocessJSONType napi ty r
     _ -> Left $ JSONError $ expectedObject v

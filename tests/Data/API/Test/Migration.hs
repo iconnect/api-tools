@@ -1,8 +1,9 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
-{-# OPTIONS_GHC -XNoCPP -fno-warn-unused-binds  #-}
+{-# OPTIONS_GHC -fno-warn-unused-binds  #-}
 
 module Data.API.Test.Migration
     ( migrationTests
@@ -23,7 +24,6 @@ import qualified Codec.CBOR.FlatTerm as CBOR
 import qualified Data.ByteString.Char8    as B
 import qualified Data.ByteString.Base64   as B64
 import qualified Data.ByteString.Lazy.Char8 as BL
-import qualified Data.HashMap.Strict      as HMap
 import qualified Data.Map                 as Map
 import qualified Data.Text                as T
 import qualified Data.Text.Encoding       as TE
@@ -32,6 +32,12 @@ import           Test.Tasty               as Test
 import qualified Test.Tasty.HUnit         as HUnit
 import qualified Test.Tasty.QuickCheck    as QC
 import           Test.QuickCheck.Property as P
+
+#if MIN_VERSION_aeson(2,0,0)
+import qualified Data.Aeson.KeyMap        as HMap
+#else
+import qualified Data.HashMap.Strict      as HMap
+#endif
 
 
 $(generateMigrationKinds changelog "TestDatabaseMigration" "TestRecordMigration" "TestFieldMigration")

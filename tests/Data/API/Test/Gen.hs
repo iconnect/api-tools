@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -13,7 +14,9 @@ import           Data.API.Time
 import           Data.API.Tools
 import           Data.API.Tools.Datatypes
 import           Data.API.Tools.Example
+#if !MIN_VERSION_aeson(2,0,3)
 import           Data.API.Value ( arbitraryJSONValue )
+#endif
 
 import           Control.Applicative
 import qualified Control.Monad.Fail as Fail
@@ -117,8 +120,10 @@ instance Example FilteredString
 -- | These instances are required by the generated code, but we don't
 -- really want to force them on clients of the library, so just define
 -- orphans here.
+#if !MIN_VERSION_aeson(2,0,3)
 instance Arbitrary JS.Value where
     arbitrary = arbitraryJSONValue
+#endif
 
 instance SafeCopy JS.Value where
   getCopy = error "Not implemented"

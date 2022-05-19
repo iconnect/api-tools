@@ -2,6 +2,7 @@
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE ViewPatterns               #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 -- | This module defines a JSON parser, like Aeson's 'FromJSON', but
@@ -64,6 +65,7 @@ module Data.API.JSON
     ) where
 
 import           Data.API.Error
+import           Data.API.JSON.Compat
 import           Data.API.Time
 import           Data.API.Types
 import           Data.API.Utils
@@ -77,7 +79,6 @@ import           Data.Attoparsec.ByteString
 import qualified Data.ByteString.Char8          as B
 import qualified Data.ByteString.Base64         as B64
 import qualified Data.ByteString.Lazy           as BL
-import qualified Data.HashMap.Strict            as HMap
 import           Data.Maybe
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
@@ -368,7 +369,7 @@ withField :: T.Text -> (JS.Value -> ParserWithErrs a)
           -> JS.Object -> ParserWithErrs a
 withField k f m = stepInside (InField k) $ modifyTopError treatAsMissing $ f v
   where
-    v = fromMaybe JS.Null $ HMap.lookup k m
+    v = fromMaybe JS.Null $ lookupKey k m
 
 treatAsMissing :: JSONError -> JSONError
 treatAsMissing (Expected _ _ JS.Null) = MissingField
@@ -382,15 +383,15 @@ withDefaultField readOnly mb_defVal k f m =
     stepInside (InField k) $ modifyTopError treatAsMissing $ withParseFlags foo
   where
     foo q | readOnly && enforceReadOnlyFields q = f defVal
-          | useDefaults q                       = f $ fromMaybe defVal  $ HMap.lookup k m
-          | otherwise                           = f $ fromMaybe JS.Null $ HMap.lookup k m
+          | useDefaults q                       = f $ fromMaybe defVal  $ lookupKey k m
+          | otherwise                           = f $ fromMaybe JS.Null $ lookupKey k m
 
     defVal = fromMaybe JS.Null mb_defVal
 
 -- | Look up the value of a field, failing on missing fields
 withStrictField :: T.Text -> (JS.Value -> ParserWithErrs a)
           -> JS.Object -> ParserWithErrs a
-withStrictField k f m = stepInside (InField k) $ case HMap.lookup k m of
+withStrictField k f m = stepInside (InField k) $ case lookupKey k m of
                             Nothing -> failWith MissingField
                             Just r  -> f r
 
@@ -408,7 +409,7 @@ m .:: k = withStrictField k parseJSONWithErrs m
 -- to the field name.
 withUnion :: [(T.Text, JS.Value -> ParserWithErrs a)] -> JS.Value -> ParserWithErrs a
 withUnion xs (JS.Object hs) =
-   case HMap.toList hs of
+   case objectToList hs of
       [(k, v)] -> case lookup k xs of
                     Just c  -> stepInside (InField k) $ c v
                     Nothing -> failWith $ MissingAlt $ map (T.unpack . fst) xs

@@ -41,6 +41,7 @@ Library
         Data.API.Doc.Subst
         Data.API.Error
         Data.API.JSON
+        Data.API.JSON.Compat
         Data.API.JSONToCBOR
         Data.API.Markdown
         Data.API.NormalForm
@@ -77,7 +78,7 @@ Library
 
   Build-depends:
         QuickCheck           >= 2.5.1    && < 2.15 ,
-        aeson                >= 0.10     && < 1.6  ,
+        aeson                >= 0.10 && < 1.6 || >= 2.0 && < 2.1  ,
         aeson-pretty         >= 0.1      && < 0.9  ,
         array                >= 0.4      && < 0.6  ,
         attoparsec           >= 0.10.4   && < 0.15 ,
