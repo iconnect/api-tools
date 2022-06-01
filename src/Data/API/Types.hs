@@ -358,20 +358,44 @@ instance Lift APINode where
   liftTyped (APINode a b c d e) = [e|| APINode a b $$(liftTypedPrefix c) d e ||]
 #endif
 
+
+#if MIN_VERSION_template_haskell(2,17,0)
+liftPrefix :: Quote m => Prefix -> m Exp
+liftText :: Quote m => T.Text -> m Exp
+liftUTC :: Quote m => UTCTime -> m Exp
+liftMaybeUTCTime :: Quote m => Maybe UTCTime -> m Exp
+#else
 liftPrefix :: Prefix -> ExpQ
+liftText :: T.Text -> ExpQ
+liftUTC :: UTCTime -> ExpQ
+liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
+#endif
+
 liftPrefix ci = let s = CI.original ci in [e| CI.mk s |]
 
-liftText :: T.Text -> ExpQ
 liftText s = [e| T.pack $(litE (stringL (T.unpack s))) |]
 
-liftUTC :: UTCTime -> ExpQ
 liftUTC u = [e| unsafeParseUTC $(liftText (printUTC u)) |]
 
-liftMaybeUTCTime :: Maybe UTCTime -> ExpQ
 liftMaybeUTCTime Nothing  = [e| Nothing |]
 liftMaybeUTCTime (Just u) = [e| Just $(liftUTC u) |]
 
-#if MIN_VERSION_template_haskell(2,16,0)
+
+
+#if MIN_VERSION_template_haskell(2,17,0)
+liftTypedPrefix :: Quote m => Prefix -> Code m Prefix
+liftTypedPrefix ci = let s = CI.original ci in [e|| CI.mk s ||]
+
+liftTypedText :: Quote m => T.Text -> Code m T.Text
+liftTypedText s = [e|| T.pack $$(liftTyped (T.unpack s)) ||]
+
+liftTypedUTC :: Quote m => UTCTime -> Code m UTCTime
+liftTypedUTC u = [e|| unsafeParseUTC $$(liftTypedText (printUTC u)) ||]
+
+liftTypedMaybeUTCTime :: Quote m => Maybe UTCTime -> Code m (Maybe UTCTime)
+liftTypedMaybeUTCTime Nothing  = [e|| Nothing ||]
+liftTypedMaybeUTCTime (Just u) = [e|| Just $$(liftTypedUTC u) ||]
+#elif MIN_VERSION_template_haskell(2,16,0)
 liftTypedPrefix :: Prefix -> TExpQ Prefix
 liftTypedPrefix ci = let s = CI.original ci in [e|| CI.mk s ||]
 
@@ -429,20 +453,22 @@ instance Lift DefaultValue where
 
 $(deriveSafeCopy 0 'base ''Binary)
 
-$(deriveJSON defaultOptions ''Thing)
-$(deriveJSON defaultOptions ''APINode)
-$(deriveJSON defaultOptions ''TypeName)
-$(deriveJSON defaultOptions ''FieldName)
-$(deriveJSON defaultOptions ''Spec)
-$(deriveJSON defaultOptions ''APIType)
-$(deriveJSON defaultOptions ''DefaultValue)
-$(deriveJSON defaultOptions ''SpecEnum)
-$(deriveJSON defaultOptions ''SpecUnion)
-$(deriveJSON defaultOptions ''SpecRecord)
-$(deriveJSON defaultOptions ''FieldType)
-$(deriveJSON defaultOptions ''SpecNewtype)
-$(deriveJSON defaultOptions ''Filter)
-$(deriveJSON defaultOptions ''IntRange)
-$(deriveJSON defaultOptions ''UTCRange)
-$(deriveJSON defaultOptions ''BasicType)
-$(deriveJSON defaultOptions ''CI.CI)
+$(let deriveJSONs = fmap concat . mapM (deriveJSON defaultOptions)
+  in deriveJSONs [ ''CI.CI
+                 , ''TypeName
+                 , ''FieldName
+                 , ''DefaultValue
+                 , ''SpecEnum
+                 , ''SpecUnion
+                 , ''SpecRecord
+                 , ''FieldType
+                 , ''SpecNewtype
+                 , ''Filter
+                 , ''IntRange
+                 , ''UTCRange
+                 , ''BasicType
+                 , ''APIType
+                 , ''Spec
+                 , ''APINode
+                 , ''Thing
+                 ])

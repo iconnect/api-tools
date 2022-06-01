@@ -1,5 +1,11 @@
 -*-change-log-*-
 
+0.10.0.0 Adam Gundry <adam@well-typed.com> June 2022
+	* Adjust dependency bounds and support building on GHC 9.2.x
+	* Add support for aeson-2.0
+	* Drop dependency on regex-compat-tdfa
+	* Expose new module Data.API.JSON.Compat (primarily for internal use)
+
 0.9.0.0 Adam Gundry <adam@well-typed.com> March 2021
 	* Adjust dependency bounds and support building on GHC 8.10.x
 	* Drop support for GHC verisons older than 8.4.x

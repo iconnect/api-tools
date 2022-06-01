@@ -6,10 +6,11 @@ module Data.Binary.Serialise.CBOR.JSON (
     decodeJSON,
   ) where
 
+import           Data.API.JSON.Compat
+
 import qualified Data.Aeson          as JSON
 import qualified Data.Scientific     as Scientific
 import qualified Data.Vector         as Vec
-import qualified Data.HashMap.Strict as HashMap
 
 import           Data.Text (Text)
 import qualified Data.Text                       as Text
@@ -81,7 +82,7 @@ cborToJson (TList  vs) = JSON.Array (Vec.fromList (map cborToJson vs))
 --    integers into strings containing their decimal representation);
 --    however, doing so introduces a danger of key collision.
 
-cborToJson (TMap  kvs) = JSON.object [ (cborToJsonString k, cborToJson v)
+cborToJson (TMap  kvs) = JSON.object [ (textToKey (cborToJsonString k), cborToJson v)
                                      | (k, v) <- kvs ]
 
 -- o  False (major type 7, additional information 20) becomes a JSON false.
@@ -170,7 +171,7 @@ base16 = Text.decodeLatin1 . Base16.encode
 
 jsonToCbor :: JSON.Value -> CBOR.Term
 jsonToCbor (JSON.Object kvs) = CBOR.TMap [ (CBOR.TString k, jsonToCbor v)
-                                         | (k, v) <- HashMap.toList kvs ]
+                                         | (k, v) <- objectToList kvs ]
 jsonToCbor (JSON.Array  vs)  = CBOR.TList [ jsonToCbor v | v <- Vec.toList vs ]
 jsonToCbor (JSON.String str) = CBOR.TString str
 jsonToCbor (JSON.Number n)   = case Scientific.floatingOrInteger n of

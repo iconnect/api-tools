@@ -17,7 +17,6 @@ import           Data.API.Types
 
 import           Data.Aeson hiding (withText, withBool)
 import           Control.Applicative
-import qualified Data.HashMap.Strict            as HMap
 import           Data.Maybe
 import qualified Data.Map                       as Map
 import           Data.Monoid
@@ -133,7 +132,7 @@ instance FromJSONWithErrs JobSpecId where
             v .: "Input"                            <*>
             v .: "Output"                           <*>
             v .: "PipelineId"
-     parseJSONWithErrs Null       = parseJSONWithErrs (Object HMap.empty)
+     parseJSONWithErrs Null       = parseJSONWithErrs (Object mempty)
      parseJSONWithErrs v          = failWith $ expectedObject val
 -}
 
@@ -150,7 +149,7 @@ gen_sr_fm = mkTool $ \ ts (an, sr) -> do
           where ro    = ftReadOnly ft
                 mb_dv = ftDefault ft
 
-    clNull = clause [conP 'Null []] (normalB [e| parseJSONWithErrs (Object HMap.empty) |]) []
+    clNull = clause [conP 'Null []] (normalB [e| parseJSONWithErrs (Object mempty) |]) []
 
     cl'  x = clause [varP x] (normalB (bdy' x)) []
     bdy' x = [e| failWith (expectedObject $(varE x)) |]

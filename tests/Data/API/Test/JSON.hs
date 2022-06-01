@@ -20,7 +20,6 @@ import           Data.API.Types
 import qualified Data.API.Value           as Value
 
 import qualified Data.Aeson               as JS
-import qualified Data.HashMap.Strict      as HMap
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -49,7 +48,7 @@ basicValueDecoding = sequence_ [ help (JS.String "12")  (12 :: Int) True
                                , help (JS.Number 2)     True        False
                                , help (JS.String "0")   False       False
                                , help (JS.String "1")   True        False
-                               , help (JS.Object (HMap.singleton "id" (JS.Number 3)))
+                               , help (JS.object ["id" JS..= JS.Number 3])
                                       (Recursive (Id 3) Nothing)
                                       True
                                , help' noFilter (JS.Number 0) (UnsafeMkFilteredInt 0) True
@@ -73,7 +72,7 @@ errorDecoding = [ help "not enough input" ""         (proxy :: Int)
                       [(SyntaxError "not enough input", [])]
 #endif
                 , help "object for int"   "{}"       (proxy :: Int)
-                      [(Expected ExpInt "Int" (JS.Object HMap.empty), [])]
+                      [(Expected ExpInt "Int" (JS.Object mempty), [])]
                 , help "missing alt"      "{}"       (proxy :: AUnion)
                       [(MissingAlt ["bar"], [])]
                 , help "error inside alt" "{\"bar\": {}}" (proxy :: AUnion)

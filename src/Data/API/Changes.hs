@@ -57,6 +57,7 @@ module Data.API.Changes
 import           Data.API.Changes.Types
 import           Data.API.Error
 import           Data.API.JSON
+import           Data.API.JSON.Compat
 import           Data.API.NormalForm
 import           Data.API.TH.Compat
 import           Data.API.Types
@@ -73,7 +74,6 @@ import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Data.HashMap.Strict as HMap
 import qualified Data.Vector as V
 import qualified Data.Text as T
 import           Data.Time
@@ -585,27 +585,27 @@ applyChangeToData :: APIChange -> CustomMigrationsTagged JS.Object JS.Value
 applyChangeToData (ChAddField tname fname ftype mb_defval) _ =
   case mb_defval <|> defaultValueForType ftype of
     Just defval -> let newFieldValue = defaultValueAsJsValue defval
-                   in withObject (\ v _ -> pure $ HMap.insert (_FieldName fname) newFieldValue v)
+                   in withObject (\ v _ -> pure $ insertKey (_FieldName fname) newFieldValue v)
     Nothing     -> \ _ p -> Left (InvalidAPI (DefaultMissing tname fname), p)
 
 applyChangeToData (ChDeleteField _ fname) _ =
-    withObject (\ v _ -> pure $ HMap.delete (_FieldName fname) v)
+    withObject (\ v _ -> pure $ deleteKey (_FieldName fname) v)
 
 applyChangeToData (ChRenameField _ fname fname') _ =
-    withObject $ \rec p -> case HMap.lookup (_FieldName fname) rec of
+    withObject $ \rec p -> case lookupKey (_FieldName fname) rec of
                            Just field -> rename field rec
                            Nothing    -> Left (JSONError MissingField, inField fname : p)
   where
-    rename x = pure . HMap.insert (_FieldName fname') x . HMap.delete (_FieldName fname)
+    rename x = pure . insertKey (_FieldName fname') x . deleteKey (_FieldName fname)
 
 applyChangeToData (ChChangeField _ fname _ftype tag) custom =
     withObjectField (_FieldName fname) (liftMigration $ fieldMigration custom tag)
 
 applyChangeToData (ChRenameUnionAlt _ fname fname') _ = withObject $ \un p ->
-    case HMap.toList un of
-        [(k, r)] | k == _FieldName fname -> return $ HMap.singleton (_FieldName fname') r
-                 | otherwise             -> return un
-        _ -> Left (JSONError $ SyntaxError "Not singleton", p)
+    case matchSingletonObject un of
+        Just (k, r) | k == _FieldName fname -> return $ singletonObject (_FieldName fname') r
+                    | otherwise             -> return un
+        Nothing -> Left (JSONError $ SyntaxError "Not singleton", p)
 
 applyChangeToData (ChRenameEnumVal _ fname fname') _ = withString $ \s _ ->
     if s == _FieldName fname then return (_FieldName fname')
@@ -748,9 +748,9 @@ withObject _     v               p = Left (JSONError $ expectedObject v, p)
 withObjectField :: T.Text -> (JS.Value -> Position -> Either (ValueError, Position) JS.Value)
                 -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 withObjectField field alter (JS.Object obj) p =
-    case HMap.lookup field obj of
+    case lookupKey field obj of
       Nothing     -> Left (JSONError MissingField, InField field : p)
-      Just fvalue -> JS.Object <$> (HMap.insert field
+      Just fvalue -> JS.Object <$> (insertKey field
                                        <$> (alter fvalue (InField field : p))
                                        <*> pure obj)
 withObjectField _ _ v p = Left (JSONError $ expectedObject v, p)
@@ -759,16 +759,13 @@ withObjectMatchingFields :: Map FieldName a
                          -> (a -> JS.Value -> Position -> Either (ValueError, Position) JS.Value)
                          -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 withObjectMatchingFields m f (JS.Object obj) p = do
-    zs <- matchMaps (Map.mapKeys _FieldName m) (hmapToMap obj) ?!? toErr
+    zs <- matchMaps (Map.mapKeys _FieldName m) (objectToMap obj) ?!? toErr
     obj' <- Map.traverseWithKey (\ k (ty, val) -> (f ty val (InField k : p))) zs
-    return $ JS.Object $ mapToHMap obj'
+    return $ JS.Object $ mapToObject obj'
   where
     toErr (k, Left _)  = (JSONError MissingField, InField k : p)
     toErr (k, Right _) = (JSONError UnexpectedField, InField k : p)
 
-    hmapToMap = Map.fromList . HMap.toList
-
-    mapToHMap = HMap.fromList . Map.toList
 
 withObjectMatchingFields _ _ v p = Left (JSONError $ expectedObject v, p)
 
@@ -776,10 +773,10 @@ withObjectMatchingUnion :: Map FieldName a
                          -> (a -> JS.Value -> Position -> Either (ValueError, Position) JS.Value)
                          -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 withObjectMatchingUnion m f (JS.Object obj) p
-  | [(k, r)] <- HMap.toList obj
+  | Just (k, r) <- matchSingletonObject obj
   = do x  <- Map.lookup (FieldName k) m ?! (JSONError UnexpectedField, InField k : p)
        r' <- f x r (InField k : p)
-       return $ JS.Object $ HMap.singleton k r'
+       return $ JS.Object $ singletonObject k r'
 withObjectMatchingUnion _ _ _ p = Left (JSONError $ SyntaxError "Not singleton", p)
 
 withArrayElems :: (JS.Value -> Position -> Either (ValueError, Position) JS.Value)
