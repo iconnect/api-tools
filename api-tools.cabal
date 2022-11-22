@@ -17,7 +17,7 @@ Category:            Network, Web, Cloud, Distributed Computing
 Build-type:          Simple
 Extra-source-files:  changelog
 Cabal-version:       >=1.10
-Tested-with:         GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.2
+Tested-with:         GHC == 8.10.7, GHC == 9.2.5, GHC == 9.4.3
 
 Source-Repository head
   Type:              git
@@ -79,7 +79,7 @@ Library
 
   Build-depends:
         QuickCheck           >= 2.5.1    && < 2.15 ,
-        aeson                >= 0.10 && < 1.6 || >= 2.0 && < 2.1  ,
+        aeson                >= 0.10 && < 1.6 || >= 2.0 && < 2.2  ,
         aeson-pretty         >= 0.1      && < 0.9  ,
         array                >= 0.4      && < 0.6  ,
         attoparsec           >= 0.10.4   && < 0.15 ,
@@ -91,18 +91,18 @@ Library
         cborg                >= 0.1.1.0  && < 0.3  ,
         containers           >= 0.5      && < 0.7  ,
         deepseq              >= 1.1      && < 1.5  ,
-        lens                 >= 3.8.7    && < 5.2  ,
+        lens                 >= 3.8.7    && < 5.3  ,
         regex-base           >= 0.93     && < 0.95 ,
         regex-tdfa           >= 1.1.0    && < 1.4  ,
         safe                 >= 0.3.3    && < 0.4  ,
         safecopy             >= 0.8.1    && < 0.11 ,
         scientific           >= 0.3      && < 0.4  ,
         serialise            >= 0.1.0.0  && < 0.3  ,
-        template-haskell     >= 2.7      && < 2.19 ,
+        template-haskell     >= 2.7      && < 2.20 ,
         text                 >= 0.11.3   && < 2.1  ,
-        time                 >= 1.5.0    && < 1.13 ,
+        time                 >= 1.5.0    && < 1.14 ,
         unordered-containers >= 0.2.3.0  && < 0.3  ,
-        vector               >= 0.10.0.1 && < 0.13
+        vector               >= 0.10.0.1 && < 0.14
 
   Build-tools:
         alex,
