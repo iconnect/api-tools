@@ -196,6 +196,7 @@ default_value :: DefaultValue -> MDComment
 default_value dv =
     case dv of
       DefValList     -> "[]"
+      DefValSet      -> "{}"
       DefValMaybe    -> "null"
       DefValString t -> show t
       DefValBool   b -> map toLower $ show b
@@ -206,6 +207,7 @@ type_md :: MarkdownMethods -> APIType -> MDComment
 type_md mdm ty =
     case ty of
       TyList  ty'  -> "[" ++ type_md mdm ty' ++ "]"
+      TySet   ty'  -> "{" ++ type_md mdm ty' ++ "}"
       TyMaybe ty'  -> "? " ++ type_md mdm ty'
       TyName  nm   -> mdmLink mdm nm
       TyBasic bt   -> basic_type_md bt

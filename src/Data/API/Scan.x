@@ -37,6 +37,8 @@ tokens :-
     "|"                                 { simple    Bar             }
     "["                                 { simple    Bra             }
     "]"                                 { simple    Ket             }
+    "{"                                 { simple    Cu              }
+    "}"                                 { simple    Rly             }
     "::"                                { simple    ColCol          }
     ":"                                 { simple    Colon           }
     "="                                 { simple    Equals          }
@@ -98,6 +100,8 @@ data Token
     | BInary
     | Bra
     | Ket
+    | Cu
+    | Rly
     | ColCol
     | Colon
     | Comma

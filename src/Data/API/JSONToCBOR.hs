@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Data.API.JSONToCBOR
     ( serialiseJSONWithSchema
     , jsonToCBORWithSchema
@@ -13,6 +14,7 @@ import           Data.API.JSON.Compat
 import           Data.API.Time
 import           Data.API.Types
 import           Data.API.Utils
+import           Data.Binary.Serialise.CBOR.Extra
 
 import           Control.Applicative
 import           Data.Aeson hiding (encode)
@@ -31,7 +33,6 @@ import qualified Data.Text.Encoding             as TE
 import           Data.Time.Clock.POSIX
 import           Data.Time (UTCTime(UTCTime))
 import           Prelude
-
 
 -- | Serialise a JSON value as a CBOR term in a generic but
 -- schema-dependent fashion.  This is necessary because the JSON
@@ -70,6 +71,9 @@ jsonToCBORType :: NormAPI -> APIType -> Value -> Term
 jsonToCBORType napi ty0 v = case (ty0, v) of
     (TyList  ty, Array arr) | Vec.null arr -> TList []
                             | otherwise    -> TListI $ map (jsonToCBORType napi ty) (Vec.toList arr)
+    (TySet  ty, Array arr)  | Vec.null arr -> TSetI $ []
+                            | otherwise    -> TSetI $ map (jsonToCBORType napi ty) (Vec.toList arr)
+    (TySet  _, _)           -> error "serialiseJSONWithSchema: TySet, expected array"
     (TyList  _ , _)         -> error "serialiseJSONWithSchema: expected array"
     (TyMaybe _ , Null)      -> TList []
     (TyMaybe ty, _)         -> TList [jsonToCBORType napi ty v]
@@ -156,6 +160,9 @@ postprocessJSONTypeName napi tn v = do
 postprocessJSONType :: NormAPI -> APIType -> Value -> Either ValueError Value
 postprocessJSONType napi ty0 v = case ty0 of
     TyList ty  -> case v of
+                   Array arr -> Array <$> traverse (postprocessJSONType napi ty) arr
+                   _         -> Left $ JSONError $ expectedArray v
+    TySet ty  -> case v of
                    Array arr -> Array <$> traverse (postprocessJSONType napi ty) arr
                    _         -> Left $ JSONError $ expectedArray v
     TyMaybe ty -> case v of

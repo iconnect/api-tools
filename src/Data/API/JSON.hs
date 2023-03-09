@@ -76,10 +76,12 @@ import qualified Data.Aeson                     as JS
 import qualified Data.Aeson.Parser              as JS
 import qualified Data.Aeson.Types               as JS
 import           Data.Attoparsec.ByteString
+import           Data.Binary.Serialise.CBOR.JSON
 import qualified Data.ByteString.Char8          as B
 import qualified Data.ByteString.Base64         as B64
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Maybe
+import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
 import           Data.Time
@@ -204,6 +206,15 @@ instance FromJSONWithErrs a => FromJSONWithErrs [a] where
     where
       help (x, i) = stepInside (InElem i) $ parseJSONWithErrs x
   parseJSONWithErrs JS.Null      = pure []
+  parseJSONWithErrs v            = failWith $ expectedArray v
+
+instance (Ord a, FromJSONWithErrs a) => FromJSONWithErrs (Set.Set a) where
+  parseJSONWithErrs v@(JS.Object kvs) = case jsonParseCborSet kvs of
+    Nothing -> failWith $ expectedSet v
+    Just xs -> fmap Set.fromList <$> traverse help $ zip (V.toList xs) [0..]
+    where
+      help (x, i) = stepInside (InElem i) $ parseJSONWithErrs x
+  parseJSONWithErrs JS.Null      = pure mempty
   parseJSONWithErrs v            = failWith $ expectedArray v
 
 instance FromJSONWithErrs Int where

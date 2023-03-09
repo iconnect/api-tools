@@ -124,6 +124,7 @@ typeDeclFreeVars (NNewtype _)         = Set.empty
 -- | Find the set of type names used in an type
 typeFreeVars :: APIType -> Set TypeName
 typeFreeVars (TyList  t) = typeFreeVars t
+typeFreeVars (TySet  t)  = typeFreeVars t
 typeFreeVars (TyMaybe t) = typeFreeVars t
 typeFreeVars (TyName  n) = Set.singleton n
 typeFreeVars (TyBasic _) = Set.empty
@@ -223,6 +224,7 @@ substTypeDecl _ d@(NNewtype _)         = d
 -- | Substitute types for type names in a type
 substType :: (TypeName -> APIType) -> APIType -> APIType
 substType f (TyList  t)   = TyList (substType f t)
+substType f (TySet  t)    = TySet (substType f t)
 substType f (TyMaybe t)   = TyMaybe (substType f t)
 substType f (TyName  n)   = f n
 substType _ t@(TyBasic _) = t

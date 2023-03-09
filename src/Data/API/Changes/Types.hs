@@ -129,6 +129,7 @@ data UpdateDeclPos
 -- | Represents the positions in a type to apply an update
 data UpdateTypePos
     = UpdateList UpdateTypePos
+    | UpdateSet  UpdateTypePos
     | UpdateMaybe UpdateTypePos
     | UpdateNamed TypeName
     deriving (Eq, Show)

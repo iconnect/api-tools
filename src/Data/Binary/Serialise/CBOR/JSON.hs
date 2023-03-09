@@ -1,9 +1,11 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Data.Binary.Serialise.CBOR.JSON (
     cborToJson,
     jsonToCbor,
     encodeJSON,
     decodeJSON,
+    jsonParseCborSet
   ) where
 
 import           Data.API.JSON.Compat
@@ -12,6 +14,7 @@ import qualified Data.Aeson          as JSON
 import qualified Data.Scientific     as Scientific
 import qualified Data.Vector         as Vec
 
+import           Data.Binary.Serialise.CBOR.Extra
 import           Data.Text (Text)
 import qualified Data.Text                       as Text
 import qualified Data.Text.Encoding              as Text
@@ -28,6 +31,7 @@ import Codec.CBOR.Term as CBOR
 import Codec.Serialise
 
 import Control.Applicative
+import Control.Monad
 import Prelude
 
 
@@ -133,6 +137,10 @@ cborToJson (TTagged 21 (CBOR.TBytes bs)) = JSON.String (base64url bs)
 cborToJson (TTagged 22 (CBOR.TBytes bs)) = JSON.String (base64 bs)
 cborToJson (TTagged 23 (CBOR.TBytes bs)) = JSON.String (base16 bs)
 
+-- o  A list of terms tagged with 258 is a CBOR Set as per
+-- https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
+cborToJson (TSetI xs) = cborToJson (TList  xs)
+
 --   o  For all other tags (major type 6, any other tag value), the
 --      embedded CBOR item is represented as a JSON value; the tag value
 --      is ignored.
@@ -168,10 +176,19 @@ base64 = Text.decodeLatin1 . Base64.encode
 base16 :: ByteString -> Text
 base16 = Text.decodeLatin1 . Base16.encode
 
+jsonParseCborSet :: JSON.Object -> Maybe JSON.Array
+jsonParseCborSet kvs = case liftM2 (,) (lookupKey "_api_tools_set_tag" kvs) (lookupKey "_api_tools_set_values" kvs) of
+  Just (JSON.Number x, JSON.Array xs)
+    | 258 <- Scientific.coefficient x
+    -> Just xs
+  _ -> Nothing
 
 jsonToCbor :: JSON.Value -> CBOR.Term
-jsonToCbor (JSON.Object kvs) = CBOR.TMap [ (CBOR.TString k, jsonToCbor v)
-                                         | (k, v) <- objectToList kvs ]
+jsonToCbor (JSON.Object kvs) =
+  case jsonParseCborSet kvs of
+    Nothing -> CBOR.TMap [ (CBOR.TString k, jsonToCbor v)
+                         | (k, v) <- objectToList kvs ]
+    Just vs -> TSetI [ jsonToCbor v | v <- Vec.toList vs ]
 jsonToCbor (JSON.Array  vs)  = CBOR.TList [ jsonToCbor v | v <- Vec.toList vs ]
 jsonToCbor (JSON.String str) = CBOR.TString str
 jsonToCbor (JSON.Number n)   = case Scientific.floatingOrInteger n of

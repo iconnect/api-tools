@@ -37,6 +37,8 @@ import           Text.Regex
     '|'                                 { (,) _ Bar             }
     '['                                 { (,) _ Bra             }
     ']'                                 { (,) _ Ket             }
+    '{'                                 { (,) _ Cu              }
+    '}'                                 { (,) _ Rly             }
     '::'                                { (,) _ ColCol          }
     '='                                 { (,) _ Equals          }
     '?'                                 { (,) _ Query           }
@@ -188,6 +190,7 @@ Type :: { APIType }
 Type
     : '?' Type                          { TyMaybe            $2             }
     | '[' Type ']'                      { TyList             $2             }
+    | '{' Type '}'                      { TySet              $2             }
     | TypeName                          { TyName             $1             }
     | BasicType                         { TyBasic            $1             }
     | json                              { TyJSON                            }
@@ -265,6 +268,7 @@ MbDefaultValue :: { Maybe DefaultValue }
 
 DefaultValue :: { DefaultValue }
     : '[' ']'                          { DefValList                         }
+    | '{' '}'                          { DefValSet                          }
     | nothing                          { DefValMaybe                        }
     | strlit                           { DefValString (T.pack $1)           }
     | true                             { DefValBool True                    }

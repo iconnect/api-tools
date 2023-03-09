@@ -127,4 +127,9 @@ nu :: NewUnion
     = union
       | bb :: BasicBinary
       | j  :: JSON
+
+mrec :: MyRecordWithSet
+     = record
+         anIntSet :: {integer} // A set of integers
+         things   :: ? {MaybeThing} // An optional set of things
 |]

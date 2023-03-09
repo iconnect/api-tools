@@ -5,6 +5,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 
 module Data.API.Test.Gen where
 
@@ -128,6 +129,8 @@ instance Arbitrary JS.Value where
 instance SafeCopy JS.Value where
   getCopy = error "Not implemented"
   putCopy = error "Not implemented"
+
+deriving instance Ord MaybeThing
 
 $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True }) example2
                    [ enumTool

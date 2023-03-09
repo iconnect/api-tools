@@ -128,6 +128,7 @@ ty :: APIType
     // one of the following:
     = union
       | list   :: APIType           // a JSON list of the given type
+      | set    :: APIType           // a JSON set-like of the given type (ordering not guaranteed)
       | maybe  :: APIType           // either the given type or the null value
       | ref    :: TypeRef           // a named type (node) with possible example
       | 'basic':: BasicType         // a basic JSON type
@@ -152,6 +153,7 @@ dv :: DefaultValue
     // a default value
     = union
         | 'list'    :: integer
+        | 'set'     :: integer
         | 'maybe'   :: integer
         | 'string'  :: string
         | 'boolean' :: boolean
