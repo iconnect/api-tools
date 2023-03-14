@@ -4,6 +4,7 @@
 
 module Data.API.Tools.Traversal
     ( traversalTool
+    , traversalsTool
     ) where
 
 import           Data.API.NormalForm
@@ -37,7 +38,12 @@ import           Prelude
 -- defined manually in the same module as the call to 'traversalTool',
 -- otherwise the generated code will lead to scope errors.
 traversalTool :: TypeName -> TypeName -> APITool
-traversalTool root x = readTool (apiNodeTool . s)
+traversalTool root = traversalsTool [root]
+
+-- | Like 'traversalTool', but it allows passing a list of \"roots\", to avoid conflicting
+-- declarations.
+traversalsTool :: [TypeName] -> TypeName -> APITool
+traversalsTool root x = readTool (apiNodeTool . s)
   where
     s api = apiSpecTool mempty (simpleTool (uncurry $ traversalRecord napi targets x))
                                (simpleTool (uncurry $ traversalUnion  napi targets x)) mempty mempty
@@ -49,7 +55,7 @@ traversalTool root x = readTool (apiNodeTool . s)
         -- traversed type
         targets = (transitiveDeps        napi rootSet `Set.union` rootSet) `Set.intersection`
                   (transitiveReverseDeps napi xSet    `Set.union` xSet)
-        rootSet = Set.singleton root
+        rootSet = Set.fromList root
         xSet    = Set.singleton x
 
 
