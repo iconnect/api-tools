@@ -81,6 +81,7 @@ traverser napi targets x ty = fromMaybe [| const pure |] $ traverser' napi targe
 -- or return 'Nothing' if there are no substructures to traverse
 traverser' :: NormAPI -> Set.Set TypeName -> TypeName -> APIType -> Maybe ExpQ
 traverser' napi targets x (TyList ty)  = fmap (appE [e|(.) traverse|]) $ traverser' napi targets x ty
+traverser' napi targets x (TySet ty)   = fmap (appE [e|(.) traverse|]) $ traverser' napi targets x ty
 traverser' napi targets x (TyMaybe ty) = fmap (appE [e|(.) traverse|]) $ traverser' napi targets x ty
 traverser' napi targets x (TyName tn)
   | tn == x   = Just [e| id |]

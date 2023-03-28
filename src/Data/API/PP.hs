@@ -62,6 +62,7 @@ instance PP FieldName where
 
 instance PP APIType where
   pp (TyList  ty) = "[" ++ pp ty ++ "]"
+  pp (TySet  ty)  = "{" ++ pp ty ++ "}"
   pp (TyMaybe ty) = "? " ++ pp ty
   pp (TyName  t)  = pp t
   pp (TyBasic b)  = pp b
@@ -76,6 +77,7 @@ instance PP BasicType where
 
 instance PP DefaultValue where
   pp DefValList           = "[]"
+  pp DefValSet            = "{}"
   pp DefValMaybe          = "nothing"
   pp (DefValString t)     = show t
   pp (DefValBool   True)  = "true"

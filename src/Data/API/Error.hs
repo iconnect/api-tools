@@ -1,6 +1,8 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 module Data.API.Error
@@ -18,6 +20,7 @@ module Data.API.Error
 
       -- * JSON parse error construction
     , expectedArray
+    , expectedSet
     , expectedBool
     , expectedInt
     , expectedObject
@@ -56,7 +59,6 @@ import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import           Data.Time
 
-
 ----------------------------------------------------------
 -- Representation of JSON parsing errors and positions
 --
@@ -92,13 +94,14 @@ data FormatExpected = FmtBinary
                     | FmtOther
   deriving (Eq, Show)
 
-expectedArray, expectedBool, expectedInt, expectedObject, expectedString
+expectedArray, expectedSet, expectedBool, expectedInt, expectedObject, expectedString
   :: JS.Value -> JSONError
 expectedArray  = Expected ExpArray    "Array"
 expectedBool   = Expected ExpBool     "Bool"
 expectedInt    = Expected ExpInt      "Int"
 expectedObject = Expected ExpObject   "Object"
 expectedString = Expected ExpString   "String"
+expectedSet    = Expected ExpObject   "Set"
 
 badFormat :: String -> T.Text -> JSONError
 badFormat = BadFormat FmtOther

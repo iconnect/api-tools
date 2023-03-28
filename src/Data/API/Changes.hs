@@ -290,6 +290,7 @@ findUpdatePos tname api = Map.alter (Just . UpdateHere) tname $
 
     findType :: APIType -> Maybe UpdateTypePos
     findType (TyList ty)      = UpdateList <$> findType ty
+    findType (TySet ty)       = UpdateSet <$> findType ty
     findType (TyMaybe ty)     = UpdateMaybe <$> findType ty
     findType (TyName tname')
         | tname' == tname || tname' `Set.member` deps = Just $ UpdateNamed tname'
@@ -571,6 +572,7 @@ updateTypeAt :: Map TypeName UpdateDeclPos
              -> UpdateTypePos
              -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
 updateTypeAt upds alter (UpdateList upd)    v p = withArrayElems (updateTypeAt upds alter upd) v p
+updateTypeAt upds alter (UpdateSet upd)     v p = withArrayElems (updateTypeAt upds alter upd) v p
 updateTypeAt upds alter (UpdateMaybe upd)   v p = withMaybe (updateTypeAt upds alter upd) v p
 updateTypeAt upds alter (UpdateNamed tname) v p = case Map.lookup tname upds of
     Just upd -> updateDeclAt upds alter upd v p
@@ -679,6 +681,10 @@ updateTypeAt' :: Map TypeName UpdateDeclPos
 updateTypeAt' upds alter (UpdateList upd)    v p = do
     xs <- expectList v p
     List <$!> mapM (\ (i, v') -> updateTypeAt' upds alter upd v' (InElem i : p)) (zip [0..] xs)
+updateTypeAt' upds alter (UpdateSet upd)    v p = do
+    xs <- expectSet v p
+    Set . Set.fromDistinctAscList <$!>
+      mapM (\ (i, v') -> updateTypeAt' upds alter upd v' (InElem i : p)) (zip [0..] xs)
 updateTypeAt' upds alter (UpdateMaybe upd)   v p = do
     mb <- expectMaybe v p
     case mb of
@@ -806,6 +812,7 @@ compatibleDefaultValue api ty dv = isJust (fromDefaultValue api ty dv)
 -- have access to the entire API.
 defaultValueForType :: APIType -> Maybe DefaultValue
 defaultValueForType (TyList  _) = Just DefValList
+defaultValueForType (TySet  _)  = Just DefValSet
 defaultValueForType (TyMaybe _) = Just DefValMaybe
 defaultValueForType _           = Nothing
 
@@ -835,6 +842,7 @@ dataMatchesNormAPI root api db = void $ valueMatches (TyName root) db []
 
     valueMatches :: APIType -> JS.Value -> Position -> Either (ValueError, Position) JS.Value
     valueMatches (TyList t)      = withArrayElems (valueMatches t)
+    valueMatches (TySet t)       = withArrayElems (valueMatches t)
     valueMatches (TyMaybe t)     = withMaybe (valueMatches t)
     valueMatches (TyName tname)  = \ v p -> do
         d <- lookupType tname api ?!? (\ f -> (InvalidAPI f, p))

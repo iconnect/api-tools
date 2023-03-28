@@ -22,6 +22,7 @@ import           Data.Monoid
 import           Data.Time
 import           Language.Haskell.TH
 import           Test.QuickCheck                as QC
+import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import           Prelude
 
@@ -41,6 +42,9 @@ instance Example a => Example (Maybe a) where
 
 instance Example a => Example [a] where
     example = listOf example
+
+instance (Ord a, Example a) => Example (Set.Set a) where
+    example = Set.fromList <$> listOf example
 
 instance Example Int where
     example = arbitrarySizedBoundedIntegral `suchThat` (> 0)

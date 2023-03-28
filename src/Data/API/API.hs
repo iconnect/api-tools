@@ -101,6 +101,7 @@ convert_type :: APIType -> D.APIType
 convert_type ty0 =
     case ty0 of
       TyList  ty    -> D.TY_list  $ convert_type     ty
+      TySet  ty     -> D.TY_set   $ convert_type     ty
       TyMaybe ty    -> D.TY_maybe $ convert_type     ty
       TyName  tn    -> D.TY_ref   $ convert_ref      tn
       TyBasic bt    -> D.TY_basic $ convert_basic    bt
@@ -120,6 +121,7 @@ convert_basic bt =
 
 convert_default :: DefaultValue -> D.DefaultValue
 convert_default DefValList       = D.DV_list    0
+convert_default DefValSet        = D.DV_set     0
 convert_default DefValMaybe      = D.DV_maybe   0
 convert_default (DefValString s) = D.DV_string  s
 convert_default (DefValBool   b) = D.DV_boolean b
@@ -201,6 +203,7 @@ unconvert_type :: D.APIType -> APIType
 unconvert_type ty0 =
     case ty0 of
       D.TY_list  ty   -> TyList  $ unconvert_type  ty
+      D.TY_set  ty    -> TySet   $ unconvert_type  ty
       D.TY_maybe ty   -> TyMaybe $ unconvert_type  ty
       D.TY_ref   r    -> TyName  $ unconvert_ref r
       D.TY_basic bt   -> TyBasic $ unconvert_basic bt
@@ -220,6 +223,7 @@ unconvert_basic bt =
 
 unconvert_default :: D.DefaultValue -> DefaultValue
 unconvert_default (D.DV_list    _) = DefValList
+unconvert_default (D.DV_set     _) = DefValSet
 unconvert_default (D.DV_maybe   _) = DefValMaybe
 unconvert_default (D.DV_string  s) = DefValString s
 unconvert_default (D.DV_boolean b) = DefValBool   b

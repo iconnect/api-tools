@@ -1,5 +1,6 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | This module defines a generic representation of values belonging
 -- to a schema, for use during data migration.
@@ -22,6 +23,7 @@ module Data.API.Value
     , expectEnum
     , expectUnion
     , expectList
+    , expectSet
     , expectMaybe
     , lookupType
 
@@ -93,6 +95,7 @@ data Value = String  !T.Text
            | Bool    !Bool
            | Int     !Int
            | List    ![Value]
+           | Set     !(Set.Set Value)
            | Maybe   !(Maybe Value)
            | Union   !FieldName !Value
            | Enum    !FieldName
@@ -120,6 +123,7 @@ instance NFData Value where
   rnf (Bool b)     = rnf b
   rnf (Int i)      = rnf i
   rnf (List xs)    = rnf xs
+  rnf (Set xs)     = rnf xs
   rnf (Maybe mb)   = rnf mb
   rnf (Union fn v) = rnf fn `seq` rnf v
   rnf (Enum fn)    = rnf fn
@@ -137,6 +141,7 @@ instance NFData Field where
 fromDefaultValue :: NormAPI -> APIType -> DefaultValue -> Maybe Value
 fromDefaultValue api ty0 dv = case (ty0, dv) of
     (TyList  _, DefValList)    -> pure (List [])
+    (TySet   _, DefValSet)     -> pure (Maybe Nothing)
     (TyMaybe _, DefValMaybe)   -> pure (Maybe Nothing)
     (TyMaybe ty, _)            -> Maybe . Just <$> fromDefaultValue api ty dv
     (TyBasic bt, _)            -> fromDefaultValueBasic bt dv
@@ -172,6 +177,7 @@ instance JS.ToJSON Value where
                 Bool b         -> JS.Bool b
                 Int i          -> JS.toJSON i
                 List vs        -> JS.toJSON vs
+                Set  xs        -> JSONCBORSet (map JS.toJSON . Set.toAscList $ xs)
                 Maybe Nothing  -> JS.Null
                 Maybe (Just v) -> JS.toJSON v
                 Union fn v     -> JS.object [fieldNameToKey fn JS..= v]
@@ -190,6 +196,9 @@ parseJSON api ty0 v = case ty0 of
     TyName tn  -> parseJSONDecl api tn (lookupTyName api tn) v
     TyList ty  -> case v of
                     JS.Array arr -> List <$> traverse (parseJSON api ty) (V.toList arr)
+                    _            -> failWith (expectedArray v)
+    TySet ty   -> case v of
+                    JS.Array arr -> Set . Set.fromDistinctAscList <$> traverse (parseJSON api ty) (V.toList arr)
                     _            -> failWith (expectedArray v)
     TyMaybe ty -> case v of
                     JS.Null -> pure (Maybe Nothing)
@@ -231,6 +240,7 @@ encode v0 = case v0 of
     Bool b     -> CBOR.encode b
     Int i      -> CBOR.encode i
     List vs    -> encodeListWith encode vs
+    Set  vs    -> encodeSetLikeWith encode (Set.toAscList vs)
     Maybe mb_v -> encodeMaybeWith encode mb_v
     Union fn v -> encodeUnion (_FieldName fn) (encode v)
     Enum fn    -> CBOR.encode (_FieldName fn)
@@ -246,6 +256,7 @@ decode :: NormAPI -> APIType -> CBOR.Decoder s Value
 decode api ty0 = case ty0 of
     TyName tn  -> decodeDecl api (lookupTyName api tn)
     TyList ty  -> List  <$!> decodeListWith (decode api ty)
+    TySet ty   -> Set . Set.fromDistinctAscList <$!> decodeSetLikeWith (decode api ty)
     TyMaybe ty -> Maybe <$!> decodeMaybeWith (decode api ty)
     TyJSON     -> JSON  <$!> decodeJSON
     TyBasic bt -> decodeBasic bt
@@ -289,6 +300,9 @@ matchesNormAPI api ty0 v0 p = case ty0 of
     TyList ty  -> case v0 of
                     List vs -> mapM_ (\ (i, v) -> matchesNormAPI api ty v (InElem i : p)) (zip [0..] vs)
                     _       -> Left (JSONError (expectedArray js_v), p)
+    TySet ty  -> case v0 of
+                    Set vs -> mapM_ (\ (i, v) -> matchesNormAPI api ty v (InElem i : p)) (zip [0..] $ Set.toAscList vs)
+                    _      -> Left (JSONError (expectedSet js_v), p)
     TyMaybe ty -> case v0 of
                     Maybe Nothing -> return ()
                     Maybe (Just v) -> matchesNormAPI api ty v p
@@ -351,6 +365,10 @@ expectList :: Value -> Position -> Either (ValueError, Position) [Value]
 expectList (List xs) _ = pure xs
 expectList v         p = Left (JSONError (Expected ExpArray "List" (JS.toJSON v)), p)
 
+expectSet :: Value -> Position -> Either (ValueError, Position) [Value]
+expectSet (Set xs) _  = pure $ Set.toAscList $ xs
+expectSet v         p = Left (JSONError (Expected ExpArray "List" (JS.toJSON v)), p)
+
 expectMaybe :: Value -> Position -> Either (ValueError, Position) (Maybe Value)
 expectMaybe (Maybe v) _ = pure v
 expectMaybe v         p = Left (JSONError (Expected ExpArray "Maybe" (JS.toJSON v)), p)
@@ -372,6 +390,7 @@ arbitraryOfType :: NormAPI -> APIType -> QC.Gen Value
 arbitraryOfType api ty0 = case ty0 of
     TyName  tn -> arbitraryOfDecl api (lookupTyName api tn)
     TyList  ty -> List  <$> QC.listOf (arbitraryOfType api ty)
+    TySet   ty -> Set . Set.fromDistinctAscList <$> QC.listOf (arbitraryOfType api ty)
     TyMaybe ty -> Maybe <$> QC.oneof [pure Nothing, Just <$> arbitraryOfType api ty]
     TyJSON     -> JSON  <$> arbitraryJSONValue
     TyBasic bt -> arbitraryOfBasicType bt
@@ -405,6 +424,7 @@ arbitraryJSONValue =
     QC.sized $ \ size ->
         QC.oneof [ JS.Object . listToObject <$> QC.resize (size `div` 2) (QC.listOf ((,) <$> QC.arbitrary <*> arbitraryJSONValue))
                  , JS.Array . V.fromList <$> QC.resize (size `div` 2) (QC.listOf arbitraryJSONValue)
+                 , JSONCBORSet <$> QC.arbitrary
                  , JS.String <$> QC.arbitrary
                  , JS.Number . fromInteger <$> QC.arbitrary
                  , JS.Bool <$> QC.arbitrary

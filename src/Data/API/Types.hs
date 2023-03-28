@@ -42,9 +42,10 @@ import           Control.DeepSeq
 import qualified Data.CaseInsensitive           as CI
 import           Data.String
 import           Data.Time
-import           Data.Aeson
+import           Data.Aeson          as JS
 import           Data.Aeson.Types
 import           Data.Aeson.TH
+import           Data.Binary.Serialise.CBOR.Extra
 import qualified Codec.Serialise     as CBOR
 import           Data.Maybe
 import           Data.SafeCopy
@@ -264,6 +265,7 @@ type Conversion = Maybe (FieldName,FieldName)
 -- | Type is either a list, Maybe, a named element of the API or a basic type
 data APIType
     = TyList  APIType       -- ^ list elements are types
+    | TySet   APIType       -- ^ set elements are types
     | TyMaybe APIType       -- ^ Maybe elements are types
     | TyName  TypeName      -- ^ the referenced type must be defined by the API
     | TyBasic BasicType     -- ^ a JSON string, int, bool etc.
@@ -276,6 +278,7 @@ instance IsString APIType where
 
 instance NFData APIType where
   rnf (TyList  ty) = rnf ty
+  rnf (TySet  ty)  = rnf ty
   rnf (TyMaybe ty) = rnf ty
   rnf (TyName  tn) = rnf tn
   rnf (TyBasic bt) = rnf bt
@@ -296,6 +299,7 @@ instance NFData BasicType where
 -- | A default value for a field
 data DefaultValue
     = DefValList
+    | DefValSet
     | DefValMaybe
     | DefValString T.Text  -- used for binary fields (base64 encoded)
     | DefValBool   Bool
@@ -305,6 +309,7 @@ data DefaultValue
 
 instance NFData DefaultValue where
   rnf DefValList       = ()
+  rnf DefValSet        = ()
   rnf DefValMaybe      = ()
   rnf (DefValString t) = rnf t
   rnf (DefValBool   b) = rnf b
@@ -316,6 +321,7 @@ instance NFData DefaultValue where
 -- values are turned into strings.
 defaultValueAsJsValue :: DefaultValue -> Value
 defaultValueAsJsValue  DefValList                = toJSON ([] :: [()])
+defaultValueAsJsValue  DefValSet                 = JSONCBORSet [toJSON ()]
 defaultValueAsJsValue  DefValMaybe               = Null
 defaultValueAsJsValue (DefValString s)           = String s
 defaultValueAsJsValue (DefValBool   b)           = Bool b
@@ -436,6 +442,7 @@ instance Lift RegEx where
 
 instance Lift DefaultValue where
   lift DefValList       = [e| DefValList |]
+  lift DefValSet        = [e| DefValSet  |]
   lift DefValMaybe      = [e| DefValMaybe |]
   lift (DefValString s) = [e| DefValString $(liftText s) |]
   lift (DefValBool   b) = [e| DefValBool b |]
@@ -444,6 +451,7 @@ instance Lift DefaultValue where
 
 #if MIN_VERSION_template_haskell(2,16,0)
   liftTyped DefValList       = [e|| DefValList ||]
+  liftTyped DefValSet        = [e|| DefValSet ||]
   liftTyped DefValMaybe      = [e|| DefValMaybe ||]
   liftTyped (DefValString s) = [e|| DefValString $$(liftTypedText s) ||]
   liftTyped (DefValBool   b) = [e|| DefValBool b ||]
