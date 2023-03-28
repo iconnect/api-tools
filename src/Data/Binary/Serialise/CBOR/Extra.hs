@@ -13,7 +13,6 @@ module Data.Binary.Serialise.CBOR.Extra
 
 import           Codec.Serialise.Decoding
 import           Codec.Serialise.Encoding
-import           Data.List (foldl1')
 import qualified Data.Text                      as T
 
 #if MIN_VERSION_base(4,8,0)
@@ -41,6 +40,7 @@ encodeMaybeWith f (Just x) = encodeListLen 1 <> f x
 -- We can assume the record has at least 1 field.
 encodeRecordFields :: [Encoding] -> Encoding
 encodeRecordFields = mconcat
+{-# INLINE encodeRecordFields #-}
 
 -- | Encode an element of a union as single-element map from a field
 -- name to a value.

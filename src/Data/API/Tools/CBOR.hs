@@ -71,13 +71,13 @@ gen_sn_to = mkTool $ \ ts (an, sn) -> optionalInstanceD ts ''Serialise [nodeRepT
 
 {-
 instance Serialise JobSpecId where
-     encode = \ x ->
-        encodeMapLen 4 >>
+     encode = \ (JobSpecId _jsi_id _jsi_input _jsi_output _jsi_pipelineId) ->
+        encodeMapLen 4 <>
         encodeRecordFields
-            [ encodeString "Id"         <> encode (jsiId         x)
-            , encodeString "Input"      <> encode (jsiInput      x)
-            , encodeString "Output"     <> encode (jsiOutput     x)
-            , encodeString "PipelineId" <> encode (jsiPipelineId x)
+            [ encodeString "Id"         <> encode _jsi_id
+            , encodeString "Input"      <> encode _jsi_input
+            , encodeString "Output"     <> encode _jsi_output
+            , encodeString "PipelineId" <> encode _jsi_pipelineId
             ]
      decode (Record v) =
         decodeMapLen >>
@@ -88,16 +88,44 @@ instance Serialise JobSpecId where
 
 Note that fields are stored alphabetically ordered by field name, so
 that we are insensitive to changes in field order in the schema.
+
+
+Previously we generated code like this:
+
+     encode = \ x ->
+         encodeMapLen 4 <>
+         encodeRecordFields
+            [ encodeString "Id"         <> encode (_jsi_id         x)
+            , encodeString "Input"      <> encode (_jsi_input      x)
+            , encodeString "Output"     <> encode (_jsi_output     x)
+            , encodeString "PipelineId" <> encode (_jsi_pipelineId x)
+            ]
+
+This binds the record to the variable `x` and uses the record selectors to
+project out the components. As a consequence, we can end up retaining the entire
+record until the very end of encoding it. This is a problem if the record is
+constructed lazily and each component would otherwise have been freed once it
+was encoded, because we end up realising the whole thing in memory rather than
+being incremental.
+
+The fix is to pattern-match once on the value to be serialised and bind its
+components separately. Now the record constructor is garbage once we evaluate
+the outer pattern-match, and we can free individual fields once they are
+encoded.
+
+One might hope that the selector thunk optimisation would squash this
+automatically, but that is somewhat fragile and may not apply at all to large
+records (see https://gitlab.haskell.org/ghc/ghc/-/issues/20139).
+
 -}
 
 gen_sr_to :: Tool (APINode, SpecRecord)
-gen_sr_to = mkTool $ \ ts (an, sr) -> do
-    x <- newName "x"
-    optionalInstanceD ts ''Serialise [nodeRepT an] [ simpleD 'encode (bdy_in an sr x)
+gen_sr_to = mkTool $ \ ts (an, sr) ->
+    optionalInstanceD ts ''Serialise [nodeRepT an] [ simpleD 'encode (bdy_in an sr)
                                                    , simpleD 'decode (cl an sr)
                                                    ]
   where
-    bdy_in an sr x =
+    bdy_in an sr =
         let fields = sortFields sr
             len = fromIntegral (length fields)  -- to Integer
             lenE = varE 'fromIntegral  -- to Word
@@ -111,9 +139,9 @@ gen_sr_to = mkTool $ \ ts (an, sr) -> do
             encFields =
                 varE 'encodeRecordFields `appE`
                     listE [ [e| encodeString $(fieldNameE fn)
-                                <> encode ($(nodeFieldE an fn) $(varE x)) |]
+                                <> encode $(nodeFieldE an fn) |]
                             | (fn, _fty) <- fields ]
-        in lamE [varP x] $
+        in lamE [nodeConP an [nodeFieldP an fn | (fn, _) <- srFields sr ]] $
                varE '(<>)
                  `appE` writeRecordHeader
                  `appE` encFields
