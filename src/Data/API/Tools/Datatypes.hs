@@ -8,6 +8,7 @@ module Data.API.Tools.Datatypes
     , nodeT
     , nodeRepT
     , nodeConE
+    , nodeConP
     , nodeNewtypeConE
     , nodeFieldE
     , nodeFieldP
@@ -239,9 +240,13 @@ nodeT = conT . type_nm
 nodeRepT :: APINode -> TypeQ
 nodeRepT = conT . rep_type_nm
 
--- | The constructor for a record API node
+-- | The constructor for a record API node, as an expression
 nodeConE :: APINode -> ExpQ
 nodeConE = conE . rep_type_nm
+
+-- | The constructor for a record API node, as a pattern
+nodeConP :: APINode -> [PatQ] -> PatQ
+nodeConP an = conP (rep_type_nm an)
 
 -- | The constructor for a newtype, which might be renamed
 nodeNewtypeConE :: ToolSettings -> APINode -> SpecNewtype -> ExpQ
@@ -263,6 +268,6 @@ nodeAltConE an fn = conE $ pref_con_nm an fn
 nodeAltConP :: APINode -> FieldName -> [PatQ] -> PatQ
 nodeAltConP an fn = conP (pref_con_nm an fn)
 
--- | The projection function from a newtype API node, as an epxression
+-- | The projection function from a newtype API node, as an expression
 newtypeProjectionE :: APINode -> ExpQ
 newtypeProjectionE = varE . newtype_prj_nm
