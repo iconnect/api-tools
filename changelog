@@ -1,5 +1,9 @@
 -*-change-log-*-
 
+0.10.1.0 Adam Gundry <adam@well-typed.com> March 2023
+	* Fix a space leak in CBOR encoding
+	* Add traversalsTool to Data.API.Tools.Traversal
+
 0.10.0.1 Adam Gundry <adam@well-typed.com> March 2023
 	* Performance fix in CBOR encoding
 

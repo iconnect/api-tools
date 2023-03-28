@@ -1,5 +1,5 @@
 Name:                api-tools
-Version:             0.10.0.1
+Version:             0.10.1.0
 Synopsis:            DSL for generating API boilerplate and docs
 Description:         api-tools provides a compact DSL for describing an API.
                      It uses Template Haskell to generate the
@@ -26,7 +26,7 @@ Source-Repository head
 Source-Repository this
   Type:              git
   Location:          git://github.com/iconnect/api-tools.git
-  Tag:               0.10.0.1
+  Tag:               0.10.1.0
 
 Library
   Hs-Source-Dirs:    src
