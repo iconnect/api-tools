@@ -1,5 +1,5 @@
 Name:                api-tools
-Version:             0.10.1.0
+Version:             0.10.1.1
 Synopsis:            DSL for generating API boilerplate and docs
 Description:         api-tools provides a compact DSL for describing an API.
                      It uses Template Haskell to generate the
@@ -11,13 +11,13 @@ Homepage:            http://github.com/iconnect/api-tools
 License:             BSD3
 License-file:        LICENSE
 Author:              Chris Dornan <chrisd@irisconnect.co.uk> and Adam Gundry <adam@well-typed.com>
-Maintainer:          Chris Dornan <chrisd@irisconnect.co.uk> and Adam Gundry <adam@well-typed.com>
-Copyright:           (c) Iris Connect 2013-2022
+Maintainer:          Adam Gundry <adam@well-typed.com>
+Copyright:           (c) Iris Connect 2013-2024
 Category:            Network, Web, Cloud, Distributed Computing
 Build-type:          Simple
 Extra-source-files:  changelog
 Cabal-version:       >=1.10
-Tested-with:         GHC == 8.10.7, GHC == 9.2.5, GHC == 9.4.3
+Tested-with:         GHC == 9.4.8, GHC == 9.6.6, GHC == 9.8.2, GHC == 9.10.1
 
 Source-Repository head
   Type:              git
