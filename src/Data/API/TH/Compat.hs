@@ -3,7 +3,9 @@ module Data.API.TH.Compat where
 
 import Language.Haskell.TH
 
-#if MIN_VERSION_template_haskell(2,17,0)
+#if MIN_VERSION_template_haskell(2,21,0)
+type TyVarBndr' = TyVarBndr BndrVis
+#elif MIN_VERSION_template_haskell(2,17,0)
 type TyVarBndr' = TyVarBndr ()
 #else
 type TyVarBndr' = TyVarBndr
