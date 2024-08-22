@@ -66,7 +66,9 @@ basicValueDecoding = sequence_ [ help (JS.String "12")  (12 :: Int) True
 -- | Test that the correct errors are generated for bad JSON data
 errorDecoding :: [TestTree]
 errorDecoding = [ help "not enough input" ""         (proxy :: Int)
-#if MIN_VERSION_aeson(0,10,0)
+#if MIN_VERSION_aeson(2,2,0)
+                      [(SyntaxError "Unexpected end-of-input, expecting JSON value", [])]
+#elif MIN_VERSION_aeson(0,10,0)
                       [(SyntaxError "Error in $: not enough input", [])]
 #else
                       [(SyntaxError "not enough input", [])]
