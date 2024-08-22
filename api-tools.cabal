@@ -112,9 +112,9 @@ Library
     Build-Depends:
         aeson                >= 2.2      && < 2.3  ,
         attoparsec-aeson     >= 2.1      && < 2.3
-  else:
+  else
     Build-Depends:
-        aeson                >= 0.10 && < 1.6 || >= 2.0 && < 2.2  ,
+        aeson                >= 0.10 && < 1.6 || >= 2.0 && < 2.2
 
   Build-tools:
         alex,
