@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveLift                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -40,6 +41,7 @@ import           Data.API.Time
 
 import           Control.DeepSeq
 import qualified Data.CaseInsensitive           as CI
+import           Data.Data
 import           Data.String
 import           Data.Time
 import           Data.Aeson
@@ -326,7 +328,7 @@ defaultValueAsJsValue (DefValUtc    t)           = String (printUTC t)
 -- | Binary data is represented in JSON format as a base64-encoded
 -- string
 newtype Binary = Binary { _Binary :: B.ByteString }
-    deriving (Show,Eq,Ord,NFData,CBOR.Serialise)
+    deriving (Show,Eq,Ord,NFData,CBOR.Serialise, Data)
 
 instance ToJSON Binary where
     toJSON = String . T.decodeLatin1 . B64.encode . _Binary

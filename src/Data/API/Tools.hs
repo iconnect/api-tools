@@ -22,10 +22,11 @@ module Data.API.Tools
     , newtypeSmartConstructors
 
       -- * Individual tools
-    , genericsTool
     , enumTool
     , exampleTool
+    , dataTypeableTool
     , deepSeqTool
+    , genericsTool
     , jsonTool
     , jsonTool'
     , cborTool
@@ -42,6 +43,7 @@ module Data.API.Tools
     ) where
 
 import           Data.API.Tools.Combinators
+import           Data.API.Tools.DataTypeable
 import           Data.API.Tools.Datatypes
 import           Data.API.Tools.DeepSeq
 import           Data.API.Tools.Enum
