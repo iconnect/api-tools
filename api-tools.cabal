@@ -53,6 +53,7 @@ Library
         Data.API.Tools.CBOR
         Data.API.Tools.Combinators
         Data.API.Tools.Datatypes
+        Data.API.Tools.DataTypeable
         Data.API.Tools.DeepSeq
         Data.API.Tools.Enum
         Data.API.Tools.Example
@@ -119,7 +120,7 @@ Library
         -Wall
         -fwarn-tabs
 
-  Default-Language: Haskell2010
+  Default-Language: GHC2021
 
 
 Executable migration-tool
@@ -138,7 +139,7 @@ Executable migration-tool
         -Wall
         -fwarn-tabs
 
-  Default-Language: Haskell2010
+  Default-Language: GHC2021
 
 
 Executable perf-test
@@ -159,7 +160,7 @@ Executable perf-test
         -fwarn-tabs
         -rtsopts
 
-  Default-Language: Haskell2010
+  Default-Language: GHC2021
 
 
 Test-Suite test-api-tools
@@ -200,7 +201,7 @@ Test-Suite test-api-tools
   GHC-Options:
         -Wall
 
-  Default-Language: Haskell2010
+  Default-Language: GHC2021
 
 Benchmark bench-time
   Hs-Source-Dirs:   bench
@@ -219,4 +220,4 @@ Benchmark bench-time
   GHC-Options:
         -Wall
 
-  Default-Language: Haskell2010
+  Default-Language: GHC2021

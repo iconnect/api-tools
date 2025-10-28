@@ -24,6 +24,7 @@ module Data.API.Tools
       -- * Individual tools
     , enumTool
     , exampleTool
+    , dataTypeableTool
     , deepSeqTool
     , jsonTool
     , jsonTool'
@@ -41,6 +42,7 @@ module Data.API.Tools
     ) where
 
 import           Data.API.Tools.Combinators
+import           Data.API.Tools.DataTypeable
 import           Data.API.Tools.Datatypes
 import           Data.API.Tools.DeepSeq
 import           Data.API.Tools.Enum
@@ -55,7 +57,6 @@ import           Data.API.Types
 
 import qualified Data.Monoid                    as Monoid
 import           Language.Haskell.TH
-
 
 -- | Generate the datatypes corresponding to an API.
 generate :: API -> Q [Dec]
