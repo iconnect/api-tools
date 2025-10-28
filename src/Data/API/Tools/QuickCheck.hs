@@ -19,7 +19,9 @@ import           Test.QuickCheck                as QC
 import           Prelude
 
 
--- | Tool to generate 'Arbitrary' instances for generated types.
+-- | Tool to generate 'Arbitrary' instances for generated types. This tool generates
+-- also a stock shrinker via the 'generic-arbitrary' package, which means we require
+-- the wrapped type to be an instance of 'Generic'.
 quickCheckTool :: APITool
 quickCheckTool = apiNodeTool $ apiSpecTool gen_sn_ab gen_sr_ab gen_su_ab gen_se_ab mempty
 
@@ -39,17 +41,22 @@ gen_sn_ab = mkTool $ \ ts (an, sn) -> case snFilter sn of
     Just (FtrStrg _)                -> return []
   where
     mk_instance ts an sn arb = optionalInstanceD ts ''Arbitrary [nodeRepT an]
-                                  [simpleD 'arbitrary [e| fmap $(nodeNewtypeConE ts an sn) $arb |]]
+                                  [ simpleD 'arbitrary [e| fmap $(nodeNewtypeConE ts an sn) $arb |]
+                                  , simpleD 'shrink    [e| genericShrink |]
+                                  ]
 
 
 -- | Generate an 'Arbitrary' instance for a record:
 --
 -- > instance Arbitrary Foo where
 -- >     arbitrary = sized $ \ x -> Foo <$> resize (x `div` 2) arbitrary <*> ... <*> resize (x `div` 2) arbitrary
+-- >     shrink    = genericShrink
 
 gen_sr_ab :: Tool (APINode, SpecRecord)
 gen_sr_ab = mkTool $ \ ts (an, sr) -> optionalInstanceD ts ''QC.Arbitrary [nodeRepT an]
-                                          [simpleD 'arbitrary (bdy an sr)]
+                                          [ simpleD 'arbitrary (bdy an sr)
+                                          , simpleD 'shrink    [e| genericShrink |]
+                                          ]
   where
     -- Reduce size of fields to avoid generating massive test data
     -- by giving an arbitrary implementation like this:
@@ -68,7 +75,9 @@ gen_sr_ab = mkTool $ \ ts (an, sr) -> optionalInstanceD ts ''QC.Arbitrary [nodeR
 
 gen_su_ab :: Tool (APINode, SpecUnion)
 gen_su_ab = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''QC.Arbitrary [nodeRepT an]
-                                          [simpleD 'arbitrary (bdy an su)]
+                                          [ simpleD 'arbitrary (bdy an su)
+                                          , simpleD 'shrink    [e| genericShrink |]
+                                          ]
   where
     bdy an su | null (suFields su) = nodeConE an
               | otherwise          = [e| oneof $(listE alts) |]
@@ -84,7 +93,9 @@ gen_su_ab = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''QC.Arbitrary [nodeR
 
 gen_se_ab :: Tool (APINode, SpecEnum)
 gen_se_ab = mkTool $ \ ts (an, se) -> optionalInstanceD ts ''QC.Arbitrary [nodeRepT an]
-                                          [simpleD 'arbitrary (bdy an se)]
+                                          [ simpleD 'arbitrary (bdy an se)
+                                          , simpleD 'shrink    [e| genericShrink |]
+                                          ]
   where
     bdy an se | null ks   = nodeConE an
               | otherwise = varE 'elements `appE` listE ks
