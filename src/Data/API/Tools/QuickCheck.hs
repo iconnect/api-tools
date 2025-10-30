@@ -11,6 +11,7 @@ import           Data.API.Tools.Combinators
 import           Data.API.Tools.Datatypes
 import           Data.API.Types
 
+import           GHC.Generics
 import           Control.Applicative
 import           Data.Monoid
 import           Data.Time
@@ -25,6 +26,26 @@ import           Prelude
 quickCheckTool :: APITool
 quickCheckTool = apiNodeTool $ apiSpecTool gen_sn_ab gen_sr_ab gen_su_ab gen_se_ab mempty
 
+-- | Helper to create an 'Arbitrary' implementation. It will check if we have a 'Generic'
+-- instance for the underlying type and, if we have, we will implement 'shrink' in terms of
+-- 'genericShrink', otherwise we will just alias it to '[]' (i.e. a no-op). This avoids
+-- imposing to the caller a mandatory 'Generic' instance on the type when using this tool,
+-- but it will get them a \"shrinker for free\" if they define a 'Generic' instance.
+mkArbitraryInstance :: ToolSettings
+                    -> TypeQ
+                    -> ExpQ
+                    -- ^ The body of the 'arbitrary' method.
+                    -> Q [Dec]
+mkArbitraryInstance ts typeQ arbitraryBody = do
+  tq         <- sequence [typeQ]
+  hasGeneric <- isInstance ''Generic tq
+  let shrinkBody = case hasGeneric of
+        True  -> [e| genericShrink |]
+        False -> [e| pure [] |]
+  optionalInstanceD ts ''QC.Arbitrary [typeQ]
+                                      [ simpleD 'arbitrary arbitraryBody
+                                      , simpleD 'shrink    shrinkBody
+                                      ]
 
 -- | Generate an 'Arbitrary' instance for a newtype that respects its
 -- filter.  We don't try to generate arbitrary data matching a regular
@@ -40,10 +61,8 @@ gen_sn_ab = mkTool $ \ ts (an, sn) -> case snFilter sn of
     Just (FtrUTC ur)                -> mk_instance ts an sn [e| arbitraryUTCRange ur |]
     Just (FtrStrg _)                -> return []
   where
-    mk_instance ts an sn arb = optionalInstanceD ts ''Arbitrary [nodeRepT an]
-                                  [ simpleD 'arbitrary [e| fmap $(nodeNewtypeConE ts an sn) $arb |]
-                                  , simpleD 'shrink    [e| genericShrink |]
-                                  ]
+    mk_instance ts an sn arb =
+      mkArbitraryInstance ts (nodeRepT an) [e| fmap $(nodeNewtypeConE ts an sn) $arb |]
 
 
 -- | Generate an 'Arbitrary' instance for a record:
@@ -53,10 +72,7 @@ gen_sn_ab = mkTool $ \ ts (an, sn) -> case snFilter sn of
 -- >     shrink    = genericShrink
 
 gen_sr_ab :: Tool (APINode, SpecRecord)
-gen_sr_ab = mkTool $ \ ts (an, sr) -> optionalInstanceD ts ''QC.Arbitrary [nodeRepT an]
-                                          [ simpleD 'arbitrary (bdy an sr)
-                                          , simpleD 'shrink    [e| genericShrink |]
-                                          ]
+gen_sr_ab = mkTool $ \ ts (an, sr) -> mkArbitraryInstance ts (nodeRepT an) (bdy an sr)
   where
     -- Reduce size of fields to avoid generating massive test data
     -- by giving an arbitrary implementation like this:
@@ -74,10 +90,7 @@ gen_sr_ab = mkTool $ \ ts (an, sr) -> optionalInstanceD ts ''QC.Arbitrary [nodeR
 -- >     arbitrary = oneOf [ fmap Bar arbitrary, fmap Baz arbitrary ]
 
 gen_su_ab :: Tool (APINode, SpecUnion)
-gen_su_ab = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''QC.Arbitrary [nodeRepT an]
-                                          [ simpleD 'arbitrary (bdy an su)
-                                          , simpleD 'shrink    [e| genericShrink |]
-                                          ]
+gen_su_ab = mkTool $ \ ts (an, su) -> mkArbitraryInstance ts (nodeRepT an) (bdy an su)
   where
     bdy an su | null (suFields su) = nodeConE an
               | otherwise          = [e| oneof $(listE alts) |]
@@ -92,10 +105,7 @@ gen_su_ab = mkTool $ \ ts (an, su) -> optionalInstanceD ts ''QC.Arbitrary [nodeR
 -- >     arbitrary = elements [Bar, Baz]
 
 gen_se_ab :: Tool (APINode, SpecEnum)
-gen_se_ab = mkTool $ \ ts (an, se) -> optionalInstanceD ts ''QC.Arbitrary [nodeRepT an]
-                                          [ simpleD 'arbitrary (bdy an se)
-                                          , simpleD 'shrink    [e| genericShrink |]
-                                          ]
+gen_se_ab = mkTool $ \ ts (an, se) -> mkArbitraryInstance ts (nodeRepT an) (bdy an se)
   where
     bdy an se | null ks   = nodeConE an
               | otherwise = varE 'elements `appE` listE ks
