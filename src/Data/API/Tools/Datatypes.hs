@@ -10,11 +10,13 @@ module Data.API.Tools.Datatypes
     , nodeConE
     , nodeConP
     , nodeNewtypeConE
+    , nodeNewtypeConP
     , nodeFieldE
     , nodeFieldP
     , nodeAltConE
     , nodeAltConP
     , newtypeProjectionE
+    , pref_field_nm
     ) where
 
 import           Data.API.TH
@@ -251,6 +253,9 @@ nodeConP an = conP (rep_type_nm an)
 -- | The constructor for a newtype, which might be renamed
 nodeNewtypeConE :: ToolSettings -> APINode -> SpecNewtype -> ExpQ
 nodeNewtypeConE ts an sn = conE $ newtype_con_nm (newtypeSmartConstructors ts && isJust (snFilter sn)) an
+
+nodeNewtypeConP :: ToolSettings -> APINode -> SpecNewtype -> [Q Pat] -> PatQ
+nodeNewtypeConP ts an sn ps = conP (newtype_con_nm (newtypeSmartConstructors ts && isJust (snFilter sn)) an) ps
 
 -- | A record field in an API node, as an expression
 nodeFieldE :: APINode -> FieldName -> ExpQ

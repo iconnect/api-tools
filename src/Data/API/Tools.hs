@@ -39,6 +39,7 @@ module Data.API.Tools
     , quickCheckTool
     , safeCopyTool
     , samplesTool
+    , Shrinkable(..)
     ) where
 
 import           Data.API.Tools.Combinators
@@ -57,7 +58,6 @@ import           Data.API.Types
 
 import qualified Data.Monoid                    as Monoid
 import           Language.Haskell.TH
-
 
 -- | Generate the datatypes corresponding to an API.
 generate :: API -> Q [Dec]
