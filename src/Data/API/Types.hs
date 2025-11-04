@@ -30,7 +30,6 @@ module Data.API.Types
     , UTCRange(..)
     , RegEx(..)
     , Binary(..)
-    , Shrinkable(..)
     , defaultValueAsJsValue
     , mkRegEx
     , inIntRange
@@ -475,7 +474,3 @@ $(let deriveJSONs = fmap concat . mapM (deriveJSON defaultOptions)
                  , ''APINode
                  , ''Thing
                  ])
-
-class Shrinkable a where
-  shrinkable :: a -> [a]
-  shrinkable = const []

@@ -39,7 +39,6 @@ module Data.API.Tools
     , quickCheckTool
     , safeCopyTool
     , samplesTool
-    , Shrinkable(..)
     ) where
 
 import           Data.API.Tools.Combinators
