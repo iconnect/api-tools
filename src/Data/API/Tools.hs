@@ -26,7 +26,6 @@ module Data.API.Tools
     , exampleTool
     , dataTypeableTool
     , deepSeqTool
-    , genericsTool
     , jsonTool
     , jsonTool'
     , cborTool
@@ -48,7 +47,6 @@ import           Data.API.Tools.Datatypes
 import           Data.API.Tools.DeepSeq
 import           Data.API.Tools.Enum
 import           Data.API.Tools.Example
-import           Data.API.Tools.Generic
 import           Data.API.Tools.CBOR
 import           Data.API.Tools.JSON
 import           Data.API.Tools.JSONTests

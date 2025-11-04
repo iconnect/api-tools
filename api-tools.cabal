@@ -62,7 +62,6 @@ Library
         Data.API.Tools.DeepSeq
         Data.API.Tools.Enum
         Data.API.Tools.Example
-        Data.API.Tools.Generic
         Data.API.Tools.JSON
         Data.API.Tools.JSONTests
         Data.API.Tools.Lens
