@@ -20,11 +20,11 @@ module Data.API.Tools
     , defaultToolSettings
     , warnOnOmittedInstance
     , newtypeSmartConstructors
+    , defaultDerivedClasses
 
       -- * Individual tools
     , enumTool
     , exampleTool
-    , dataTypeableTool
     , deepSeqTool
     , jsonTool
     , jsonTool'
@@ -42,7 +42,6 @@ module Data.API.Tools
     ) where
 
 import           Data.API.Tools.Combinators
-import           Data.API.Tools.DataTypeable
 import           Data.API.Tools.Datatypes
 import           Data.API.Tools.DeepSeq
 import           Data.API.Tools.Enum
@@ -65,7 +64,7 @@ generate = generateWith defaultToolSettings
 -- | Generate the datatypes corresponding to an API, allowing the
 -- 'ToolSettings' to be overriden.
 generateWith :: ToolSettings -> API -> Q [Dec]
-generateWith ts api = generateAPIToolsWith ts api [datatypesTool]
+generateWith ts api = generateAPIToolsWith ts api [datatypesTool ts]
 
 -- | Apply a list of tools to an 'API', generating TH declarations.
 -- See the individual tool descriptions for details.  Note that

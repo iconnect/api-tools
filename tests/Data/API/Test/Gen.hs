@@ -48,7 +48,7 @@ $(generateAPITools DSL.example
                    ])
 
 $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True }) example2
-                       [ datatypesTool' ((''Generic :) . defaultDerivedClasses) ])
+                       [ datatypesTool' ((''Generic :) . defaultDerivedClasses defaultToolSettings) ])
 
 data Coord = Coord Int Int
     deriving (Eq,Show)
