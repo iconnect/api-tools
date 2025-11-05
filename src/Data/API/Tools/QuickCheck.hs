@@ -94,32 +94,61 @@ gen_sr_ab = mkTool $ \ ts (an, sr) -> mkArbitraryInstance ts (nodeRepT an) (bdy 
     -- to generate a list of lists, each sublist being the shrinking of a single
     -- individual field, and finally mconcat everything together.
     -- Example:
-    -- shrink = \(Foo a b c) ->
-    --  (Foo <$> shrink a <*> pure b   <*> pure c) ++
-    --  (Foo <$> pure   a <*> shrink b <*> pure c) ++
-    --  (Foo <$> pure   a <*> pure b   <*> shrink c)
+    --
+    -- shrink = \ x ->
+    --   case x of
+    --     Foo a b c ->
+    --       concat [ Foo <$> shrink a <*> pure b   <*> pure c
+    --              , Foo <$> pure   a <*> shrink b <*> pure c
+    --              , Foo <$> pure   a <*> pure b   <*> shrink c
+    --              ]
+    --
     shrinkRecord :: APINode -> SpecRecord -> ExpQ
     shrinkRecord an sr = do
-      x <- newName "x"
-      -- Matches the fields of the record with fresh variables
-      -- [( "field1", "field1"), ("field2", "field2") ... ]
-      recordPatterns <-
-        forM (srFields sr) $ \(fn,_) -> do
-          let freshRecName = pref_field_nm an fn
-          freshPatName <- nodeFieldP an fn
-          pure (freshRecName,freshPatName)
+      -- List of field names in the record
+      let fields :: [Name]
+          fields = map (pref_field_nm an . fst) (srFields sr)
 
+      -- Given a list of fields with a distinguished element, construct
+      --    Foo <$> pure x0 <*> ... <*> shrink xM <*> ... <*> pure xN
+      -- where the boolean indicates which field should use 'shrink'.
+      let shrinkMarkedField :: [(Bool, Name)] -> ExpQ
+          shrinkMarkedField flds =
+              applicativeE (nodeConE an) $
+                  flip map flds $ \(shrunk, fld) ->
+                      if shrunk then [e| QC.shrink $(varE fld) |]
+                                else [e| pure      $(varE fld) |]
+
+      -- Construct the list
+      --   [ Foo <$> shrink a <*> pure b   <*> ...
+      --   , Foo <$> pure   a <*> shrink b <*> ...
+      --   , ...
+      --   ]
+      let shrinkAllFields :: ExpQ
+          shrinkAllFields = listE (map shrinkMarkedField (distinguishedElements fields))
+
+      x <- newName "x"
       lamE [varP x] $
         caseE (varE x) [
-          -- temporary, not correct. it won't shrink properly.
-          match (recP nm (map pure recordPatterns))
-                (normalB $ applicativeE (nodeConE an) $
-                   flip map recordPatterns $ \(fld, _pat) ->
-                    [e| QC.shrink $(varE fld) |]
-                ) []
+          -- Foo a b c -> concat [...]
+          match (recP nm (map (\n -> fieldPat n (varP n)) fields))
+                (normalB [e| concat $shrinkAllFields |])
+                []
         ]
        where
          nm = rep_type_nm an
+
+-- | Turn an N-element list into N lists of N pairs, each of which has a single
+-- distinguished element marked True.
+--
+-- >>> distinguishedElements "abc"
+-- [[(True,'a'),(False,'b'),(False,'c')],[(False,'a'),(True,'b'),(False,'c')],[(False,'a'),(False,'b'),(True,'c')]]
+--
+distinguishedElements :: [a] -> [[(Bool, a)]]
+distinguishedElements []     = []
+distinguishedElements (x:xs) = ((True, x) : map ((,) False) xs)
+                             : map ((False, x) :) (distinguishedElements xs)
+
 
 -- | Generate an 'Arbitrary' instance for a union:
 --
