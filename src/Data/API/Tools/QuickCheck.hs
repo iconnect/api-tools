@@ -180,15 +180,15 @@ gen_su_ab = mkTool $ \ ts (an, su) -> mkArbitraryInstance ts (nodeRepT an) (bdy 
 -- >     arbitrary = elements [Bar, Baz]
 
 gen_se_ab :: Tool (APINode, SpecEnum)
-gen_se_ab = mkTool $ \ ts (an, se) -> mkArbitraryInstance ts (nodeRepT an) (bdy an se) noShrink
+gen_se_ab = mkTool $ \ ts (an, se) -> mkArbitraryInstance ts (nodeRepT an) (bdy an se) shrinkEnum
   where
     bdy an se | null ks   = nodeConE an
               | otherwise = varE 'elements `appE` listE ks
       where
         ks = map (nodeAltConE an . fst) $ seAlts se
 
-    noShrink :: ExpQ
-    noShrink = [e| \_ -> [] |]
+    shrinkEnum :: ExpQ
+    shrinkEnum = [e| QC.shrinkBoundedEnum |]
 
 -- | Generate an arbitrary 'Int' in a given range.
 arbitraryIntRange :: IntRange -> Gen Int
