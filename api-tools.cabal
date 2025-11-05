@@ -21,12 +21,7 @@ Tested-with:         GHC == 9.6.7, GHC == 9.8.4, GHC == 9.10.3
 
 Source-Repository head
   Type:              git
-  Location:          git://github.com/iconnect/api-tools.git
-
-Source-Repository this
-  Type:              git
-  Location:          git://github.com/iconnect/api-tools.git
-  Tag:               0.10.1.0
+  Location:          https://github.com/iconnect/api-tools.git
 
 flag use-attoparsec-aeson
   description: Depend on Data.Aeson.Parser from attoparsec-aeson
