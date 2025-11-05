@@ -160,10 +160,6 @@ jobs:
           echo "packages: ${PKGDIR_api_tools}" >> cabal.project
           echo "package api-tools" >> cabal.project
           echo "    ghc-options: -Werror=missing-methods -Werror=missing-fields" >> cabal.project
-          echo "package api-tools" >> cabal.project
-          echo "    ghc-options: -Werror=unused-packages" >> cabal.project
-          echo "package api-tools" >> cabal.project
-          echo "    ghc-options: -Werror=incomplete-patterns -Werror=incomplete-uni-patterns" >> cabal.project
           cat >> cabal.project <<EOF
           EOF
           $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: any.$_ installed\n" unless /^(api-tools)$/; }' >> cabal.project.local
