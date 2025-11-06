@@ -47,7 +47,7 @@ data ToolSettings = ToolSettings
       -- ^ Rename the constructors of filtered newtypes and generate
       -- smart constructors that enforce the invariants
     , defaultDerivedClasses :: APINode -> [Name]
-      -- ^ The classes which are derived automatically by api-tools.
+      -- ^ The classes which are derived automatically for datatypes created by 'datatypesTool'.
     }
 
 -- | Default settings designed to be overridden.

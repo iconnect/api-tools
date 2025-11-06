@@ -50,26 +50,77 @@ gen_sn_ab = mkTool $ \ ts (an, sn) -> case snFilter sn of
     Nothing | snType sn == BTint    -> mk_instance ts an sn [e| QC.arbitraryBoundedIntegral |] (shrinkNewtype ts an sn)
             | otherwise             -> mk_instance ts an sn [e| arbitrary |] (shrinkNewtype ts an sn)
     Just (FtrIntg ir)               ->
-      mk_instance ts an sn [e| arbitraryIntRange ir |] (shrinkNewtype ts an sn)
+      mk_instance ts an sn [e| arbitraryIntRange ir |] (shrinkIntRange ir ts an sn)
     Just (FtrUTC ur)                ->
-      mk_instance ts an sn [e| arbitraryUTCRange ur |] (shrinkNewtype ts an sn)
+      mk_instance ts an sn [e| arbitraryUTCRange ur |] (shrinkUTCRange ur ts an sn)
     Just (FtrStrg _)                -> return []
   where
     mk_instance ts an sn arb =
       mkArbitraryInstance ts (nodeRepT an) [e| fmap $(nodeNewtypeConE ts an sn) $arb |]
 
-    -- shrinking a newtype means calling shrink and repack the newtype.
-    -- Example:
-    -- shrink = \x -> case x of { Foo y -> map Foo (shrink y) }
-    shrinkNewtype ts an sn = do
-      x <- newName "x"
-      y <- newName "y"
-      lamE [varP x] $
-        caseE (varE x) [
-          match (nodeNewtypeConP ts an sn [varP y])
-                (normalB [| map $(nodeNewtypeConE ts an sn) (QC.shrink $(varE y)) |])
-                []
-        ]
+-- shrinking a newtype means calling shrink and repack the newtype.
+-- Example:
+-- shrink = \x -> case x of { Foo y -> map Foo (shrink y) }
+shrinkNewtype :: ToolSettings -> APINode -> SpecNewtype -> Q Exp
+shrinkNewtype ts an sn = do
+  x <- newName "x"
+  y <- newName "y"
+  lamE [varP x] $
+    caseE (varE x) [
+      match (nodeNewtypeConP ts an sn [varP y])
+            (normalB [| map $(nodeNewtypeConE ts an sn) (QC.shrink $(varE y)) |])
+            []
+    ]
+
+-- | Attempts to shrink an input 'APINode' within the given 'IntRange', i.e. if the 'IntRange'
+-- specifies an 'ir_lo', then we shrink such that the resulting shrunk values still satisfies
+-- the min constrain of the range (i.e. we never generate values /smaller/ than 'ir_lo').
+--
+-- A few observations/remarks:
+--
+-- * If the 'ir_lo' is 'Nothing', then this because just 'shrinkNewtype', because we don't
+--   really care about 'ir_hi' as shrinking by default won't generate value higher than the
+--   value being shrunk (it would be a nonsense);
+--
+-- * We can generate code that typechecks only if we have a 'BTint', otherwise we don't shrink.
+shrinkIntRange :: IntRange -> ToolSettings -> APINode -> SpecNewtype -> ExpQ
+shrinkIntRange ir ts an sn = case ir_lo ir of
+  Nothing         -> shrinkNewtype ts an sn
+  Just lowerBound -> do
+    x <- newName "x"
+    y <- newName "y"
+    lamE [varP x] $
+      caseE (varE x) [
+        match (nodeNewtypeConP ts an sn [varP y])
+              (normalB $ do
+                if snType sn == BTint
+                   then [| map $(nodeNewtypeConE ts an sn) $ filter (>= lowerBound) $ (QC.shrink $(varE y)) |]
+                   else noShrink
+              ) []
+      ]
+
+noShrink :: ExpQ
+noShrink = [e| \_ -> [] |]
+
+-- | Attempts to shrink an input 'APINode' within the given 'UTCRange', i.e. if the 'UTCRange'
+-- specifies an 'ur_lo', then we shrink such that the resulting shrunk values still satisfies
+-- the min constrain of the range (i.e. we never generate values /smaller/ than 'ur_lo').
+-- Same proviso as for 'shrinkIntRange', it makes sense to apply the filter only for 'BTutc'.
+shrinkUTCRange :: UTCRange -> ToolSettings -> APINode -> SpecNewtype -> ExpQ
+shrinkUTCRange ur ts an sn = case ur_lo ur of
+  Nothing         -> shrinkNewtype ts an sn
+  Just lowerBound -> do
+    x <- newName "x"
+    y <- newName "y"
+    lamE [varP x] $
+      caseE (varE x) [
+        match (nodeNewtypeConP ts an sn [varP y])
+              (normalB $ do
+                if snType sn == BTutc
+                   then [| map $(nodeNewtypeConE ts an sn) $ filter (>= $(liftUTC lowerBound)) $ (QC.shrink $(varE y)) |]
+                   else noShrink
+              ) []
+      ]
 
 -- | Generate an 'Arbitrary' instance for a record:
 --

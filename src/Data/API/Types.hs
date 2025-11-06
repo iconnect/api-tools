@@ -35,6 +35,7 @@ module Data.API.Types
     , inIntRange
     , inUTCRange
     , base64ToBinary
+    , liftUTC
     ) where
 
 import           Data.API.Time
