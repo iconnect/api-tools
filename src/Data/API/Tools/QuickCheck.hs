@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 module Data.API.Tools.QuickCheck
@@ -15,13 +16,13 @@ import           Control.Applicative
 import           Control.Monad
 import           Data.Monoid
 import           Data.Time
+import           Data.Coerce
 import           Language.Haskell.TH
 import           Prelude
 import           Test.QuickCheck                as QC
+import           Language.Haskell.TH.Syntax (lift)
 
--- | Tool to generate 'Arbitrary' instances for generated types. This tool generates
--- also a stock shrinker via the 'generic-arbitrary' package, which means we require
--- the wrapped type to be an instance of 'Generic'.
+-- | Tool to generate 'Arbitrary' instances for generated types.
 quickCheckTool :: APITool
 quickCheckTool = apiNodeTool $ apiSpecTool gen_sn_ab gen_sr_ab gen_su_ab gen_se_ab mempty
 
@@ -50,9 +51,9 @@ gen_sn_ab = mkTool $ \ ts (an, sn) -> case snFilter sn of
     Nothing | snType sn == BTint    -> mk_instance ts an sn [e| QC.arbitraryBoundedIntegral |] (shrinkNewtype ts an sn)
             | otherwise             -> mk_instance ts an sn [e| arbitrary |] (shrinkNewtype ts an sn)
     Just (FtrIntg ir)               ->
-      mk_instance ts an sn [e| arbitraryIntRange ir |] (shrinkIntRange ir ts an sn)
+      mk_instance ts an sn [e| arbitraryIntRange ir |] (shrinkIntRange ir sn)
     Just (FtrUTC ur)                ->
-      mk_instance ts an sn [e| arbitraryUTCRange ur |] (shrinkUTCRange ur ts an sn)
+      mk_instance ts an sn [e| arbitraryUTCRange ur |] (shrinkUTCRange ur sn)
     Just (FtrStrg _)                -> return []
   where
     mk_instance ts an sn arb =
@@ -72,32 +73,29 @@ shrinkNewtype ts an sn = do
             []
     ]
 
--- | Attempts to shrink an input 'APINode' within the given 'IntRange', i.e. if the 'IntRange'
--- specifies an 'ir_lo', then we shrink such that the resulting shrunk values still satisfies
--- the min constrain of the range (i.e. we never generate values /smaller/ than 'ir_lo').
---
--- A few observations/remarks:
---
--- * If the 'ir_lo' is 'Nothing', then this because just 'shrinkNewtype', because we don't
---   really care about 'ir_hi' as shrinking by default won't generate value higher than the
---   value being shrunk (it would be a nonsense);
---
--- * We can generate code that typechecks only if we have a 'BTint', otherwise we don't shrink.
-shrinkIntRange :: IntRange -> ToolSettings -> APINode -> SpecNewtype -> ExpQ
-shrinkIntRange ir ts an sn = case ir_lo ir of
-  Nothing         -> shrinkNewtype ts an sn
-  Just lowerBound -> do
-    x <- newName "x"
-    y <- newName "y"
-    lamE [varP x] $
-      caseE (varE x) [
-        match (nodeNewtypeConP ts an sn [varP y])
-              (normalB $ do
-                if snType sn == BTint
-                   then [| map $(nodeNewtypeConE ts an sn) $ filter (>= lowerBound) $ (QC.shrink $(varE y)) |]
-                   else noShrink
-              ) []
-      ]
+shrinkWithinIntRange :: IntRange -> Int -> [Int]
+shrinkWithinIntRange ir@IntRange{..} x = refine $ QC.shrink x
+  where
+    refine = case (ir_lo, ir_hi) of
+      (Nothing, Nothing)   -> id -- avoid filter altogether
+      _                    -> filter (`inIntRange` ir)
+
+shrinkWithinUTCRange :: UTCRange -> UTCTime -> [UTCTime]
+shrinkWithinUTCRange ur@UTCRange{..} x = refine $ QC.shrink x
+  where
+    refine = case (ur_lo, ur_hi) of
+      (Nothing, Nothing)   -> id -- avoid filter altogether
+      _                    -> filter (`inUTCRange` ur)
+
+-- | Attempts to shrink an input 'APINode' within the given 'IntRange'.
+-- We can generate code that typechecks only if we have a 'BTint', otherwise we don't shrink.
+shrinkIntRange :: IntRange -> SpecNewtype -> ExpQ
+shrinkIntRange ir sn = do
+  x <- newName "x"
+  lamE [varP x] $
+    if snType sn == BTint
+         then [e| coerce (shrinkWithinIntRange $(lift ir) $ coerce $(varE x)) |]
+         else noShrink
 
 noShrink :: ExpQ
 noShrink = [e| \_ -> [] |]
@@ -106,21 +104,13 @@ noShrink = [e| \_ -> [] |]
 -- specifies an 'ur_lo', then we shrink such that the resulting shrunk values still satisfies
 -- the min constrain of the range (i.e. we never generate values /smaller/ than 'ur_lo').
 -- Same proviso as for 'shrinkIntRange', it makes sense to apply the filter only for 'BTutc'.
-shrinkUTCRange :: UTCRange -> ToolSettings -> APINode -> SpecNewtype -> ExpQ
-shrinkUTCRange ur ts an sn = case ur_lo ur of
-  Nothing         -> shrinkNewtype ts an sn
-  Just lowerBound -> do
-    x <- newName "x"
-    y <- newName "y"
-    lamE [varP x] $
-      caseE (varE x) [
-        match (nodeNewtypeConP ts an sn [varP y])
-              (normalB $ do
-                if snType sn == BTutc
-                   then [| map $(nodeNewtypeConE ts an sn) $ filter (>= $(liftUTC lowerBound)) $ (QC.shrink $(varE y)) |]
-                   else noShrink
-              ) []
-      ]
+shrinkUTCRange :: UTCRange -> SpecNewtype -> ExpQ
+shrinkUTCRange ur sn = do
+  x <- newName "x"
+  lamE [varP x] $
+    if snType sn == BTutc
+         then [e| coerce (shrinkWithinUTCRange $(lift ur) $ coerce $(varE x)) |]
+         else noShrink
 
 -- | Generate an 'Arbitrary' instance for a record:
 --
