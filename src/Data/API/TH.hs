@@ -6,6 +6,7 @@
 module Data.API.TH
     ( applicativeE
     , optionalInstanceD
+    , optionalStandaloneDerivD
     , funSigD
     , simpleD
     , simpleSigD
@@ -56,6 +57,17 @@ optionalInstanceD stgs c tqs dqs = do
   where
     msg ts = "instance " ++ pprint c ++ " " ++ pprint ts ++ " already exists, so it was not generated"
 
+-- | Adds a "deriving instance" standalone declaration for a class, if such an instance does
+-- not already exist.
+optionalStandaloneDerivD :: ToolSettings -> Name -> [TypeQ] -> Q [Dec]
+optionalStandaloneDerivD stgs c tqs = do
+    ts <- sequence tqs
+    exists <- isInstance c ts
+    if exists then do when (warnOnOmittedInstance stgs) $ reportWarning $ msg ts
+                      return []
+              else pure [StandaloneDerivD Nothing [] (foldl AppT (ConT c) ts)]
+  where
+    msg ts = "instance " ++ pprint c ++ " " ++ pprint ts ++ " already exists, so it was not generated"
 
 -- | Construct a TH function with a type signature
 funSigD :: Name -> TypeQ -> [ClauseQ] -> Q [Dec]

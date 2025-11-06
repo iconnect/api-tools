@@ -2,7 +2,6 @@
 module Data.API.Tools.Datatypes
     ( datatypesTool
     , datatypesTool'
-    , defaultDerivedClasses
     , type_nm
     , rep_type_nm
     , nodeT
@@ -10,11 +9,13 @@ module Data.API.Tools.Datatypes
     , nodeConE
     , nodeConP
     , nodeNewtypeConE
+    , nodeNewtypeConP
     , nodeFieldE
     , nodeFieldP
     , nodeAltConE
     , nodeAltConP
     , newtypeProjectionE
+    , pref_field_nm
     ) where
 
 import           Data.API.TH
@@ -30,15 +31,14 @@ import           Data.Maybe
 import           Data.String
 import qualified Data.Text                      as T
 import           Data.Time
-import           Data.Typeable
 import           Language.Haskell.TH
 import           Text.Regex
 import           Prelude
 
 
 -- | Tool to generate datatypes and type synonyms corresponding to an API
-datatypesTool :: APITool
-datatypesTool = datatypesTool' defaultDerivedClasses
+datatypesTool :: ToolSettings -> APITool
+datatypesTool = datatypesTool' . defaultDerivedClasses
 
 -- | Tool to generate datatypes and type synonyms corresponding to an
 -- API, where the function specifies the derived classes for each datatype.
@@ -163,28 +163,6 @@ basic_type bt =
       BTutc    -> ConT ''UTCTime
 
 
--- | Default names of classes for which to derive instances, depending
--- on the type of API node.
-defaultDerivedClasses :: APINode -> [Name]
-defaultDerivedClasses an = case anSpec an of
-    SpNewtype sn -> case snType sn of
-                      BTstring -> ''IsString : derive_leaf_nms
-                      BTbinary -> derive_leaf_nms
-                      BTbool   -> derive_leaf_nms
-                      BTint    -> derive_leaf_nms
-                      BTutc    -> derive_leaf_nms
-    SpRecord  _  -> derive_node_nms
-    SpUnion   _  -> derive_node_nms
-    SpEnum    _  -> derive_leaf_nms ++ [''Bounded, ''Enum]
-    SpSynonym _  -> []
-
-derive_leaf_nms :: [Name]
-derive_leaf_nms = [''Show,''Eq,''Ord,''Typeable]
-
-derive_node_nms :: [Name]
-derive_node_nms = [''Show,''Eq,''Typeable]
-
-
 -- | Name of the type corresponding to the API node, e.g. @JobId@
 type_nm :: APINode -> Name
 type_nm an = mkName $ T.unpack $ _TypeName $ anName an
@@ -251,6 +229,9 @@ nodeConP an = conP (rep_type_nm an)
 -- | The constructor for a newtype, which might be renamed
 nodeNewtypeConE :: ToolSettings -> APINode -> SpecNewtype -> ExpQ
 nodeNewtypeConE ts an sn = conE $ newtype_con_nm (newtypeSmartConstructors ts && isJust (snFilter sn)) an
+
+nodeNewtypeConP :: ToolSettings -> APINode -> SpecNewtype -> [Q Pat] -> PatQ
+nodeNewtypeConP ts an sn ps = conP (newtype_con_nm (newtypeSmartConstructors ts && isJust (snFilter sn)) an) ps
 
 -- | A record field in an API node, as an expression
 nodeFieldE :: APINode -> FieldName -> ExpQ

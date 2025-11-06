@@ -22,6 +22,7 @@ module Data.API.Tools.Combinators
     , warnOnOmittedInstance
     , newtypeSmartConstructors
     , defaultToolSettings
+    , defaultDerivedClasses
     ) where
 
 import           Data.API.Types
@@ -29,6 +30,8 @@ import           Data.API.Types
 import           Control.Applicative
 import           Data.Monoid
 import           Data.Semigroup as Sem
+import           Data.String
+import           Data.Typeable
 import           Language.Haskell.TH
 import           Prelude
 
@@ -43,6 +46,8 @@ data ToolSettings = ToolSettings
     , newtypeSmartConstructors :: Bool
       -- ^ Rename the constructors of filtered newtypes and generate
       -- smart constructors that enforce the invariants
+    , defaultDerivedClasses :: APINode -> [Name]
+      -- ^ The classes which are derived automatically for datatypes created by 'datatypesTool'.
     }
 
 -- | Default settings designed to be overridden.
@@ -50,7 +55,31 @@ defaultToolSettings :: ToolSettings
 defaultToolSettings = ToolSettings
     { warnOnOmittedInstance = False
     , newtypeSmartConstructors = False
+    , defaultDerivedClasses = default_derived_classes
     }
+
+-- | Default names of classes for which to derive instances, depending
+-- on the type of API node.
+default_derived_classes :: APINode -> [Name]
+default_derived_classes an = case anSpec an of
+    SpNewtype sn -> case snType sn of
+                      BTstring -> ''IsString : derive_leaf_nms
+                      BTbinary -> derive_leaf_nms
+                      BTbool   -> derive_leaf_nms
+                      BTint    -> derive_leaf_nms
+                      BTutc    -> derive_leaf_nms
+    SpRecord  _  -> derive_node_nms
+    SpUnion   _  -> derive_node_nms
+    SpEnum    _  -> derive_leaf_nms ++ [''Bounded, ''Enum]
+    SpSynonym _  -> []
+
+derive_leaf_nms :: [Name]
+derive_leaf_nms = [''Show,''Eq,''Ord,''Typeable]
+
+derive_node_nms :: [Name]
+derive_node_nms = [''Show,''Eq,''Typeable]
+
+
 
 -- | A @'Tool' a@ is something that can generate TH declarations from
 -- a value of type @a@.  Tools can be combined using the 'Monoid'

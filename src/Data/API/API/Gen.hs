@@ -1,7 +1,5 @@
-{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 -- | This module contains datatypes generated from the DSL description
 -- of the api-tools API; they thus correspond to the types in
