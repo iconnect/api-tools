@@ -1,7 +1,10 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
--- | Standalone test for union alternative migration with field changes
+-- | Tests for union alternative migration with type changes
+--
+-- This module tests the 'alternative changed' changelog feature, which allows
+-- changing the type of a union alternative with a custom migration function.
 module Data.API.Test.UnionMigration
     ( unionMigrationTests
     ) where
@@ -9,7 +12,6 @@ module Data.API.Test.UnionMigration
 import           Data.API.Changes
 import           Data.API.JSON
 import           Data.API.JSON.Compat
-import           Data.API.Tools
 import           Data.API.Types
 import           Data.API.Utils
 
@@ -25,83 +27,142 @@ import           Data.API.Test.UnionMigrationData
 
 
 -- Generate migration enums from changelog
-$(generateMigrationKinds testChangelog "TestDbMigration" "TestRecordMigration" "TestFieldMigration")
+$(generateMigrationKinds typeSwapChangelog "TypeSwapDbMigration" "TypeSwapRecordMigration" "TypeSwapFieldMigration")
 
 
--- Custom field migration that adds a 'name' field prefixed with "id_"
-testFieldMigration :: TestFieldMigration -> JS.Value -> Either ValueError JS.Value
-testFieldMigration AddNameToTestRecord (JS.Object x) = do
-    i <- lookupKey "id" x ?! CustomMigrationError "missing id" (JS.Object x)
-    case i of
-        JS.Number n -> do
-            let name = JS.String $ "id_" `T.append` T.pack (show (floor (toRational n) :: Int))
-            return $ JS.Object $ insertKey "name" name x
-        _ -> Left $ CustomMigrationError "bad id" (JS.Object x)
-testFieldMigration AddNameToTestRecord v = Left $ CustomMigrationError "bad data" v
+-- -----------------------------------------------------------------------------
+-- Type Swap Migration (PersonV1 -> PersonV2)
+-- -----------------------------------------------------------------------------
+
+-- | Migrate PersonV1 to PersonV2
+--
+-- PersonV1: { "name": "John" }
+-- PersonV2: { "fullName": "John", "age": 0 }
+--
+-- This is a type migration because we're transforming the entire inner value
+-- of the union alternative from one type to another.
+migratePersonV1ToV2 :: TypeSwapRecordMigration -> JS.Value -> Either ValueError JS.Value
+migratePersonV1ToV2 MigratePersonV1ToV2 (JS.Object obj) = do
+    nameVal <- lookupKey "name" obj ?! CustomMigrationError "missing 'name' field" (JS.Object obj)
+    case nameVal of
+        JS.String name -> return $ JS.Object $
+            insertKey "fullName" (JS.String name) $
+            singletonObject "age" (JS.Number 0)
+        _ -> Left $ CustomMigrationError "expected string for 'name'" (JS.Object obj)
+migratePersonV1ToV2 MigratePersonV1ToV2 v =
+    Left $ CustomMigrationError "expected object for PersonV1" v
 
 
--- Custom migrations record
-testMigration :: CustomMigrations JS.Object JS.Value TestDbMigration TestRecordMigration TestFieldMigration
-testMigration = CustomMigrations
+typeSwapMigration :: CustomMigrations JS.Object JS.Value TypeSwapDbMigration TypeSwapRecordMigration TypeSwapFieldMigration
+typeSwapMigration = CustomMigrations
     { databaseMigration       = \ _ -> noDataChanges
     , databaseMigrationSchema = \ _ -> noSchemaChanges
-    , typeMigration           = \ _ -> noDataChanges
+    , typeMigration           = migratePersonV1ToV2
     , typeMigrationSchema     = \ _ -> noSchemaChanges
-    , fieldMigration          = testFieldMigration
+    , fieldMigration          = \ _ -> noDataChanges
     }
 
 
--- Test data
-startUnionData :: JS.Value
-Just startUnionData = JS.decode "{ \"alt\": {\"id\": 42} }"
+-- Test data for type swap
+--
+-- Start: Container with MyUnion containing PersonV1
+-- End:   Container with MyUnion containing PersonV2
 
-expectedUnionData :: JS.Value
-Just expectedUnionData = JS.decode "{ \"alt\": {\"id\": 42, \"name\": \"id_42\"} }"
+-- | Start data: { "person": { "person": { "name": "Alice" } } }
+startTypeSwapData :: JS.Value
+Just startTypeSwapData = JS.decode "{ \"person\": { \"person\": { \"name\": \"Alice\" } } }"
+
+-- | Expected end data: { "person": { "person": { "fullName": "Alice", "age": 0 } } }
+expectedTypeSwapData :: JS.Value
+Just expectedTypeSwapData = JS.decode "{ \"person\": { \"person\": { \"fullName\": \"Alice\", \"age\": 0 } } }"
+
+-- | Start data with "other" alternative (should pass through unchanged)
+startOtherAltData :: JS.Value
+Just startOtherAltData = JS.decode "{ \"person\": { \"other\": 42 } }"
+
+-- | Expected end data for "other" alternative (unchanged)
+expectedOtherAltData :: JS.Value
+Just expectedOtherAltData = JS.decode "{ \"person\": { \"other\": 42 } }"
 
 
--- | The basic test case for union alternative migration
-unionAlternativeMigrationTest :: Assertion
-unionAlternativeMigrationTest = do
-    -- Verify data matches schemas
-    case dataMatchesAPI rootUnionName startUnionSchema startUnionData of
+-- | Test migrating PersonV1 to PersonV2 within a union
+typeSwapMigrationTest :: Assertion
+typeSwapMigrationTest = do
+    -- Verify start data matches start schema
+    case dataMatchesAPI rootName startTypeSwapSchema startTypeSwapData of
         Right () -> return ()
         Left err -> assertFailure $ "Start data does not match start API: "
                                       ++ prettyValueErrorPosition err
 
-    case dataMatchesAPI rootUnionName endUnionSchema expectedUnionData of
+    -- Verify expected end data matches end schema
+    case dataMatchesAPI rootName endTypeSwapSchema expectedTypeSwapData of
         Right () -> return ()
         Left err -> assertFailure $ "Expected end data does not match end API: "
                                       ++ prettyValueErrorPosition err
 
     -- Run migration
-    let startVer = parseVer "0"
-    case migrateDataDump (startUnionSchema, startVer) (endUnionSchema, parseVerExtra "1.0")
-                         testChangelog testMigration rootUnionName CheckAll startUnionData of
-      Right (v, []) | expectedUnionData == v -> return ()
-                    | otherwise    -> assertFailure $ unlines
-                                      [ "Expected:"
-                                      , BL.unpack (JS.encodePretty expectedUnionData)
-                                      , "but got:"
-                                      , BL.unpack (JS.encodePretty v)
-                                      ]
+    case migrateDataDump (startTypeSwapSchema, parseVer "0")
+                         (endTypeSwapSchema, Release (parseVer "1.0"))
+                         typeSwapChangelog typeSwapMigration rootName CheckAll
+                         startTypeSwapData of
+      Right (v, [])
+          | expectedTypeSwapData == v -> return ()
+          | otherwise -> assertFailure $ unlines
+              [ "Type swap migration produced wrong result"
+              , "Expected:"
+              , BL.unpack (JS.encodePretty expectedTypeSwapData)
+              , "but got:"
+              , BL.unpack (JS.encodePretty v)
+              ]
       Right (_, ws) -> assertFailure $ "Unexpected warnings: " ++ show ws
       Left err      -> assertFailure $ "Migration failed: " ++ prettyMigrateFailure err
 
 
-rootUnionName :: TypeName
-rootUnionName = TypeName "TestUnion"
+-- | Test that non-matching alternatives pass through unchanged
+otherAlternativeUnchangedTest :: Assertion
+otherAlternativeUnchangedTest = do
+    -- Verify start data matches start schema
+    case dataMatchesAPI rootName startTypeSwapSchema startOtherAltData of
+        Right () -> return ()
+        Left err -> assertFailure $ "Start data does not match start API: "
+                                      ++ prettyValueErrorPosition err
+
+    -- Verify expected end data matches end schema
+    case dataMatchesAPI rootName endTypeSwapSchema expectedOtherAltData of
+        Right () -> return ()
+        Left err -> assertFailure $ "Expected end data does not match end API: "
+                                      ++ prettyValueErrorPosition err
+
+    -- Run migration - "other" alternative should pass through unchanged
+    case migrateDataDump (startTypeSwapSchema, parseVer "0")
+                         (endTypeSwapSchema, Release (parseVer "1.0"))
+                         typeSwapChangelog typeSwapMigration rootName CheckAll
+                         startOtherAltData of
+      Right (v, [])
+          | expectedOtherAltData == v -> return ()
+          | otherwise -> assertFailure $ unlines
+              [ "Other alternative was incorrectly modified"
+              , "Expected:"
+              , BL.unpack (JS.encodePretty expectedOtherAltData)
+              , "but got:"
+              , BL.unpack (JS.encodePretty v)
+              ]
+      Right (_, ws) -> assertFailure $ "Unexpected warnings: " ++ show ws
+      Left err      -> assertFailure $ "Migration failed: " ++ prettyMigrateFailure err
+
+
+rootName :: TypeName
+rootName = TypeName "Container"
 
 parseVer :: String -> Version
 parseVer s = case simpleParseVersion s of
     Just v -> v
     Nothing -> error $ "Invalid version: " ++ s
 
-parseVerExtra :: String -> VersionExtra
-parseVerExtra s = Release $ parseVer s
-
 
 -- | All union migration tests
 unionMigrationTests :: TestTree
 unionMigrationTests = testGroup "Union Alternative Migration"
-  [ testCase "Union alternative migration with field change" unionAlternativeMigrationTest
+  [ testCase "Type swap: PersonV1 -> PersonV2" typeSwapMigrationTest
+  , testCase "Other alternatives pass through unchanged" otherAlternativeUnchangedTest
   ]

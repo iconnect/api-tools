@@ -257,7 +257,7 @@ changelogTags (ChangesUpTo _ cs older) =
 -- | Sets of custom migration tags in a single change
 changeTags :: APIChange -> (Set MigrationTag, Set MigrationTag, Set MigrationTag)
 changeTags (ChChangeField _ _ _ t)     = (Set.empty, Set.empty, Set.singleton t)
-changeTags (ChChangeUnionAlt _ _ _ t)  = (Set.empty, Set.empty, Set.singleton t)
+changeTags (ChChangeUnionAlt _ _ _ t)  = (Set.empty, Set.singleton t, Set.empty)
 changeTags (ChCustomType _ t)          = (Set.empty, Set.singleton t, Set.empty)
 changeTags (ChCustomAll t)             = (Set.singleton t, Set.empty, Set.empty)
 changeTags _                           = (Set.empty, Set.empty, Set.empty)
@@ -490,6 +490,7 @@ applyAPIChangeToAPI _ _custom (ChChangeUnionAlt tname fname ftype _tag) api = do
   tinfo     <- lookupType tname api
   unioninfo <- expectUnionType tinfo        ?! TypeWrongKind tname TKUnion
   guard (Map.member fname unioninfo)        ?! FieldDoesNotExist tname TKUnion fname
+  typeIsValid ftype api                     ?!? TypeMalformed ftype
   let tinfo' = (NUnionType . Map.insert fname ftype) unioninfo
   return (Map.insert tname tinfo' api, findUpdatePos tname api)
 
@@ -619,7 +620,7 @@ applyChangeToData (ChRenameUnionAlt _ fname fname') _ = withObject $ \un p ->
 applyChangeToData (ChChangeUnionAlt _ fname _ftype tag) custom = withObject $ \un p ->
   case matchSingletonObject un of
     Just (k, r) | k == _FieldName fname -> do
-        r' <- liftMigration (fieldMigration custom tag) r p
+        r' <- liftMigration (typeMigration custom tag) r p
         return $ singletonObject (_FieldName fname) r'
     _ -> return un
 
@@ -737,7 +738,7 @@ applyChangeToData' _ (ChRenameUnionAlt _ fname fname') _ v p = do
 applyChangeToData' _ (ChChangeUnionAlt _ fname _ftype tag) custom v p = do
     (fn, v') <- expectUnion v p
     if fn == fname
-      then Union fn <$!> liftMigration (fieldMigration custom tag) v' (inField fn:p)
+      then Union fn <$!> liftMigration (typeMigration custom tag) v' (inField fn:p)
       else pure v
 
 applyChangeToData' _ (ChRenameEnumVal _ fname fname') _ v p = do
