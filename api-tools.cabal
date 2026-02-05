@@ -176,6 +176,8 @@ Test-Suite test-api-tools
         Data.API.Test.Migration
         Data.API.Test.MigrationData
         Data.API.Test.Time
+        Data.API.Test.UnionMigration
+        Data.API.Test.UnionMigrationData
 
   Build-depends:
         api-tools,

@@ -200,10 +200,11 @@ data DataChecks = NoChecks         -- ^ Not at all
 
 -- | Whether to validate the dataset after this change
 validateAfter :: DataChecks -> APIChange -> Bool
-validateAfter chks (ChChangeField{})  = chks >= CheckCustom
-validateAfter chks (ChCustomType{})   = chks >= CheckCustom
-validateAfter chks (ChCustomAll{})    = chks >= CheckCustom
-validateAfter chks _                  = chks >= CheckAll
+validateAfter chks (ChChangeField{})     = chks >= CheckCustom
+validateAfter chks (ChChangeUnionAlt{})  = chks >= CheckCustom
+validateAfter chks (ChCustomType{})      = chks >= CheckCustom
+validateAfter chks (ChCustomAll{})       = chks >= CheckCustom
+validateAfter chks _                     = chks >= CheckAll
 
 
 --------------------
@@ -255,10 +256,11 @@ changelogTags (ChangesUpTo _ cs older) =
 
 -- | Sets of custom migration tags in a single change
 changeTags :: APIChange -> (Set MigrationTag, Set MigrationTag, Set MigrationTag)
-changeTags (ChChangeField _ _ _ t) = (Set.empty, Set.empty, Set.singleton t)
-changeTags (ChCustomType _ t)      = (Set.empty, Set.singleton t, Set.empty)
-changeTags (ChCustomAll t)         = (Set.singleton t, Set.empty, Set.empty)
-changeTags _                       = (Set.empty, Set.empty, Set.empty)
+changeTags (ChChangeField _ _ _ t)     = (Set.empty, Set.empty, Set.singleton t)
+changeTags (ChChangeUnionAlt _ _ _ t)  = (Set.empty, Set.empty, Set.singleton t)
+changeTags (ChCustomType _ t)          = (Set.empty, Set.singleton t, Set.empty)
+changeTags (ChCustomAll t)             = (Set.singleton t, Set.empty, Set.empty)
+changeTags _                           = (Set.empty, Set.empty, Set.empty)
 
 
 --------------------------------
@@ -484,6 +486,13 @@ applyAPIChangeToAPI _ _ (ChRenameUnionAlt tname fname fname') api = do
                            . Map.delete fname) unioninfo
   return (Map.insert tname tinfo' api, findUpdatePos tname api)
 
+applyAPIChangeToAPI _ _custom (ChChangeUnionAlt tname fname ftype _tag) api = do
+  tinfo     <- lookupType tname api
+  unioninfo <- expectUnionType tinfo        ?! TypeWrongKind tname TKUnion
+  guard (Map.member fname unioninfo)        ?! FieldDoesNotExist tname TKUnion fname
+  let tinfo' = (NUnionType . Map.insert fname ftype) unioninfo
+  return (Map.insert tname tinfo' api, findUpdatePos tname api)
+
 applyAPIChangeToAPI _ _ (ChAddEnumVal tname fname) api = do
   tinfo    <- lookupType tname api
   enuminfo <- expectEnumType tinfo                 ?! TypeWrongKind tname TKEnum
@@ -607,6 +616,13 @@ applyChangeToData (ChRenameUnionAlt _ fname fname') _ = withObject $ \un p ->
                     | otherwise             -> return un
         Nothing -> Left (JSONError $ SyntaxError "Not singleton", p)
 
+applyChangeToData (ChChangeUnionAlt _ fname _ftype tag) custom = withObject $ \un p ->
+  case matchSingletonObject un of
+    Just (k, r) | k == _FieldName fname -> do
+        r' <- liftMigration (fieldMigration custom tag) r p
+        return $ singletonObject (_FieldName fname) r'
+    _ -> return un
+
 applyChangeToData (ChRenameEnumVal _ fname fname') _ = withString $ \s _ ->
     if s == _FieldName fname then return (_FieldName fname')
                            else return s
@@ -717,6 +733,12 @@ applyChangeToData' _ (ChChangeField _ fname _ftype tag) custom v p = do
 applyChangeToData' _ (ChRenameUnionAlt _ fname fname') _ v p = do
     (fn, v') <- expectUnion v p
     pure $! if fn == fname then Union fname' v' else v
+
+applyChangeToData' _ (ChChangeUnionAlt _ fname _ftype tag) custom v p = do
+    (fn, v') <- expectUnion v p
+    if fn == fname
+      then Union fn <$!> liftMigration (fieldMigration custom tag) v' (inField fn:p)
+      else pure v
 
 applyChangeToData' _ (ChRenameEnumVal _ fname fname') _ v p = do
     fn <- expectEnum v p
