@@ -27,7 +27,7 @@ import           Data.API.Test.UnionMigrationData
 
 
 -- Generate migration enums from changelog
-$(generateMigrationKinds typeSwapChangelog "TypeSwapDbMigration" "TypeSwapRecordMigration" "TypeSwapFieldMigration")
+$(generateMigrationKinds typeSwapChangelog "TypeSwapDbMigration" "TypeSwapRecordMigration" "TypeSwapUnionAltMigration" "TypeSwapFieldMigration")
 
 
 -- -----------------------------------------------------------------------------
@@ -41,7 +41,7 @@ $(generateMigrationKinds typeSwapChangelog "TypeSwapDbMigration" "TypeSwapRecord
 --
 -- This is a type migration because we're transforming the entire inner value
 -- of the union alternative from one type to another.
-migratePersonV1ToV2 :: TypeSwapRecordMigration -> JS.Value -> Either ValueError JS.Value
+migratePersonV1ToV2 :: TypeSwapUnionAltMigration -> JS.Value -> Either ValueError JS.Value
 migratePersonV1ToV2 MigratePersonV1ToV2 (JS.Object obj) = do
     nameVal <- lookupKey "name" obj ?! CustomMigrationError "missing 'name' field" (JS.Object obj)
     case nameVal of
@@ -53,12 +53,13 @@ migratePersonV1ToV2 MigratePersonV1ToV2 v =
     Left $ CustomMigrationError "expected object for PersonV1" v
 
 
-typeSwapMigration :: CustomMigrations JS.Object JS.Value TypeSwapDbMigration TypeSwapRecordMigration TypeSwapFieldMigration
+typeSwapMigration :: CustomMigrations JS.Object JS.Value TypeSwapDbMigration TypeSwapRecordMigration TypeSwapUnionAltMigration TypeSwapFieldMigration
 typeSwapMigration = CustomMigrations
     { databaseMigration       = \ _ -> noDataChanges
     , databaseMigrationSchema = \ _ -> noSchemaChanges
-    , typeMigration           = migratePersonV1ToV2
+    , typeMigration           = \ _ -> noDataChanges
     , typeMigrationSchema     = \ _ -> noSchemaChanges
+    , unionAltMigration       = migratePersonV1ToV2
     , fieldMigration          = \ _ -> noDataChanges
     }
 
