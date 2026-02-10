@@ -57,6 +57,7 @@ data APIChange
     | ChAddUnionAlt    TypeName FieldName APIType
     | ChDeleteUnionAlt TypeName FieldName
     | ChRenameUnionAlt TypeName FieldName FieldName
+    | ChChangeUnionAlt TypeName FieldName APIType MigrationTag
 
       -- Changes for enum types
     | ChAddEnumVal    TypeName FieldName
@@ -87,6 +88,9 @@ instance PPLines APIChange where
                                       , "  alternative removed " ++ pp f]
   ppLines (ChRenameUnionAlt t f f') = [ "changed union " ++ pp t
                                       , "  alternative renamed " ++ pp f ++ " to " ++ pp f']
+  ppLines (ChChangeUnionAlt t f ty c) = [ "changed union " ++ pp t
+                                        , "  alternative changed " ++ pp f ++ " :: " ++ pp ty
+                                          ++ " migration " ++ pp c]
   ppLines (ChAddEnumVal t f)        = [ "changed enum " ++ pp t
                                       , "  alternative added " ++ pp f]
   ppLines (ChDeleteEnumVal t f)     = [ "changed enum " ++ pp t

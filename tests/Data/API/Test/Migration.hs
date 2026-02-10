@@ -40,7 +40,7 @@ import qualified Data.HashMap.Strict      as HMap
 #endif
 
 
-$(generateMigrationKinds changelog "TestDatabaseMigration" "TestRecordMigration" "TestFieldMigration")
+$(generateMigrationKinds changelog "TestDatabaseMigration" "TestRecordMigration" "TestUnionAltMigration" "TestFieldMigration")
 
 
 -- Test of a whole-database migration: copy data between tables
@@ -121,18 +121,20 @@ testFieldMigration' ConvertBinaryToString (Value.Bytes bs) = return (Value.Strin
 testFieldMigration' ConvertBinaryToString v = Left $ CustomMigrationError "bad data" (JS.toJSON v)
 
 
-testMigration :: CustomMigrations JS.Object JS.Value TestDatabaseMigration TestRecordMigration TestFieldMigration
+testMigration :: CustomMigrations JS.Object JS.Value TestDatabaseMigration TestRecordMigration TestUnionAltMigration TestFieldMigration
 testMigration = CustomMigrations testDatabaseMigration
                                  testDatabaseMigrationSchema
                                  testRecordMigration
                                  testRecordMigrationSchema
+                                 (\ _ -> noDataChanges)
                                  testFieldMigration
 
-testMigration' :: CustomMigrations Value.Record Value.Value TestDatabaseMigration TestRecordMigration TestFieldMigration
+testMigration' :: CustomMigrations Value.Record Value.Value TestDatabaseMigration TestRecordMigration TestUnionAltMigration TestFieldMigration
 testMigration' = CustomMigrations testDatabaseMigration'
                                   testDatabaseMigrationSchema
                                   testRecordMigration'
                                   testRecordMigrationSchema
+                                  (\ _ -> noDataChanges)
                                   testFieldMigration'
 
 

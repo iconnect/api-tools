@@ -280,6 +280,7 @@ UnionChange :: { [UnionChange] }
     : alternative added FieldName '::' Type      { [UnChAdd $3 $5]          }
     | alternative removed FieldName              { [UnChDelete $3]          }
     | alternative renamed FieldName to FieldName { [UnChRename $3 $5]       }
+    | alternative changed FieldName '::' Type migration MigrationTag { [UnChChange $3 $5 $7] }
     | comment                                    { []                       }
 
 REnumChanges :: { [EnumChange] }
@@ -331,11 +332,13 @@ fldChangeToAPIChange t (FldChChange f ty m) = ChChangeField t f ty m
 data UnionChange = UnChAdd FieldName APIType
                  | UnChDelete FieldName
                  | UnChRename FieldName FieldName
+                 | UnChChange FieldName APIType MigrationTag
 
 unionChangeToAPIChange :: TypeName -> UnionChange -> APIChange
-unionChangeToAPIChange t (UnChAdd f ty)    = ChAddUnionAlt t f ty
-unionChangeToAPIChange t (UnChDelete f)    = ChDeleteUnionAlt t f
-unionChangeToAPIChange t (UnChRename f f') = ChRenameUnionAlt t f f'
+unionChangeToAPIChange t (UnChAdd f ty)       = ChAddUnionAlt t f ty
+unionChangeToAPIChange t (UnChDelete f)       = ChDeleteUnionAlt t f
+unionChangeToAPIChange t (UnChRename f f')    = ChRenameUnionAlt t f f'
+unionChangeToAPIChange t (UnChChange f ty m)  = ChChangeUnionAlt t f ty m
 
 data EnumChange = EnChAdd FieldName
                 | EnChDelete FieldName

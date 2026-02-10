@@ -71,9 +71,10 @@ readApiFile file = fmap (parseAPIWithChangelog file (0,0)) (readFile file)
 data ChangeTag = None
     deriving (Read, Show)
 
-customMigrations :: CustomMigrations JS.Object JS.Value ChangeTag ChangeTag ChangeTag
+customMigrations :: CustomMigrations JS.Object JS.Value ChangeTag ChangeTag ChangeTag ChangeTag
 customMigrations = CustomMigrations (nope JS.Object) (const noSchemaChanges)
                                     (nope id)        (const noSchemaChanges)
+                                    (nope id)
                                     (nope id)
   where
     nope toVal _ v = Left (CustomMigrationError "No custom migrations defined" (toVal v))
