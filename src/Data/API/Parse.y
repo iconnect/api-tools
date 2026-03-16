@@ -138,7 +138,7 @@ Union
 RRFields :: { [(FieldName, FieldType)] }
 RRFields
     : RRFields FieldName '::' FieldType {  ($2,$4) : $1                     }
-    |          FieldName '::' FieldType { [($1,$3)]                         }
+    |                                   { []                                }
 
 FieldType :: { FieldType }
 FieldType

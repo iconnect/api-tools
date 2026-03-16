@@ -29,12 +29,12 @@ import           Prelude
 -- | Construct an idiomatic expression (an expression in an
 -- Applicative context), i.e.
 --
--- > app ke []             = ke
+-- > app ke []             = pure ke
 -- > app ke [e1,e2,...,en] = ke <$> e1 <*> e2 ... <*> en
 applicativeE :: ExpQ -> [ExpQ] -> ExpQ
 applicativeE ke es0 =
     case es0 of
-      []   -> ke
+      []   -> appE (varE 'pure) ke
       e:es -> app' (ke `dl` e) es
   where
     app' e []      = e
