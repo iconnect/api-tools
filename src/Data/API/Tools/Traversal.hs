@@ -112,7 +112,9 @@ traversalRecord napi targets x an sr
     bdy = do
       f <- newName "f"
       r <- newName "r"
-      lamE [varP f, varP r] $ applicativeE (nodeConE an) $ map (traverseField f r) (srFields sr)
+      let (patF, patR) | null (srFields sr) = (wildP, wildP)
+                        | otherwise          = (varP f, varP r)
+      lamE [patF, patR] $ applicativeE (nodeConE an) $ map (traverseField f r) (srFields sr)
     traverseField f r (fn, fty) = [e| $(traverser napi targets x (ftType fty)) $(varE f) ($(nodeFieldE an fn) $(varE r)) |]
 
 
