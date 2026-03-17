@@ -31,8 +31,10 @@ gen_sr = mkTool $ \ ts (an, sr) -> do
     x <- newName "x"
     optionalInstanceD ts ''NFData [nodeRepT an] [simpleD 'rnf (bdy an sr x)]
   where
-    bdy an sr x = lamE [varP x] $ foldr f [e|()|] (srFields sr)
+    bdy an sr x = lamE [pat] $ foldr f [e|()|] (srFields sr)
       where
+        pat | null (srFields sr) = wildP
+            | otherwise          = varP x
         f (fn,_) r = [e| rnf ($(nodeFieldE an fn) $(varE x)) `seq` $r |]
 
 gen_su :: Tool (APINode, SpecUnion)

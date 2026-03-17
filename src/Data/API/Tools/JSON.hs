@@ -118,10 +118,13 @@ gen_sr_to = mkTool $ \ ts (an, sr) -> do
     x <- newName "x"
     optionalInstanceD ts ''ToJSON [nodeRepT an] [simpleD 'toJSON (bdy an sr x)]
   where
-    bdy an sr x = lamE [varP x] $
+    bdy an sr x = lamE [pat] $
             varE 'object `appE`
             listE [ [e| $(fieldNameE fn) .= $(nodeFieldE an fn) $(varE x) |]
                   | (fn, _) <- srFields sr ]
+      where
+        pat | null (srFields sr) = wildP
+            | otherwise          = varP x
 
 
 {-
@@ -142,8 +145,10 @@ gen_sr_fm = mkTool $ \ ts (an, sr) -> do
     optionalInstanceD ts ''FromJSONWithErrs [nodeRepT an]
                       [funD 'parseJSONWithErrs [cl an sr x, clNull, cl' x]]
   where
-    cl an sr x  = clause [conP 'Object [varP x]] (normalB bdy) []
+    cl an sr x  = clause [conP 'Object [pat]] (normalB bdy) []
       where
+        pat | null (srFields sr) = wildP
+            | otherwise          = varP x
         bdy = applicativeE (nodeConE an) $ map project (srFields sr)
         project (fn, ft) = [e| withDefaultField ro (fmap defaultValueAsJsValue mb_dv) $(fieldNameE fn) parseJSONWithErrs $(varE x) |]
           where ro    = ftReadOnly ft

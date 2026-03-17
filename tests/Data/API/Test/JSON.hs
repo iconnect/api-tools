@@ -20,6 +20,7 @@ import           Data.API.Types
 import qualified Data.API.Value           as Value
 
 import qualified Data.Aeson               as JS
+import           Data.List                (find)
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -114,11 +115,25 @@ smartConstructors =
     bad_time  = unsafeParseUTC "2014-10-13T15:20:10Z"
     good_time = unsafeParseUTC "2014-10-13T15:20:13Z"
 
+-- | Test that empty record definitions are parsed correctly
+emptyRecordParsing :: [TestTree]
+emptyRecordParsing =
+  [ testCase "empty record has no fields" $
+      case findNode "EmptyRecord" example2 of
+        Nothing   -> assertFailure "EmptyRecord not found in example2 API"
+        Just node -> anSpec node @?= SpRecord (SpecRecord [])
+  ]
+  where
+    findNode name = find (\n -> anName n == TypeName name) . concatMap thNode
+    thNode (ThNode n) = [n]
+    thNode _          = []
+
 jsonTests :: TestTree
 jsonTests = testGroup "JSON"
   [ testCase  "Basic value decoding"  basicValueDecoding
   , testGroup "Decoding invalid data" errorDecoding
   , testGroup "Smart constructors"    smartConstructors
+  , testGroup "Empty record parsing"  emptyRecordParsing
   , testGroup "Round-trip tests"
       [ testGroup "example JSON"   $ map (uncurry QC.testProperty) exampleTestsJSON
       , testGroup "example CBOR"   $ map (uncurry QC.testProperty) exampleTestsCBOR

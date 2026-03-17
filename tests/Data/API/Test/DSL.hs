@@ -127,4 +127,7 @@ nu :: NewUnion
     = union
       | bb :: BasicBinary
       | j  :: JSON
+
+er :: EmptyRecord
+    = record
 |]

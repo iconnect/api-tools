@@ -125,7 +125,9 @@ gen_sr_ab = mkTool $ \ ts (an, sr) -> mkArbitraryInstance ts (nodeRepT an) (bdy 
     -- by giving an arbitrary implementation like this:
     --   sized (\ x -> JobSpecId <$> resize (x `div` 2) arbitrary <*> ...)
     bdy an sr = do x <- newName "x"
-                   appE (varE 'QC.sized) $ lamE [varP x] $
+                   let pat | null (srFields sr) = wildP
+                           | otherwise          = varP x
+                   appE (varE 'QC.sized) $ lamE [pat] $
                      applicativeE (nodeConE an) $
                      replicate (length $ srFields sr) $
                      [e| QC.resize ($(varE x) `div` 2) arbitrary |]

@@ -108,7 +108,9 @@ gen_sr_ex :: Tool (APINode, SpecRecord)
 gen_sr_ex = mkTool $ \ ts (an, sr) -> optionalInstanceD ts ''Example [nodeRepT an] [simpleD 'example (bdy an sr)]
   where
     bdy an sr = do x <- newName "x"
-                   appE (varE 'QC.sized) $ lamE [varP x] $
+                   let pat | null (srFields sr) = wildP
+                           | otherwise          = varP x
+                   appE (varE 'QC.sized) $ lamE [pat] $
                        applicativeE (nodeConE an) $
                        replicate (length $ srFields sr) $
                        [e| QC.resize ($(varE x) `div` 2) example |]
