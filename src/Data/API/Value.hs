@@ -367,12 +367,16 @@ arbitrary api = do tn <- QC.elements (Map.keys api)
                    return (TyName tn, v)
 
 -- | Given a schema and a type, generate an arbitrary value of that
--- type.
+-- type.  Uses 'QC.sized' and 'QC.resize' to ensure recursive schemas
+-- terminate by halving the size parameter at each structural
+-- recursion point.
 arbitraryOfType :: NormAPI -> APIType -> QC.Gen Value
-arbitraryOfType api ty0 = case ty0 of
-    TyName  tn -> arbitraryOfDecl api (lookupTyName api tn)
-    TyList  ty -> List  <$> QC.listOf (arbitraryOfType api ty)
-    TyMaybe ty -> Maybe <$> QC.oneof [pure Nothing, Just <$> arbitraryOfType api ty]
+arbitraryOfType api ty0 = QC.sized $ \ size -> case ty0 of
+    TyName  tn -> QC.resize (size `div` 2) $ arbitraryOfDecl api (lookupTyName api tn)
+    TyList  ty -> List  <$> QC.resize (size `div` 2) (QC.listOf (arbitraryOfType api ty))
+    TyMaybe ty -> Maybe <$> if size <= 0
+                             then pure Nothing
+                             else QC.oneof [pure Nothing, Just <$> QC.resize (size `div` 2) (arbitraryOfType api ty)]
     TyJSON     -> JSON  <$> arbitraryJSONValue
     TyBasic bt -> arbitraryOfBasicType bt
 
@@ -388,12 +392,15 @@ arbitraryOfBasicType bt = case bt of
                 <$> QC.arbitrary
 
 arbitraryOfDecl :: NormAPI -> NormTypeDecl -> QC.Gen Value
-arbitraryOfDecl api d = case d of
-    NRecordType nrt -> Record <$> traverse (\ (fn, ty) -> Field fn <$> arbitraryOfType api ty) (Map.toList nrt)
+arbitraryOfDecl api d = QC.sized $ \size ->
+  case d of
+    NRecordType nrt ->
+      let fields = Map.toList nrt
+      in Record <$> traverse (\ (fn, ty) -> Field fn <$> QC.resize (size `div` 2) (arbitraryOfType api ty)) fields
     NUnionType  nut -> do (fn, ty) <- QC.elements (Map.toList nut)
-                          Union fn <$> arbitraryOfType api ty
+                          Union fn <$> QC.resize (size `div` 2) (arbitraryOfType api ty)
     NEnumType   net -> Enum <$> QC.elements (Set.toList net)
-    NTypeSynonym ty -> arbitraryOfType api ty
+    NTypeSynonym ty -> QC.resize (size `div` 2) (arbitraryOfType api ty)
     NNewtype     bt -> arbitraryOfBasicType bt
 
 -- | A reasonably varied generator for JSON 'JS.Value's.
