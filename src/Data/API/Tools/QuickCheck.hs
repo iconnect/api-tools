@@ -194,16 +194,19 @@ distinguishedElements (x:xs) = ((True, x) : map ((,) False) xs)
 -- | Generate an 'Arbitrary' instance for a union:
 --
 -- > instance Arbitrary Foo where
--- >     arbitrary = oneOf [ fmap Bar arbitrary, fmap Baz arbitrary ]
+-- >     arbitrary = sized $ \ x -> oneOf [ fmap Bar (resize (x `div` 2) arbitrary)
+-- >                                      , fmap Baz (resize (x `div` 2) arbitrary) ]
 
 gen_su_ab :: Tool (APINode, SpecUnion)
 gen_su_ab = mkTool $ \ ts (an, su) -> mkArbitraryInstance ts (nodeRepT an) (bdy an su) (shrinkUnion an su)
   where
     bdy an su | null (suFields su) = nodeConE an
-              | otherwise          = [e| oneof $(listE alts) |]
-      where
-        alts = [ [e| fmap $(nodeAltConE an k) arbitrary |]
-               | (k, _) <- suFields su ]
+              | otherwise          = do
+                  x <- newName "x"
+                  let alts = [ [e| fmap $(nodeAltConE an k) (QC.resize ($(varE x) `div` 2) arbitrary) |]
+                             | (k, _) <- suFields su ]
+                  appE (varE 'QC.sized) $ lamE [varP x] $
+                    varE 'oneof `appE` listE alts
 
     -- For a union, we shrink the individual wrappers.
     shrinkUnion :: APINode -> SpecUnion -> ExpQ
