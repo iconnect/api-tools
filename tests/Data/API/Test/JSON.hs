@@ -54,6 +54,15 @@ basicValueDecoding = sequence_ [ help (JS.String "12")  (12 :: Int) True
                                , help (JS.object ["id" JS..= JS.Number 3])
                                       (Recursive (Id 3) Nothing)
                                       True
+                                 -- Sets decode from plain arrays, insensitive
+                                 -- to element order and to duplicates, and are
+                                 -- not decoded from objects.
+                               , help (JS.toJSON [3, 1, 2, 1 :: Int])
+                                      (Set.fromList [1, 2, 3 :: Int])
+                                      True
+                               , help (JS.object ["value" JS..= [1 :: Int]])
+                                      (Set.fromList [1 :: Int])
+                                      False
                                , help' noFilter (JS.Number 0) (UnsafeMkFilteredInt 0) True
                                , help' noFilter (JS.String "cabcage") (UnsafeMkFilteredString "cabcage") True
                                , help' noFilter (JS.String "2014-10-13T15:20:10Z") (UnsafeMkFilteredUTC (unsafeParseUTC "2014-10-13T15:20:10Z")) True
