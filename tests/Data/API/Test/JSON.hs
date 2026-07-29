@@ -20,7 +20,9 @@ import           Data.API.Types
 import qualified Data.API.Value           as Value
 
 import qualified Data.Aeson               as JS
+import           Data.Functor.Identity    (Identity(..))
 import           Data.List                (find)
+import qualified Data.Set                 as Set
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -159,7 +161,18 @@ jsonTests = testGroup "JSON"
     , testGroup "example agreement with Serialise" $ map (uncurry QC.testProperty) exampleCBORGenericValueTests
     , testGroup "example2 agreement with Serialise" $ map (uncurry QC.testProperty) example2CBORGenericValueTests
     ]
+  , testCase "traversal visits set elements" setTraversalTest
   ]
+
+-- | Generated traversals must descend into set-valued fields, not silently
+-- leave them alone.
+setTraversalTest :: Assertion
+setTraversalTest = assertEqual "flags not traversed" (Set.singleton True) (_srec_flags r')
+  where
+    -- Flag is a synonym for boolean, so the set has at most two elements;
+    -- mapping them all to True must collapse it to a singleton.
+    r  = SetRec (Set.fromList [1, 2]) (Set.fromList [False, True]) Nothing
+    r' = runIdentity (traverseFlagSetRec (\ _ -> Identity True) r)
 
 exampleNF :: NormAPI
 exampleNF = apiNormalForm example

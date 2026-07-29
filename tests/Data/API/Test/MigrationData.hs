@@ -57,6 +57,7 @@ fooPrefix :: Foo
         id   :: Id
         nest :: Nested
         en   :: AnEnum
+        ens  :: Set AnEnum
         un   :: AUnion
         quux :: ? IdId
 
@@ -125,10 +126,12 @@ fooPrefix :: Foo
         id   :: Id
         nest :: RenamedNested
         en   :: AnEnum
+        ens  :: Set AnEnum
         un   :: AUnion
         c    :: string
         nolist  :: [string]
         nomaybe :: ? string
+        noset   :: Set string
 
 barPrefix :: RenamedBar
     = record
@@ -175,6 +178,7 @@ version "2.6"
   changed record Foo
     field added nolist  :: [string]
     field added nomaybe :: ? string
+    field added noset   :: Set string
 
 version "2.5"
   // schema-changing custom record migration
@@ -596,8 +600,8 @@ version "0.1"
 
 
 startData, endData :: JS.Value
-Just startData = JS.decode "{ \"foo\": [ {\"id\": 42, \"nest\": { \"id\": 3 }, \"en\": \"foo\", \"un\": { \"bar\": { \"id\": 43 } }, \"quux\": null } ], \"bar\": [ { \"id\": 4 } ], \"recur\": [{ \"id\": 9, \"recur\": { \"id\": 8, \"recur\": null} }] }"
-Just endData = JS.decode "{ \"foo\": [ {\"id\":42, \"nest\": { \"id\": 3, \"new\": \"hello\" }, \"c\": \"foobar42\", \"en\": \"foofoo\", \"un\": { \"barbar\": { \"id\": 43 } }, \"nolist\": [], \"nomaybe\": null } ], \"boz\": [], \"bar2\": [ {\"id\": 4 } ], \"recur\": [{ \"renamed_id\": 9, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": { \"renamed_id\": 8, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": null} }], \"recur2\": [{ \"renamed_id\": 9, \"new\": \"hello\", \"recur\": { \"renamed_id\": 8, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": null} }] }"
+Just startData = JS.decode "{ \"foo\": [ {\"id\": 42, \"nest\": { \"id\": 3 }, \"en\": \"foo\", \"ens\": [\"foo\", \"bar\"], \"un\": { \"bar\": { \"id\": 43 } }, \"quux\": null } ], \"bar\": [ { \"id\": 4 } ], \"recur\": [{ \"id\": 9, \"recur\": { \"id\": 8, \"recur\": null} }] }"
+Just endData = JS.decode "{ \"foo\": [ {\"id\":42, \"nest\": { \"id\": 3, \"new\": \"hello\" }, \"c\": \"foobar42\", \"en\": \"foofoo\", \"ens\": [\"foofoo\", \"bar\"], \"un\": { \"barbar\": { \"id\": 43 } }, \"nolist\": [], \"nomaybe\": null, \"noset\": [] } ], \"boz\": [], \"bar2\": [ {\"id\": 4 } ], \"recur\": [{ \"renamed_id\": 9, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": { \"renamed_id\": 8, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": null} }], \"recur2\": [{ \"renamed_id\": 9, \"new\": \"hello\", \"recur\": { \"renamed_id\": 8, \"new\": \"hello\", \"newnew\": \"hello\", \"recur\": null} }] }"
 
 startVersion :: Version
 startVersion = changelogStartVersion changelog

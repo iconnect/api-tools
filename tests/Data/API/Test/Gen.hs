@@ -14,6 +14,7 @@ import           Data.API.Time
 import           Data.API.Tools
 import           Data.API.Tools.Datatypes
 import           Data.API.Tools.Example
+import           Data.API.Tools.Traversal
 #if !MIN_VERSION_aeson(2,0,3)
 import           Data.API.Value ( arbitraryJSONValue )
 #endif
@@ -145,4 +146,7 @@ $(generateAPIToolsWith (defaultToolSettings { newtypeSmartConstructors = True })
                    , jsonToCBORTestsTool 'example2 (mkName "example2TestsJSONToCBOR")
                    , jsonGenericValueTestsTool 'example2 (mkName "example2JSONGenericValueTests")
                    , cborGenericValueTestsTool 'example2 (mkName "example2CBORGenericValueTests")
+                     -- generates traverseFlagSetRec, which exercises traversing
+                     -- into a set-valued field
+                   , traversalTool "SetRec" "Flag"
                    ])

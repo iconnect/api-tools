@@ -88,7 +88,7 @@ keywords = [ "version", "with", "integer", "boolean", "utc", "string"
            , "binary", "json", "record", "union", "enum", "basic", "changes"
            , "added", "removed", "renamed", "changed", "default", "field"
            , "alternative", "migration", "to", "nothing", "true", "false"
-           , "read-only"
+           , "read-only", "Set"
            ]
 
 type PToken = (AlexPosn,Token)

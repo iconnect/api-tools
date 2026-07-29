@@ -109,7 +109,11 @@ written @[T]@ for lists, @Set T@ for sets and @? T@ for optional
 values.  A set is encoded on the wire as an array like a list:
 decoding accepts elements in any order and discards duplicates, while
 encoding uses ascending order.  Set element types must have an 'Ord'
-instance on the Haskell side.
+instance on the Haskell side.  Basic types, newtypes and enumerations
+derive 'Ord' automatically, but records and unions do not, so a set of
+a record or union type needs 'Data.API.Tools.datatypesTool'' (or the
+'Data.API.Tools.defaultDerivedClasses' setting) to add 'Ord' to the
+derived classes.
 
 The prefix (given before the @::@ on each type declaration) is used to
 name record fields and enumeration/union constructors in the generated
