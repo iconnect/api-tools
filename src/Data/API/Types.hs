@@ -264,9 +264,13 @@ instance NFData SpecEnum where
 -- a projection function name.
 type Conversion = Maybe (FieldName,FieldName)
 
--- | Type is either a list, Maybe, a named element of the API or a basic type
+-- | Type is a list, set, Maybe, a named element of the API or a basic type
+--
+-- Sets use 'Data.Set.Set' in the generated Haskell types, but are
+-- represented on the wire as JSON (and CBOR) arrays.
 data APIType
     = TyList  APIType       -- ^ list elements are types
+    | TySet   APIType       -- ^ set elements are types (encoded as an array)
     | TyMaybe APIType       -- ^ Maybe elements are types
     | TyName  TypeName      -- ^ the referenced type must be defined by the API
     | TyBasic BasicType     -- ^ a JSON string, int, bool etc.
@@ -279,6 +283,7 @@ instance IsString APIType where
 
 instance NFData APIType where
   rnf (TyList  ty) = rnf ty
+  rnf (TySet   ty) = rnf ty
   rnf (TyMaybe ty) = rnf ty
   rnf (TyName  tn) = rnf tn
   rnf (TyBasic bt) = rnf bt

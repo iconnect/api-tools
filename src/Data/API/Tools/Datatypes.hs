@@ -28,6 +28,7 @@ import           Data.Aeson
 import qualified Data.CaseInsensitive           as CI
 import           Data.Char
 import           Data.Maybe
+import           Data.Set (Set)
 import           Data.String
 import qualified Data.Text                      as T
 import           Data.Time
@@ -148,6 +149,7 @@ mk_type :: APIType -> Type
 mk_type ty =
     case ty of
       TyList  ty'  -> AppT ListT  $ mk_type ty'
+      TySet   ty'  -> AppT (ConT ''Set) $ mk_type ty'
       TyMaybe ty'  -> AppT (ConT ''Maybe) $ mk_type ty'
       TyName  nm   -> ConT  $ mkNameText $ _TypeName nm
       TyBasic bt   -> basic_type bt

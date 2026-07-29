@@ -74,10 +74,11 @@ quasi-quoter, like this:
 > example = [api|
 >
 > rec :: MyRecord
->    // A record type containing two fields
+>    // A record type containing three fields
 >    = record
 >        x :: [integer]   // one field
 >        y :: ? [utc]     // another field
+>        z :: Set integer // a set of integers
 >
 > chc :: MyChoice
 >     // A disjoint union
@@ -103,7 +104,12 @@ quasi-quoter, like this:
 
 The basic types available (and their Haskell representations) are
 @string@ ('Text'), @binary@ ('Binary'), @integer@ ('Int'), @boolean@
-('Bool') and @utc@ ('UTCTime').
+('Bool') and @utc@ ('UTCTime').  Collections and optionality are
+written @[T]@ for lists, @Set T@ for sets and @? T@ for optional
+values.  A set is encoded on the wire as an array like a list:
+decoding accepts elements in any order and discards duplicates, while
+encoding uses ascending order.  Set element types must have an 'Ord'
+instance on the Haskell side.
 
 The prefix (given before the @::@ on each type declaration) is used to
 name record fields and enumeration/union constructors in the generated
@@ -120,6 +126,7 @@ declarations.  Thus @$(generate example)@ will produce something like:
 
 > data MyRecord = MyRecord { rec_x :: [Int]
 >                          , rec_y :: Maybe [UTCTime]
+>                          , rec_z :: Data.Set.Set Int
 >                          }
 >
 > data MyChoice = CHC_a MyRecord | CHC_b String
@@ -139,8 +146,9 @@ defined in one module and imported into another to call 'generate'.
 
 For some types, it may be desirable to use a different datatype in the
 Haskell code, rather than relying on the generated datatype.  For
-example, this allows collection types (such as sets) to be used in
-place of lists, or allows additional invariants to be enforced.  The
+example, this allows specialised collection or representation types to
+be used in place of the defaults, or allows additional invariants to be
+enforced.  The
 JSON serialization agrees with the schema (so the difference is
 invisible to non-Haskell clients).  This is possible using a @with@
 clause in the schema DSL, which follows the type declaration and gives

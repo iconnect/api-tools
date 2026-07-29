@@ -43,6 +43,7 @@ tokens :-
     "<="                                { simple    LtEq            }
     ">="                                { simple    GtEq            }
     "?"                                 { simple    Query           }
+    "Set"                               { simple    Set             }
     ","                                 { simple    Comma           }
     version                             { simple    Version         } -- N.B. extend the 'keywords list below
     with                                { simple    With            } -- when adding new keywords!
@@ -108,6 +109,7 @@ data Token
     | Integer
     | UTC
     | Query
+    | Set
     | Record
     | String
     | Json

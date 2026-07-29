@@ -24,6 +24,10 @@ example = map ThNode
             [ (,) "wubble"  (TyList $ TyName "Foo", "list of Foo")
             , (,) "flubble" (TyBasic BTstring     , "a string"   )
             ]) Nothing
+    , APINode "IntSetRec" "record with set fields" "isr" (SpRecord $ SpecRecord
+            [ (,) "Ints"  (FieldType (TySet (TyBasic BTint))  False Nothing "a set of ints")
+            , (,) "Bools" (FieldType (TyMaybe (TySet (TyBasic BTbool))) False Nothing "an optional set of bools")
+            ]) Nothing
     , APINode "Enumer" "enum test defn" "enm" (SpEnum $ SpecEnum
             [ ("wubble", "")
             , ("flubble", "")
@@ -109,6 +113,12 @@ bb :: BasicBinary
 
 j :: JSON
     = json
+
+srec :: SetRec
+    = record
+        ints  :: Set integer // a set of integers
+        flags :: Set Flag    // a set of boolean newtypes
+        utcs  :: ? Set utc   // an optional set of UTC timestamps
 
 nr :: NewRec
     = record

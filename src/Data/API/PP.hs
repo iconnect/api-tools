@@ -62,6 +62,7 @@ instance PP FieldName where
 
 instance PP APIType where
   pp (TyList  ty) = "[" ++ pp ty ++ "]"
+  pp (TySet   ty) = "Set " ++ pp ty
   pp (TyMaybe ty) = "? " ++ pp ty
   pp (TyName  t)  = pp t
   pp (TyBasic b)  = pp b

@@ -101,6 +101,7 @@ convert_type :: APIType -> D.APIType
 convert_type ty0 =
     case ty0 of
       TyList  ty    -> D.TY_list  $ convert_type     ty
+      TySet   ty    -> D.TY_set   $ convert_type     ty
       TyMaybe ty    -> D.TY_maybe $ convert_type     ty
       TyName  tn    -> D.TY_ref   $ convert_ref      tn
       TyBasic bt    -> D.TY_basic $ convert_basic    bt
@@ -201,6 +202,7 @@ unconvert_type :: D.APIType -> APIType
 unconvert_type ty0 =
     case ty0 of
       D.TY_list  ty   -> TyList  $ unconvert_type  ty
+      D.TY_set   ty   -> TySet   $ unconvert_type  ty
       D.TY_maybe ty   -> TyMaybe $ unconvert_type  ty
       D.TY_ref   r    -> TyName  $ unconvert_ref r
       D.TY_basic bt   -> TyBasic $ unconvert_basic bt
