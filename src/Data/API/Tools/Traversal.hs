@@ -5,7 +5,6 @@
 module Data.API.Tools.Traversal
     ( traversalTool
     , traversalsTool
-    , traverseSet
     ) where
 
 import           Data.API.NormalForm
@@ -38,6 +37,11 @@ import           Prelude
 -- traversals generated automatically: if required, these must be
 -- defined manually in the same module as the call to 'traversalTool',
 -- otherwise the generated code will lead to scope errors.
+--
+-- If the schema uses sets, the generated traversals of set-valued
+-- fields are not lawful 'Traversal's (they cannot be, because
+-- 'Set.Set' is not a 'Functor'): they may coalesce multiple elements
+-- that are mapped to the same value.
 traversalTool :: TypeName -> TypeName -> APITool
 traversalTool root = traversalsTool [root]
 

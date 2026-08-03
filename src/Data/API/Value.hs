@@ -96,7 +96,23 @@ data Value = String  !T.Text
            | List    ![Value]
            -- | A set on the wire.  We retain the serialised order rather
            -- than sorting in the generic representation, so that generic
-           -- CBOR decoding agrees with type-specific decoders.
+           -- CBOR decoding agrees with type-specific decoders: a decoder
+           -- that never sorts cannot be confused by an 'Ord' instance on
+           -- the concrete type whose ordering disagrees with the ordering
+           -- of the corresponding 'Value's.
+           --
+           -- This is deliberately a separate constructor from 'List':
+           -- 'encode' has no schema to hand and dispatches purely on the
+           -- constructor, and @serialise@ encodes sets and lists
+           -- differently on the wire (sets use a definite-length encoding,
+           -- via @Codec.Serialise.Class.encodeSetSkel@, where lists use
+           -- the indefinite-length encoding), so we could not pick the
+           -- right length encoding otherwise.
+           --
+           -- A consequence is that changing a field between a list and a
+           -- set changes its CBOR serialisation format, so such a change
+           -- is not wire-compatible and must be treated with caution
+           -- (e.g. accompanied by a data migration).
            | SetList ![Value]
            | Maybe   !(Maybe Value)
            | Union   !FieldName !Value
