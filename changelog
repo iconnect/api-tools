@@ -1,5 +1,15 @@
 -*-change-log-*-
 
+Unreleased
+	* Add support for sets in schemas with @Set T@ syntax.  Sets use
+	  'Data.Set.Set' in generated Haskell types, but are represented as
+	  arrays on the JSON and CBOR wire formats.  Set element types must
+	  have an 'Ord' instance; note that records and unions do not derive
+	  'Ord' by default, so a set of such a type needs 'datatypesTool''
+	  (or 'defaultDerivedClasses') to add it.
+	* Breaking: @Set@ is now a reserved word in the schema DSL.  A type
+	  previously called @Set@ must be written @'Set'@ (in quotes).
+
 0.10.1.1 Adam Gundry <adam@well-typed.com> August 2024
 	* Relax dependency bounds and support building on GHC 9.4 through to 9.10
 

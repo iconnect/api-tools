@@ -20,7 +20,9 @@ import           Data.API.Types
 import qualified Data.API.Value           as Value
 
 import qualified Data.Aeson               as JS
+import           Data.Functor.Identity    (Identity(..))
 import           Data.List                (find)
+import qualified Data.Set                 as Set
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -52,6 +54,15 @@ basicValueDecoding = sequence_ [ help (JS.String "12")  (12 :: Int) True
                                , help (JS.object ["id" JS..= JS.Number 3])
                                       (Recursive (Id 3) Nothing)
                                       True
+                                 -- Sets decode from plain arrays, insensitive
+                                 -- to element order and to duplicates, and are
+                                 -- not decoded from objects.
+                               , help (JS.toJSON [3, 1, 2, 1 :: Int])
+                                      (Set.fromList [1, 2, 3 :: Int])
+                                      True
+                               , help (JS.object ["value" JS..= [1 :: Int]])
+                                      (Set.fromList [1 :: Int])
+                                      False
                                , help' noFilter (JS.Number 0) (UnsafeMkFilteredInt 0) True
                                , help' noFilter (JS.String "cabcage") (UnsafeMkFilteredString "cabcage") True
                                , help' noFilter (JS.String "2014-10-13T15:20:10Z") (UnsafeMkFilteredUTC (unsafeParseUTC "2014-10-13T15:20:10Z")) True
@@ -159,7 +170,18 @@ jsonTests = testGroup "JSON"
     , testGroup "example agreement with Serialise" $ map (uncurry QC.testProperty) exampleCBORGenericValueTests
     , testGroup "example2 agreement with Serialise" $ map (uncurry QC.testProperty) example2CBORGenericValueTests
     ]
+  , testCase "traversal visits set elements" setTraversalTest
   ]
+
+-- | Generated traversals must descend into set-valued fields, not silently
+-- leave them alone.
+setTraversalTest :: Assertion
+setTraversalTest = assertEqual "flags not traversed" (Set.singleton True) (_srec_flags r')
+  where
+    -- Flag is a synonym for boolean, so the set has at most two elements;
+    -- mapping them all to True must collapse it to a singleton.
+    r  = SetRec (Set.fromList [1, 2]) (Set.fromList [False, True]) Nothing
+    r' = runIdentity (traverseFlagSetRec (\ _ -> Identity True) r)
 
 exampleNF :: NormAPI
 exampleNF = apiNormalForm example

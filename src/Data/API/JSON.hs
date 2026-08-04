@@ -80,6 +80,7 @@ import qualified Data.ByteString.Char8          as B
 import qualified Data.ByteString.Base64         as B64
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Maybe
+import qualified Data.Set                       as Set
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
 import           Data.Time
@@ -204,6 +205,17 @@ instance FromJSONWithErrs a => FromJSONWithErrs [a] where
     where
       help (x, i) = stepInside (InElem i) $ parseJSONWithErrs x
   parseJSONWithErrs JS.Null      = pure []
+  parseJSONWithErrs v            = failWith $ expectedArray v
+
+-- | Sets are encoded as JSON arrays.  Decoding is insensitive to the
+-- order of elements and silently discards duplicates (matching the
+-- behaviour of 'Data.Set.fromList'); encoding uses 'Data.Set.toList'
+-- and hence produces the elements in ascending order.
+instance (Ord a, FromJSONWithErrs a) => FromJSONWithErrs (Set.Set a) where
+  parseJSONWithErrs (JS.Array a) = Set.fromList <$> traverse help (zip (V.toList a) [0..])
+    where
+      help (x, i) = stepInside (InElem i) $ parseJSONWithErrs x
+  parseJSONWithErrs JS.Null      = pure Set.empty
   parseJSONWithErrs v            = failWith $ expectedArray v
 
 instance FromJSONWithErrs Int where

@@ -19,6 +19,7 @@ import           Control.Applicative
 import           Data.Aeson
 import qualified Data.ByteString.Char8          as B
 import           Data.Monoid
+import qualified Data.Set                       as Set
 import           Data.Time
 import           Language.Haskell.TH
 import           Test.QuickCheck                as QC
@@ -41,6 +42,9 @@ instance Example a => Example (Maybe a) where
 
 instance Example a => Example [a] where
     example = listOf example
+
+instance (Ord a, Example a) => Example (Set.Set a) where
+    example = Set.fromList <$> listOf example
 
 instance Example Int where
     example = arbitrarySizedBoundedIntegral `suchThat` (> 0)

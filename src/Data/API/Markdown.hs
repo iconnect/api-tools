@@ -206,6 +206,7 @@ type_md :: MarkdownMethods -> APIType -> MDComment
 type_md mdm ty =
     case ty of
       TyList  ty'  -> "[" ++ type_md mdm ty' ++ "]"
+      TySet   ty'  -> "Set " ++ type_md mdm ty'
       TyMaybe ty'  -> "? " ++ type_md mdm ty'
       TyName  nm   -> mdmLink mdm nm
       TyBasic bt   -> basic_type_md bt

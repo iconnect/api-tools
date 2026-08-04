@@ -22,6 +22,7 @@ module Data.API.Value
     , expectEnum
     , expectUnion
     , expectList
+    , expectSetList
     , expectMaybe
     , lookupType
 
@@ -93,6 +94,26 @@ data Value = String  !T.Text
            | Bool    !Bool
            | Int     !Int
            | List    ![Value]
+           -- | A set on the wire.  We retain the serialised order rather
+           -- than sorting in the generic representation, so that generic
+           -- CBOR decoding agrees with type-specific decoders: a decoder
+           -- that never sorts cannot be confused by an 'Ord' instance on
+           -- the concrete type whose ordering disagrees with the ordering
+           -- of the corresponding 'Value's.
+           --
+           -- This is deliberately a separate constructor from 'List':
+           -- 'encode' has no schema to hand and dispatches purely on the
+           -- constructor, and @serialise@ encodes sets and lists
+           -- differently on the wire (sets use a definite-length encoding,
+           -- via @Codec.Serialise.Class.encodeSetSkel@, where lists use
+           -- the indefinite-length encoding), so we could not pick the
+           -- right length encoding otherwise.
+           --
+           -- A consequence is that changing a field between a list and a
+           -- set changes its CBOR serialisation format, so such a change
+           -- is not wire-compatible and must be treated with caution
+           -- (e.g. accompanied by a data migration).
+           | SetList ![Value]
            | Maybe   !(Maybe Value)
            | Union   !FieldName !Value
            | Enum    !FieldName
@@ -120,6 +141,7 @@ instance NFData Value where
   rnf (Bool b)     = rnf b
   rnf (Int i)      = rnf i
   rnf (List xs)    = rnf xs
+  rnf (SetList xs) = rnf xs
   rnf (Maybe mb)   = rnf mb
   rnf (Union fn v) = rnf fn `seq` rnf v
   rnf (Enum fn)    = rnf fn
@@ -137,6 +159,7 @@ instance NFData Field where
 fromDefaultValue :: NormAPI -> APIType -> DefaultValue -> Maybe Value
 fromDefaultValue api ty0 dv = case (ty0, dv) of
     (TyList  _, DefValList)    -> pure (List [])
+    (TySet   _, DefValList)    -> pure (SetList [])
     (TyMaybe _, DefValMaybe)   -> pure (Maybe Nothing)
     (TyMaybe ty, _)            -> Maybe . Just <$> fromDefaultValue api ty dv
     (TyBasic bt, _)            -> fromDefaultValueBasic bt dv
@@ -172,6 +195,7 @@ instance JS.ToJSON Value where
                 Bool b         -> JS.Bool b
                 Int i          -> JS.toJSON i
                 List vs        -> JS.toJSON vs
+                SetList vs     -> JS.toJSON vs
                 Maybe Nothing  -> JS.Null
                 Maybe (Just v) -> JS.toJSON v
                 Union fn v     -> JS.object [fieldNameToKey fn JS..= v]
@@ -191,6 +215,9 @@ parseJSON api ty0 v = case ty0 of
     TyList ty  -> case v of
                     JS.Array arr -> List <$> traverse (parseJSON api ty) (V.toList arr)
                     _            -> failWith (expectedArray v)
+    TySet  ty -> case v of
+                   JS.Array arr -> SetList <$> traverse (parseJSON api ty) (V.toList arr)
+                   _            -> failWith (expectedArray v)
     TyMaybe ty -> case v of
                     JS.Null -> pure (Maybe Nothing)
                     _       -> Maybe . Just <$> parseJSON api ty v
@@ -231,6 +258,7 @@ encode v0 = case v0 of
     Bool b     -> CBOR.encode b
     Int i      -> CBOR.encode i
     List vs    -> encodeListWith encode vs
+    SetList vs -> CBOR.encodeListLen (fromIntegral (length vs)) <> mconcat (map encode vs)
     Maybe mb_v -> encodeMaybeWith encode mb_v
     Union fn v -> encodeUnion (_FieldName fn) (encode v)
     Enum fn    -> CBOR.encode (_FieldName fn)
@@ -246,6 +274,7 @@ decode :: NormAPI -> APIType -> CBOR.Decoder s Value
 decode api ty0 = case ty0 of
     TyName tn  -> decodeDecl api (lookupTyName api tn)
     TyList ty  -> List  <$!> decodeListWith (decode api ty)
+    TySet  ty  -> SetList <$!> decodeListWith (decode api ty)
     TyMaybe ty -> Maybe <$!> decodeMaybeWith (decode api ty)
     TyJSON     -> JSON  <$!> decodeJSON
     TyBasic bt -> decodeBasic bt
@@ -289,6 +318,9 @@ matchesNormAPI api ty0 v0 p = case ty0 of
     TyList ty  -> case v0 of
                     List vs -> mapM_ (\ (i, v) -> matchesNormAPI api ty v (InElem i : p)) (zip [0..] vs)
                     _       -> Left (JSONError (expectedArray js_v), p)
+    TySet  ty -> case v0 of
+                   SetList vs -> mapM_ (\ (i, v) -> matchesNormAPI api ty v (InElem i : p)) (zip [0..] vs)
+                   _          -> Left (JSONError (expectedArray js_v), p)
     TyMaybe ty -> case v0 of
                     Maybe Nothing -> return ()
                     Maybe (Just v) -> matchesNormAPI api ty v p
@@ -351,6 +383,10 @@ expectList :: Value -> Position -> Either (ValueError, Position) [Value]
 expectList (List xs) _ = pure xs
 expectList v         p = Left (JSONError (Expected ExpArray "List" (JS.toJSON v)), p)
 
+expectSetList :: Value -> Position -> Either (ValueError, Position) [Value]
+expectSetList (SetList xs) _ = pure xs
+expectSetList v            p = Left (JSONError (Expected ExpArray "Set" (JS.toJSON v)), p)
+
 expectMaybe :: Value -> Position -> Either (ValueError, Position) (Maybe Value)
 expectMaybe (Maybe v) _ = pure v
 expectMaybe v         p = Left (JSONError (Expected ExpArray "Maybe" (JS.toJSON v)), p)
@@ -374,6 +410,7 @@ arbitraryOfType :: NormAPI -> APIType -> QC.Gen Value
 arbitraryOfType api ty0 = QC.sized $ \ size -> case ty0 of
     TyName  tn -> QC.resize (size `div` 2) $ arbitraryOfDecl api (lookupTyName api tn)
     TyList  ty -> List  <$> QC.resize (size `div` 2) (QC.listOf (arbitraryOfType api ty))
+    TySet   ty -> SetList <$> QC.resize (size `div` 2) (QC.listOf (arbitraryOfType api ty))
     TyMaybe ty -> Maybe <$> if size <= 0
                              then pure Nothing
                              else QC.oneof [pure Nothing, Just <$> QC.resize (size `div` 2) (arbitraryOfType api ty)]

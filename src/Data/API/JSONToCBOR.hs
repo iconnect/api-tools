@@ -71,6 +71,8 @@ jsonToCBORType napi ty0 v = case (ty0, v) of
     (TyList  ty, Array arr) | Vec.null arr -> TList []
                             | otherwise    -> TListI $ map (jsonToCBORType napi ty) (Vec.toList arr)
     (TyList  _ , _)         -> error "serialiseJSONWithSchema: expected array"
+    (TySet   ty, Array arr) -> TList $ map (jsonToCBORType napi ty) (Vec.toList arr)
+    (TySet   _ , _)         -> error "serialiseJSONWithSchema: expected array"
     (TyMaybe _ , Null)      -> TList []
     (TyMaybe ty, _)         -> TList [jsonToCBORType napi ty v]
     (TyName  tn, _)         -> jsonToCBORTypeName napi tn v
@@ -156,6 +158,9 @@ postprocessJSONTypeName napi tn v = do
 postprocessJSONType :: NormAPI -> APIType -> Value -> Either ValueError Value
 postprocessJSONType napi ty0 v = case ty0 of
     TyList ty  -> case v of
+                   Array arr -> Array <$> traverse (postprocessJSONType napi ty) arr
+                   _         -> Left $ JSONError $ expectedArray v
+    TySet  ty -> case v of
                    Array arr -> Array <$> traverse (postprocessJSONType napi ty) arr
                    _         -> Left $ JSONError $ expectedArray v
     TyMaybe ty -> case v of

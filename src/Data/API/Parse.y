@@ -40,6 +40,7 @@ import           Text.Regex
     '::'                                { (,) _ ColCol          }
     '='                                 { (,) _ Equals          }
     '?'                                 { (,) _ Query           }
+    Set                                 { (,) _ Set             }
     ','                                 { (,) _ Comma           }
     '<='                                { (,) _ LtEq            }
     '>='                                { (,) _ GtEq            }
@@ -187,6 +188,7 @@ RegEx :: { RegEx }
 Type :: { APIType }
 Type
     : '?' Type                          { TyMaybe            $2             }
+    | Set Type                          { TySet              $2             }
     | '[' Type ']'                      { TyList             $2             }
     | TypeName                          { TyName             $1             }
     | BasicType                         { TyBasic            $1             }

@@ -128,6 +128,7 @@ ty :: APIType
     // one of the following:
     = union
       | list   :: APIType           // a JSON list of the given type
+      | set    :: APIType           // a set of the given type, encoded as a JSON list
       | maybe  :: APIType           // either the given type or the null value
       | ref    :: TypeRef           // a named type (node) with possible example
       | 'basic':: BasicType         // a basic JSON type

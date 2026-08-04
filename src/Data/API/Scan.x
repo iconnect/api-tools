@@ -43,6 +43,7 @@ tokens :-
     "<="                                { simple    LtEq            }
     ">="                                { simple    GtEq            }
     "?"                                 { simple    Query           }
+    "Set"                               { simple    Set             }
     ","                                 { simple    Comma           }
     version                             { simple    Version         } -- N.B. extend the 'keywords list below
     with                                { simple    With            } -- when adding new keywords!
@@ -87,7 +88,7 @@ keywords = [ "version", "with", "integer", "boolean", "utc", "string"
            , "binary", "json", "record", "union", "enum", "basic", "changes"
            , "added", "removed", "renamed", "changed", "default", "field"
            , "alternative", "migration", "to", "nothing", "true", "false"
-           , "read-only"
+           , "read-only", "Set"
            ]
 
 type PToken = (AlexPosn,Token)
@@ -108,6 +109,7 @@ data Token
     | Integer
     | UTC
     | Query
+    | Set
     | Record
     | String
     | Json
