@@ -59,13 +59,13 @@ gen_sy (as, ty) = return [TySynD (type_nm as) [] $ mk_type ty]
 -- | Generate a newtype definition, like this:
 --
 -- > newtype JobId = JobId { _JobId :: T.Text }
--- >     deriving (Show,IsString,Eq,Typeable)
+-- >     deriving (Show,IsString,Eq)
 --
 -- If a filter has been applied, and smart constructors are enabled,
 -- instead generate this:
 --
 -- > newtype EmailAddress = UnsafeMkEmailAddress { _EmailAddress :: T.Text }
--- >     deriving (Show,Eq,Typeable)
+-- >     deriving (Show,Eq)
 -- > mkEmailAddress :: T.Text -> Maybe EmailAddress
 -- > mkEmailAddress t = ... -- check filter
 
@@ -101,7 +101,7 @@ gen_sn_dt deriv ts (as, sn) = (nd :) <$> if smart then sc else return []
 -- >         , _jsi_output     :: JSOutputStatus
 -- >         , _jsi_pipelineId :: PipelineId
 -- >         }
--- >     deriving (Show,Eq,Typeable)
+-- >     deriving (Show,Eq)
 
 gen_sr_dt :: (APINode -> [Name]) -> (APINode, SpecRecord) -> Q [Dec]
 gen_sr_dt deriv (as, sr) = return [mkDataD [] nm [] cs (deriv as)]
@@ -114,7 +114,7 @@ gen_sr_dt deriv (as, sr) = return [mkDataD [] nm [] cs (deriv as)]
 -- | Generate a union type definition, like this:
 --
 -- > data Foo = F_Bar Int | F_Baz Bool
--- >     deriving (Show,Typeable)
+-- >     deriving (Show)
 
 gen_su_dt :: (APINode -> [Name]) -> (APINode, SpecUnion) -> Q [Dec]
 gen_su_dt deriv (as, su) = return [mkDataD [] nm [] cs (deriv as)]
@@ -136,7 +136,7 @@ gen_su_dt deriv (as, su) = return [mkDataD [] nm [] cs (deriv as)]
 -- >     | FR_29_97
 -- >     | FR_30
 -- >     | FR_60
--- >     deriving (Show,Eq,Ord,Bounded,Enum,Typeable)
+-- >     deriving (Show,Eq,Ord,Bounded,Enum)
 
 gen_se_dt :: (APINode -> [Name]) -> (APINode, SpecEnum) -> Q [Dec]
 gen_se_dt deriv (as, se) = return [mkDataD [] nm [] cs (deriv as)]
