@@ -17,7 +17,7 @@ Category:            Network, Web, Cloud, Distributed Computing
 Build-type:          Simple
 Extra-source-files:  changelog
 Cabal-version:       >=1.10
-Tested-with:         GHC == 9.6.7, GHC == 9.8.4, GHC == 9.10.3
+Tested-with:         GHC == 9.6.7, GHC == 9.8.4, GHC == 9.10.3, GHC == 9.12.4, GHC == 9.14.1
 
 Source-Repository head
   Type:              git
