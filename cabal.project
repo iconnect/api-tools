@@ -1,0 +1,8 @@
+packages: .
+
+allow-newer:
+    cborg:base,
+    cborg:containers,
+    serialise:base,
+    serialise:containers,
+    serialise:time

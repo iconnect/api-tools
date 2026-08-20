@@ -65,9 +65,11 @@ traversalsTool root x = readTool (apiNodeTool . s)
 
 
 -- | @traversalName x tn@ is the name of the function that traverses
--- @x@ values inside @tn@
-traversalName :: TypeName -> TypeName -> Name
-traversalName x tn = mkNameText $ "traverse" <> _TypeName x <> _TypeName tn
+-- @x@ values inside @tn@, or 'Nothing' if the types are identical.
+traversalName :: TypeName -> TypeName -> Maybe Name
+traversalName x tn
+  | x == tn   = Nothing
+  | otherwise = Just $ mkNameText $ "traverse" <> _TypeName x <> _TypeName tn
 
 -- | @traversalType x an@ is the type of the function that traverses
 -- @x@ values inside @an@
@@ -104,8 +106,8 @@ traverser' napi targets x (TyName tn)
   | otherwise = case Map.lookup tn napi of
                            Nothing                -> error $ "missing API type declaration: " ++ T.unpack (_TypeName tn)
                            Just (NTypeSynonym ty) -> traverser' napi targets x ty
-                           Just (NRecordType  _)  -> Just $ varE $ traversalName x tn
-                           Just (NUnionType   _)  -> Just $ varE $ traversalName x tn
+                           Just (NRecordType  _)  -> Just $ varE $ fromMaybe 'id $ traversalName x tn
+                           Just (NUnionType   _)  -> Just $ varE $ fromMaybe 'id $ traversalName x tn
                            Just (NEnumType    _)  -> Nothing
                            Just (NNewtype     _)  -> Nothing
 traverser' _ _ _ (TyBasic _)  = Nothing
@@ -122,9 +124,10 @@ traversalRecord :: NormAPI -> Set.Set TypeName -> TypeName -> APINode -> SpecRec
 traversalRecord napi targets x an sr
   | not (anName an `Set.member` targets) = return []
   | anConvert an /= Nothing              = return []
-  | otherwise                            = simpleSigD nom (traversalType x an) bdy
+  | Just nom <- traversalName x (anName an) = simpleSigD nom (traversalType x an) bdy
+  | otherwise                               = return []
   where
-    nom = traversalName x (anName an)
+
     bdy = do
       f <- newName "f"
       r <- newName "r"
@@ -145,9 +148,10 @@ traversalUnion :: NormAPI -> Set.Set TypeName -> TypeName -> APINode -> SpecUnio
 traversalUnion napi targets x an su
   | not (anName an `Set.member` targets) = return []
   | anConvert an /= Nothing              = return []
-  | otherwise                            = funSigD nom (traversalType x an) cls
+  | Just nom <- traversalName x (anName an) = funSigD nom (traversalType x an) cls
+  | otherwise                               = return []
   where
-    nom = traversalName x (anName an)
+
     cls = map cl $ suFields su
     cl (fn,(ty,_)) = do
       f <- newName "f"

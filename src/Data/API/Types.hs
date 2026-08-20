@@ -30,6 +30,7 @@ module Data.API.Types
     , UTCRange(..)
     , RegEx(..)
     , Binary(..)
+    , defaultValueForType
     , defaultValueAsJsValue
     , mkRegEx
     , inIntRange
@@ -318,6 +319,16 @@ instance NFData DefaultValue where
   rnf (DefValBool   b) = rnf b
   rnf (DefValInt    i) = rnf i
   rnf (DefValUtc    u) = rnf u
+
+-- | Check if there is a "default" default value for a field of the
+-- given type: list and maybe have @[]@ and @nothing@ respectively.
+-- Note that type synonyms do not preserve defaults, since we do not
+-- have access to the entire API.
+defaultValueForType :: APIType -> Maybe DefaultValue
+defaultValueForType (TyList  _) = Just DefValList
+defaultValueForType (TySet   _) = Just DefValList
+defaultValueForType (TyMaybe _) = Just DefValMaybe
+defaultValueForType _           = Nothing
 
 -- | Convert a default value to an Aeson 'Value'.  This differs from
 -- 'toJSON' as it will not round-trip with 'fromJSON': UTC default

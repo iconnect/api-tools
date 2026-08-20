@@ -180,7 +180,7 @@ data ValidateFailure
     | ApiInvalid { vfInvalidVersion      :: VersionExtra
                  , vfMissingDeclarations :: Set TypeName }
         -- | changelog entry does not apply
-    | ChangelogEntryInvalid { vfSuccessfullyApplied :: [APITableChange]
+    | ChangelogEntryInvalid { vfSuccessfullyApplied :: [APIChange]
                             , vfFailedToApply       :: APIChange
                             , vfApplyFailure        :: ApplyFailure }
         -- | changelog is incomplete

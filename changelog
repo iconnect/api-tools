@@ -1,6 +1,6 @@
 -*-change-log-*-
 
-Unreleased
+0.11.0.0 Adam Gundry <adam@well-typed.com> August 2026
 	* Add support for sets in schemas with @Set T@ syntax.  Sets use
 	  'Data.Set.Set' in generated Haskell types, but are represented as
 	  arrays on the JSON and CBOR wire formats.  Set element types must
@@ -9,6 +9,13 @@ Unreleased
 	  (or 'defaultDerivedClasses') to add it.
 	* Breaking: @Set@ is now a reserved word in the schema DSL.  A type
 	  previously called @Set@ must be written @'Set'@ (in quotes).
+	* Avoid deriving `Typeable` as this is unnecessary on recent GHC versions.
+	* Do not generate pointless identity traversal functions in `traversalTool`.
+	* Adjust definition of `ChangelogEntryInvalid` to avoid accumulating redundant data.
+	* Remove `instance PPLines APITableChange`.
+	* Add `Data.API.Types.defaultValueForType`.
+	* Add `Data.API.Changes.Types.compactAPITableChanges`.
+	* Relax dependency bounds and support building on GHC 9.6 through to 9.14.
 
 0.10.1.1 Adam Gundry <adam@well-typed.com> August 2024
 	* Relax dependency bounds and support building on GHC 9.4 through to 9.10

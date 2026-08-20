@@ -31,7 +31,6 @@ import           Control.Applicative
 import           Data.Monoid
 import           Data.Semigroup as Sem
 import           Data.String
-import           Data.Typeable
 import           Language.Haskell.TH
 import           Prelude
 
@@ -74,10 +73,10 @@ default_derived_classes an = case anSpec an of
     SpSynonym _  -> []
 
 derive_leaf_nms :: [Name]
-derive_leaf_nms = [''Show,''Eq,''Ord,''Typeable]
+derive_leaf_nms = [''Show,''Eq,''Ord]
 
 derive_node_nms :: [Name]
-derive_node_nms = [''Show,''Eq,''Typeable]
+derive_node_nms = [''Show,''Eq]
 
 
 

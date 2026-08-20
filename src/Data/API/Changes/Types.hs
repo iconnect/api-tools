@@ -1,5 +1,6 @@
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
@@ -15,6 +16,8 @@ module Data.API.Changes.Types
     , UpdateTypePos(..)
     , UpdateDeclPos(..)
     , APITableChange(..)
+
+    , compactAPITableChanges
     ) where
 
 import           Data.API.PP
@@ -22,6 +25,7 @@ import           Data.API.NormalForm
 import           Data.API.Types
 
 import           Data.Map ( Map )
+import           Data.Maybe
 import           Data.Version
 
 
@@ -145,6 +149,9 @@ data APITableChange
     | ValidateData NormAPI
     deriving (Eq, Show)
 
-instance PPLines APITableChange where
-  ppLines (APIChange _ c _)  = ppLines c
-  ppLines (ValidateData _) = []
+-- | Discard the additional metadata from a list of 'APITableChange's to get
+-- only the underlying 'APIChange's.
+compactAPITableChanges :: [APITableChange] -> [APIChange]
+compactAPITableChanges = mapMaybe $ \case
+    APIChange _ c _ -> Just c
+    ValidateData _  -> Nothing
