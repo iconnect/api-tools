@@ -833,16 +833,6 @@ withString _     v             p = Left (JSONError $ expectedString v, p)
 compatibleDefaultValue :: NormAPI -> APIType -> DefaultValue -> Bool
 compatibleDefaultValue api ty dv = isJust (fromDefaultValue api ty dv)
 
--- | Check if there is a "default" default value for a field of the
--- given type: list and maybe have @[]@ and @nothing@ respectively.
--- Note that type synonyms do not preserve defaults, since we do not
--- have access to the entire API.
-defaultValueForType :: APIType -> Maybe DefaultValue
-defaultValueForType (TyList  _) = Just DefValList
-defaultValueForType (TySet   _) = Just DefValList
-defaultValueForType (TyMaybe _) = Just DefValMaybe
-defaultValueForType _           = Nothing
-
 
 -------------------------------------------
 -- Validation that a dataset matches an API
