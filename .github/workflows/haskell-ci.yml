@@ -171,6 +171,7 @@ jobs:
           echo "packages: ${PKGDIR_api_tools}" >> cabal.project
           echo "package api-tools" >> cabal.project
           echo "    ghc-options: -Werror=missing-methods -Werror=missing-fields" >> cabal.project
+          echo "allow-newer: cborg:base, cborg:containers, serialise:base, serialise:containers, serialise:time" >> cabal.project
           cat >> cabal.project <<EOF
           EOF
           $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: any.$_ installed\n" unless /^(api-tools)$/; }' >> cabal.project.local
