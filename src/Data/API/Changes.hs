@@ -386,7 +386,7 @@ doChangeAPI :: TypeName -> CustomMigrationsTagged o v -> DataChecks
             -> Either ValidateFailure (NormAPI, [APITableChange])
 doChangeAPI root custom chks (api, changes) change = do
     (api', pos) <- applyAPIChangeToAPI root custom change api
-                       ?!? ChangelogEntryInvalid changes change
+                       ?!? ChangelogEntryInvalid (compactAPITableChanges changes) change
     let changes' = APIChange api change pos : changes
         changes'' | validateAfter chks change = ValidateData api' : changes'
                   | otherwise                 = changes'
