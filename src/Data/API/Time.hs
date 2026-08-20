@@ -19,6 +19,7 @@ import           Data.Time
 
 import           GHC.Stack
 import           Test.QuickCheck                as QC
+import           Test.QuickCheck.Instances.Time ()
 
 utcFormat :: String
 utcFormat =               "%Y-%m-%dT%H:%M:%SZ"
@@ -136,19 +137,3 @@ unsafeParseDay :: HasCallStack => T.Text -> Day
 unsafeParseDay t = fromMaybe (error msg) (parseDay t)
   where
     msg = "unsafeParseDay: unable to parse: " ++ T.unpack t
-
-
--- TODO: use a more arbitrary instance (quickcheck-instances?)
--- (in particular, there are no subsecond-resolution times here)
-instance QC.Arbitrary UTCTime where
-    arbitrary = QC.oneof
-        [ QC.elements [mk "2010-01-01T00:00:00Z"
-        , mk "2013-05-27T19:13:50Z"
-        , mk "2011-07-20T22:04:00Z"
-        , mk "2012-02-02T15:45:11Z"
-        , mk "2009-11-12T20:57:54Z"
-        , mk "2000-10-28T21:03:24Z"
-        , mk "1965-03-10T09:23:01Z"
-        ]]
-      where
-        mk = unsafeParseUTC

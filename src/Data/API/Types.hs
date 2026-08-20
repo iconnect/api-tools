@@ -56,6 +56,7 @@ import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
 import qualified Data.ByteString.Char8          as B
 import           Test.QuickCheck                as QC
+import           Test.QuickCheck.Instances.Text ()
 import           Control.Applicative
 import qualified Data.ByteString.Base64         as B64
 import           Language.Haskell.TH
@@ -352,9 +353,6 @@ instance ToJSON Binary where
 
 instance FromJSON Binary where
     parseJSON = withBinary "Binary" return
-
-instance QC.Arbitrary T.Text where
-    arbitrary = T.pack <$> QC.arbitrary
 
 instance QC.Arbitrary Binary where
     arbitrary = Binary <$> B.pack <$> QC.arbitrary
